@@ -17,180 +17,182 @@
       <string>Inputs</string>
      </property>
      <layout class="QFormLayout" name="formLayout_2">
+      <item row="0" column="1">
+       <widget class="ctkPathLineEdit" name="PathLineEdit"/>
+      </item>
       <item row="0" column="0">
-       <widget class="QLabel" name="label">
+       <widget class="QLabel" name="label_8">
         <property name="text">
-         <string>Input markup:</string>
+         <string>Tracking File </string>
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="qMRMLNodeComboBox" name="inputSelector">
-        <property name="toolTip">
-         <string>Pick the input to the algorithm.</string>
-        </property>
-        <property name="nodeTypes">
-         <stringlist>
-          <string>vtkMRMLMarkupsFiducialNode</string>
-         </stringlist>
-        </property>
-        <property name="showChildNodeTypes">
-         <bool>false</bool>
-        </property>
-        <property name="addEnabled">
-         <bool>false</bool>
-        </property>
-        <property name="removeEnabled">
-         <bool>false</bool>
-        </property>
-        <property name="selectNodeUponCreation">
-         <bool>false</bool>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton">
+     <property name="text">
+      <string>CollapsibleButton</string>
+     </property>
+     <widget class="QLabel" name="label">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>40</y>
+        <width>91</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Speed (ms)</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_9">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>70</y>
+        <width>91</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Image Number</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="lineEdit">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>40</y>
+        <width>321</width>
+        <height>22</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="lineEdit_2">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>70</y>
+        <width>321</width>
+        <height>22</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="ctkPushButton" name="PushButton">
+      <property name="geometry">
+       <rect>
+        <x>160</x>
+        <y>100</y>
+        <width>131</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>play</string>
+      </property>
+     </widget>
+     <widget class="ctkPushButton" name="PushButton_2">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>100</y>
+        <width>131</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>back</string>
+      </property>
+     </widget>
+     <widget class="ctkPushButton" name="PushButton_3">
+      <property name="geometry">
+       <rect>
+        <x>310</x>
+        <y>100</y>
+        <width>131</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>forward</string>
+      </property>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="ctkCollapsibleButton" name="outputsCollapsibleButton">
+     <property name="text">
+      <string>DisplaySettings</string>
+     </property>
+     <layout class="QFormLayout" name="formLayout_4">
+      <item row="1" column="1">
+       <widget class="QSpinBox" name="spinBox"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Size</string>
         </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>Image threshold:</string>
+         <string>Color</string>
         </property>
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="imageThresholdSliderWidget">
-        <property name="toolTip">
-         <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
-        </property>
-        <property name="singleStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-100.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>500.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.500000000000000</double>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="ctkCollapsibleButton" name="outputsCollapsibleButton">
-     <property name="text">
-      <string>Outputs</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout_4">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>Thresholded volume:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="qMRMLNodeComboBox" name="outputSelector">
-        <property name="toolTip">
-         <string>Pick the output to the algorithm.</string>
-        </property>
-        <property name="nodeTypes">
-         <stringlist>
-          <string>vtkMRMLScalarVolumeNode</string>
-         </stringlist>
-        </property>
-        <property name="showChildNodeTypes">
-         <bool>false</bool>
-        </property>
-        <property name="noneEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="addEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="removeEnabled">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_5">
-        <property name="text">
-         <string>Inverted volume:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="qMRMLNodeComboBox" name="invertedOutputSelector">
-        <property name="toolTip">
-         <string>Result with inverted threshold will be written into this volume</string>
-        </property>
-        <property name="nodeTypes">
-         <stringlist>
-          <string>vtkMRMLScalarVolumeNode</string>
-         </stringlist>
-        </property>
-        <property name="showChildNodeTypes">
-         <bool>false</bool>
-        </property>
-        <property name="noneEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="addEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="removeEnabled">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_6">
-        <property name="text">
-         <string>CrosshairsPoint</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="ctkCrosshairLabel" name="centerOfMassValueLabel"/>
+       <widget class="ctkColorPickerButton" name="ColorPickerButton"/>
       </item>
       <item row="3" column="0">
-       <widget class="QLabel" name="label_7">
+       <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>AutoUpdate</string>
+         <string>Show</string>
         </property>
        </widget>
       </item>
       <item row="3" column="1">
-       <widget class="ctkCheckBox" name="autoUpdateCheckBox"/>
+       <widget class="ctkCheckBox" name="CheckBox"/>
       </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="ctkCollapsibleButton" name="advancedCollapsibleButton">
-     <property name="text">
-      <string>Advanced</string>
-     </property>
-     <property name="collapsed">
-      <bool>true</bool>
-     </property>
-     <layout class="QFormLayout" name="formLayout_3">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_4">
+      <item row="4" column="1">
+       <widget class="ctkCheckBox" name="CheckBox_2"/>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_5">
         <property name="text">
-         <string>Invert threshold: </string>
+         <string>Show colorwash</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="QCheckBox" name="invertOutputCheckBox">
-        <property name="toolTip">
-         <string>If checked, values above threshold are set to 0. If unchecked, values below are set to 0.</string>
-        </property>
+      <item row="0" column="0" colspan="2">
+       <widget class="QLabel" name="label_6">
         <property name="text">
-         <string/>
+         <string>Contours</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>Motion</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QRadioButton" name="radioButton">
+        <property name="text">
+         <string>Monitor</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QRadioButton" name="radioButton_2">
+        <property name="text">
+         <string>Compensate</string>
         </property>
        </widget>
       </item>
@@ -210,19 +212,6 @@
      </property>
     </widget>
    </item>
-   <item>
-    <spacer name="verticalSpacer">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
   </layout>
  </widget>
  <customwidgets>
@@ -238,19 +227,19 @@
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>ctkCrosshairLabel</class>
-   <extends>QLabel</extends>
-   <header>ctkCrosshairLabel.h</header>
+   <class>ctkColorPickerButton</class>
+   <extends>QPushButton</extends>
+   <header>ctkColorPickerButton.h</header>
   </customwidget>
   <customwidget>
-   <class>ctkSliderWidget</class>
+   <class>ctkPathLineEdit</class>
    <extends>QWidget</extends>
-   <header>ctkSliderWidget.h</header>
+   <header>ctkPathLineEdit.h</header>
   </customwidget>
   <customwidget>
-   <class>qMRMLNodeComboBox</class>
-   <extends>QWidget</extends>
-   <header>qMRMLNodeComboBox.h</header>
+   <class>ctkPushButton</class>
+   <extends>QPushButton</extends>
+   <header>ctkPushButton.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLWidget</class>
@@ -260,54 +249,5 @@
   </customwidget>
  </customwidgets>
  <resources/>
- <connections>
-  <connection>
-   <sender>Track</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>inputSelector</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>122</x>
-     <y>132</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>248</x>
-     <y>61</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>Track</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>outputSelector</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>82</x>
-     <y>135</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>220</x>
-     <y>161</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>Track</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>invertedOutputSelector</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>161</x>
-     <y>8</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>173</x>
-     <y>176</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>
