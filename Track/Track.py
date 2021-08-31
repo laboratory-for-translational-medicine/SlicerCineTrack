@@ -1,6 +1,7 @@
 import os
 import unittest
 import logging
+import re
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
@@ -129,21 +130,24 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
     # (in the selected parameter node).
-    self.ui.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-    self.ui.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-    self.ui.imageThresholdSliderWidget.connect("valueChanged(double)", self.updateParameterNodeFromGUI)
-    self.ui.invertOutputCheckBox.connect("toggled(bool)", self.updateParameterNodeFromGUI)
-    self.ui.invertedOutputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
+    # self.ui.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
+    # self.ui.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
+    # self.ui.imageThresholdSliderWidget.connect("valueChanged(double)", self.updateParameterNodeFromGUI)
+    # self.ui.invertOutputCheckBox.connect("toggled(bool)", self.updateParameterNodeFromGUI)
+    # self.ui.invertedOutputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
 
     # Buttons
-    self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
+    # self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
+    self.ui.organizeData.connect('clicked()', self.onOrganizeData)
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
 
     self.observedMarkupNode = None
     self.markupsObserverTag = None
-    self.ui.autoUpdateCheckBox.connect("toggled(bool)", self.onEnableAutoUpdate)
+    # self.ui.autoUpdateCheckBox.connect("toggled(bool)", self.onEnableAutoUpdate)
+
+    print("Hello")
 
 
   def cleanup(self):
@@ -165,6 +169,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     # Do not react to parameter node changes (GUI wlil be updated when the user enters into the module)
     self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+    print("Hello")
 
   def onSceneStartClose(self, caller, event):
     """
@@ -261,6 +266,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       not self.ui.invertOutputCheckBox.checked)
     self.ui.centerOfMassValueLabel.text = str(self.logic.centerOfMass)
 
+  def onOrganizeData(self):
+    self.logic.organize()
 
 
 #
@@ -316,6 +323,32 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     self.centerOfMass = self.getCenterOfMass(inputMarkups)
       
     return True
+
+  def organize(self):
+
+    logging.info("Performing an organize action")
+
+    seq = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode")
+    seq.SetName('Tracking Sequence Images')
+
+    seqBrowser = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode")
+    seqBrowser.SetAndObserveMasterSequenceNodeID(seq.GetID())
+    seqBrowser.SetSaveChanges(seq, True) # allow modifying node in the sequence
+    seqBrowser.SetSelectedItemNumber(0)
+
+    # slicer.modules.sequencebrowser.logic().UpdateAllProxyNodes()
+    # slicer.app.processEvents()
+
+    test = re.compile('.*img.*')
+
+    value = 0
+    for node in slicer.util.getNodes():
+      print(type(node))
+      if test.search(node) != None:
+        print(type(slicer.util.getNode(node)))
+        seq.SetDataNodeAtValue(slicer.util.getNode(node), f'{value}')
+        value = value+1
+      
 
 
 #
