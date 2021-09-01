@@ -324,30 +324,45 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       
     return True
 
-  def organize(self):
 
-    logging.info("Performing an organize action")
-
+  # creates a sequence nodes from all nodes in the scene with
+  # as a regex pattern
+  def createSequenceNode(self, name, pattern):
     seq = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode")
-    seq.SetName('Tracking Sequence Images')
-
-    seqBrowser = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode")
-    seqBrowser.SetAndObserveMasterSequenceNodeID(seq.GetID())
-    seqBrowser.SetSaveChanges(seq, True) # allow modifying node in the sequence
-    seqBrowser.SetSelectedItemNumber(0)
-
-    # slicer.modules.sequencebrowser.logic().UpdateAllProxyNodes()
-    # slicer.app.processEvents()
-
-    test = re.compile('.*img.*')
+    seq.SetName(name)
 
     value = 0
     for node in slicer.util.getNodes():
-      print(type(node))
-      if test.search(node) != None:
-        print(type(slicer.util.getNode(node)))
-        seq.SetDataNodeAtValue(slicer.util.getNode(node), f'{value}')
-        value = value+1
+        print(type(node))
+        if pattern.search(node) != None:
+          print(type(slicer.util.getNode(node)))
+          seq.SetDataNodeAtValue(slicer.util.getNode(node), f'{value}')
+          value = value+1
+
+    return seq
+
+
+  def organize(self):
+
+    orientations = ["Sagittal", "Coronal", "Transverse"]
+    sequences = []
+
+    # logging.info("Performing an organize action")
+    for orientation in orientations:
+      img = self.createSequenceNode(f"Image Sequence {orientation}", re.compile(f'.*img_{orientation}.*'))
+      seq = self.createSequenceNode(f"Segmentation Sequence {orientation}", re.compile(f'.*seg_{orientation}.*'))
+
+      sequences.append(img)
+      sequences.append(seq)
+
+    seqBrowser = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode")
+    seqBrowser.SetAndObserveMasterSequenceNodeID(sequences[0].GetID())
+    # seqBrowser.SetSaveChanges(seq, True) # allow modifying node in the sequence
+    # seqBrowser.SetSelectedItemNumber(0)
+
+    # slicer.modules.sequencebrowser.logic().UpdateAllProxyNodes()
+    # slicer.app.processEvents()
+      
       
 
 
