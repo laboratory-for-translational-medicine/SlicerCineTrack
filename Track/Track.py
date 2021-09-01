@@ -333,9 +333,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     value = 0
     for node in slicer.util.getNodes():
-        print(type(node))
         if pattern.search(node) != None:
-          print(type(slicer.util.getNode(node)))
           seq.SetDataNodeAtValue(slicer.util.getNode(node), f'{value}')
           value = value+1
 
@@ -344,19 +342,76 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
   def organize(self):
 
-    orientations = ["Sagittal", "Coronal", "Transverse"]
+    orientations = [
+      { "label" : "Sagittal", "slicerName" : "Sagittal", "viewColor" : "Yellow" },
+      { "label": "Coronal", "slicerName" : "Coronal", "viewColor" : "Green" },
+      { "label": "Transverse", "slicerName" : "Axial", "viewColor" : "Red" }
+    ]
+
     sequences = []
 
-    # logging.info("Performing an organize action")
+    # Create the sequences
+    logging.info("Performing an organize action")
     for orientation in orientations:
-      img = self.createSequenceNode(f"Image Sequence {orientation}", re.compile(f'.*img_{orientation}.*'))
-      seq = self.createSequenceNode(f"Segmentation Sequence {orientation}", re.compile(f'.*seg_{orientation}.*'))
+      label = orientation["label"]
+
+      img_seq_name = f"Image Sequence {label}"
+      seg_seq_name = f"Segmentation Sequence {label}"
+
+      img = self.createSequenceNode(img_seq_name, re.compile(f'.*img_{label}.*'))
+      seg = self.createSequenceNode(seg_seq_name, re.compile(f'.*seg_{label}.*'))
 
       sequences.append(img)
-      sequences.append(seq)
+      sequences.append(seg)
 
+    # sync the sequences
     seqBrowser = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode")
-    seqBrowser.SetAndObserveMasterSequenceNodeID(sequences[0].GetID())
+    for i in sequences:
+      seqBrowser.AddSynchronizedSequenceNodeID(i.GetID())
+
+    for orientation in orientations:
+      view = slicer.app.layoutManager().sliceWidget(orientation["viewColor"])
+      label = orientation["label"]
+
+      img_seq_name = f"Image Sequence {label}"
+      seg_seq_name = f"Segmentation Sequence {label}"
+      
+      img_vol_node = slicer.util.getNode(img_seq_name)
+      seg_vol_node = slicer.util.getNode(seg_seq_name)
+      
+      view.sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(img_vol_node.GetID())
+      view.sliceLogic().GetSliceCompositeNode().SetLabelVolumeID(seg_vol_node.GetID())
+      
+
+
+    # Set the ui element
+    # scalarNodes = slicer.util.getNodes("vtkMRMLScalarVolumeNode*")
+
+    # sequenceNodes = []
+    # regex = re.compile(f'.*Sequence*')
+    # for n in scalarNodes:
+    #   print(type(sequenceNodes))
+    #   if regex.search(n.GetName()) != None:
+    #     sequenceNodes.append(n)
+
+    # for orientation in orientations:
+    #   v_regex = re.compile(f'.*{orientation["label"]}*')
+    #   view = slicer.app.layoutManager().sliceWidget(orientation["viewColor"])
+
+    #   node = None
+    #   for n in sequenceNodes:
+    #     if regex.search(n.GetName()) != None:
+    #       node = n
+    #       break
+
+    #   if node != None:
+    #     view.sliceLogic().GetSliceCompositeNode().SetForegroundVolumeID(node.GetID())
+    #     view.sliceLogic().GetSliceCompositeNode().SetLabelVolumeID(node.GetID())
+
+    #     slicer.util.getNode(f'vtkMRMLSliceNode{orientation["viewColor"]}').SetOrientation(orientation["slicerName"])
+
+
+
     # seqBrowser.SetSaveChanges(seq, True) # allow modifying node in the sequence
     # seqBrowser.SetSelectedItemNumber(0)
 
