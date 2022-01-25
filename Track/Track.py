@@ -3,9 +3,10 @@ import unittest
 import logging
 import re
 import vtk, qt, ctk, slicer
+from DICOMLib import DICOMUtils
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
-
+from Pro import ProTry
 #
 # Track
 #
@@ -266,7 +267,23 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       not self.ui.invertOutputCheckBox.checked)
     self.ui.centerOfMassValueLabel.text = str(self.logic.centerOfMass)
 
+  def loaddata(self):
+    # slicer.util.loadVolume(
+    #   "D:\AWorkSpace\SlicerTrack\Track\def1.trackpackage\output\seg_Coronal_10000.mha",properties={'labelmap':True})
+    dicomDataDir = "D:\AWorkSpace\SlicerTrack\Track\def1.trackpackage\output"  # input folder with DICOM files
+    pathlist = sorted(os.listdir(dicomDataDir))
+    for s in pathlist:
+        filename = os.path.join(dicomDataDir, s)
+        print(filename)
+        if 'seg' in s:
+          slicer.util.loadVolume(filename, properties={'labelmap':True})
+        if 'img' in s:
+          slicer.util.loadVolume(filename, properties={'labelmap':False})
+    return
   def onOrganizeData(self):
+    #path = self.resourcePath('*.csv')
+    #output_path = self.logic.prepare(path)
+    self.loaddata()
     self.logic.organize()
 
 
@@ -354,13 +371,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     logging.info("Performing an organize action")
     for orientation in orientations:
       label = orientation["label"]
-
       img_seq_name = f"Image Sequence {label}"
       seg_seq_name = f"Segmentation Sequence {label}"
-
       img = self.createSequenceNode(img_seq_name, re.compile(f'.*img_{label}.*'))
       seg = self.createSequenceNode(seg_seq_name, re.compile(f'.*seg_{label}.*'))
-
       sequences.append(img)
       sequences.append(seg)
 
@@ -381,8 +395,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       
       view.sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(img_vol_node.GetID())
       view.sliceLogic().GetSliceCompositeNode().SetLabelVolumeID(seg_vol_node.GetID())
-      
 
+  def prepare(self, path):
+    outpath = ProTry(path)
+    return outpath
 
     # Set the ui element
     # scalarNodes = slicer.util.getNodes("vtkMRMLScalarVolumeNode*")
