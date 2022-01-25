@@ -24,7 +24,7 @@ def RetrieveOrientation(direct):
 
 def WriteCommonOrientationSlices(slices, direct, outPathBase):
     orientation = direct
-    img_number = 0
+    img_number = 10000
     for iterating_sli in slices:
         output_filename = outPathBase + "_" + orientation + "_" + str(img_number) + ".mha"
         sitk.WriteImage(iterating_sli, output_filename)
@@ -43,12 +43,20 @@ def ListImages(imagePathName):
         sys.exit(1)
     return imageFiles
 
+def Mkpath(path):
+    folder = os.path.exists(path)
+    if not folder:
+        os.makedirs(path)
+    return
+
 def ImgProcessing(cine2DPathName, maskPathName, CsvPath):
     # Read tracking log, mask and list cine images
     mask3D = sitk.ReadImage(maskPathName, sitk.sitkUInt32)
     cineFiles = ListImages(cine2DPathName)
-    outSegPathName = "def1.trackpackage_output\\seg"
-    outImgPathName = "def1.trackpackage_output\\img"
+    outpath = cine2DPathName + "output"
+    Mkpath(outpath)
+    outSegPathName = outpath + "\\seg"
+    outImgPathName = outpath + "\\img"
     # output images
     coronalSegImageList = []
     sagittalSegImageList = []
@@ -90,13 +98,12 @@ def ImgProcessing(cine2DPathName, maskPathName, CsvPath):
     WriteCommonOrientationSlices(sagittalSegImageList, "Sagittal", outSegPathName)
     WriteCommonOrientationSlices(coronalImgImageList, "Coronal", outImgPathName)
     WriteCommonOrientationSlices(sagittalImgImageList, "Sagittal", outImgPathName)
+    return outpath
 
-def ProTry():
-    input_path = "D:\\AWorkSpace\\SlicerTrack\\Track\\def1.trackpackage\\"
-    image_paths = []
+def ProTry(input_path):
+    #image_paths = []
     translations_path = ''
     segmentation_path = ''
-    output_path = input_path + "_output"
     for s in os.listdir(input_path):
         s_path = os.path.join(input_path, s)
         if os.path.isdir(s_path):
@@ -108,9 +115,14 @@ def ProTry():
         elif os.path.isfile(s_path) and Volume3DFileName in s:
             continue
         else:
-            image_paths.append(s_path)
-    ImgProcessing(input_path, segmentation_path, translations_path)
-    return
+            #image_paths.append(s_path)
+            continue
+    outpath = ImgProcessing(input_path, segmentation_path, translations_path)
+    return outpath
 
 if __name__ == '__main__':
-    ProTry()
+    #input_path = "D:\\AWorkSpace\\SlicerTrack\\Track\\def1.trackpackage\\"
+    #ProTry(input_path)
+    dicomDataDir = "D:\AWorkSpace\SlicerTrack\Track\def1.trackpackage\output"  # input folder with DICOM files
+    pathlist = sorted(os.listdir(dicomDataDir))
+    print(pathlist)
