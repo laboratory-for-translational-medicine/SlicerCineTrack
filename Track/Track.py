@@ -1,9 +1,6 @@
-import os
-import unittest
-import logging
-import re
-import vtk, qt, ctk, slicer
-from DICOMLib import DICOMUtils
+import os, logging, re, vtk, slicer
+
+from numpy import deprecate
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 from Pro import ProTry
@@ -23,10 +20,7 @@ class Track(ScriptedLoadableModule):
     self.parent.dependencies = []  # TODO: add here list of module names that this module requires
     self.parent.contributors = ["James McCafferty (laboratory-for-translational-medicine)"]  # TODO: replace with "Firstname Lastname (Organization)"
     # TODO: update with short description of the module and a link to online module documentation
-    self.parent.helpText = """
-This is an example of scripted loadable module bundled in an extension.
-See more information in <a href="https://github.com/organization/projectname#Track">module documentation</a>.
-"""
+    self.parent.helpText = """"""
     # TODO: replace with organization, grant and thanks
     self.parent.acknowledgementText = """
 This file was originally developed by James McCafferty.
@@ -129,26 +123,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
-    # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
-    # (in the selected parameter node).
-    # self.ui.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-    # self.ui.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
-    # self.ui.imageThresholdSliderWidget.connect("valueChanged(double)", self.updateParameterNodeFromGUI)
-    # self.ui.invertOutputCheckBox.connect("toggled(bool)", self.updateParameterNodeFromGUI)
-    # self.ui.invertedOutputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
 
-    # Buttons
-    # self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
-    self.ui.organizeData.connect('clicked()', self.onOrganizeData)
-
+    def OnPathChange(path):
+      self.logic.prepare(path)
+      self.loaddata(path)
+      self.logic.organize()
+    self.ui.TrackingFolder.currentPathChanged.connect(lambda path: OnPathChange(path))
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
 
     self.observedMarkupNode = None
     self.markupsObserverTag = None
-    # self.ui.autoUpdateCheckBox.connect("toggled(bool)", self.onEnableAutoUpdate)
-
-    print("Hello")
 
 
   def cleanup(self):
@@ -170,7 +155,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     # Do not react to parameter node changes (GUI wlil be updated when the user enters into the module)
     self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
-    print("Hello")
 
   def onSceneStartClose(self, caller, event):
     """
@@ -267,10 +251,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       not self.ui.invertOutputCheckBox.checked)
     self.ui.centerOfMassValueLabel.text = str(self.logic.centerOfMass)
 
-  def loaddata(self):
-    # slicer.util.loadVolume(
-    #   "D:\AWorkSpace\SlicerTrack\Track\def1.trackpackage\output\seg_Coronal_10000.mha",properties={'labelmap':True})
-    dicomDataDir = "D:\AWorkSpace\SlicerTrack\Track\def1.trackpackage\output"  # input folder with DICOM files
+  def loaddata(self, path):
+    dicomDataDir = path+"/output"
+    print("di", dicomDataDir, " -- ", path)
     pathlist = sorted(os.listdir(dicomDataDir))
     for s in pathlist:
         filename = os.path.join(dicomDataDir, s)
@@ -280,9 +263,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if 'img' in s:
           slicer.util.loadVolume(filename, properties={'labelmap':False})
     return
+
+  @deprecate
   def onOrganizeData(self):
-    #path = self.resourcePath('*.csv')
-    #output_path = self.logic.prepare(path)
+    path = self.resourcePath('*.csv')
+    self.logic.prepare(path)
     self.loaddata()
     self.logic.organize()
 
@@ -290,7 +275,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 #
 # TrackLogic
 #
-
 class TrackLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
   computation done by your module.  The interface
@@ -307,23 +291,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """
     ScriptedLoadableModuleLogic.__init__(self)
 
-  def getCenterOfMass(self, markupsNode):
-    centerOfMass = [0,0,0]
-
-    import numpy as np
-    sumPos = np.zeros(3)
-    for i in range(markupsNode.GetNumberOfMarkups()):
-      pos = np.zeros(3)
-      markupsNode.GetNthFiducialPosition(i,pos)
-      sumPos += pos
-    
-    centerOfMass = sumPos / markupsNode.GetNumberOfMarkups()
-    
-    logging.info('Center of mass for \'' + markupsNode.GetName() + '\': ' + repr(centerOfMass))
-
-    return centerOfMass 
-
-
   def setDefaultParameters(self, parameterNode):
     """
     Initialize parameter node with default settings.
@@ -332,15 +299,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       parameterNode.SetParameter("Threshold", "100.0")
     if not parameterNode.GetParameter("Invert"):
       parameterNode.SetParameter("Invert", "false")
-
-  def process(self, inputMarkups, outputVolume, imageThreshold, enableScreenshots=0):
-    """
-    Run the actual algorithm
-    """
-    self.centerOfMass = self.getCenterOfMass(inputMarkups)
-      
-    return True
-
 
   # creates a sequence nodes from all nodes in the scene with
   # as a regex pattern
@@ -399,47 +357,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
   def prepare(self, path):
     outpath = ProTry(path)
     return outpath
-
-    # Set the ui element
-    # scalarNodes = slicer.util.getNodes("vtkMRMLScalarVolumeNode*")
-
-    # sequenceNodes = []
-    # regex = re.compile(f'.*Sequence*')
-    # for n in scalarNodes:
-    #   print(type(sequenceNodes))
-    #   if regex.search(n.GetName()) != None:
-    #     sequenceNodes.append(n)
-
-    # for orientation in orientations:
-    #   v_regex = re.compile(f'.*{orientation["label"]}*')
-    #   view = slicer.app.layoutManager().sliceWidget(orientation["viewColor"])
-
-    #   node = None
-    #   for n in sequenceNodes:
-    #     if regex.search(n.GetName()) != None:
-    #       node = n
-    #       break
-
-    #   if node != None:
-    #     view.sliceLogic().GetSliceCompositeNode().SetForegroundVolumeID(node.GetID())
-    #     view.sliceLogic().GetSliceCompositeNode().SetLabelVolumeID(node.GetID())
-
-    #     slicer.util.getNode(f'vtkMRMLSliceNode{orientation["viewColor"]}').SetOrientation(orientation["slicerName"])
-
-
-
-    # seqBrowser.SetSaveChanges(seq, True) # allow modifying node in the sequence
-    # seqBrowser.SetSelectedItemNumber(0)
-
-    # slicer.modules.sequencebrowser.logic().UpdateAllProxyNodes()
-    # slicer.app.processEvents()
-      
-      
-
-
-#
-# TrackTest
-#
 
 class TrackTest(ScriptedLoadableModuleTest):
   """
