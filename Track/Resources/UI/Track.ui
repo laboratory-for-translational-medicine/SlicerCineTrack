@@ -12,25 +12,35 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton" native="true">
-     <property name="text" stdset="0">
+    <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
+     <property name="text">
       <string>Inputs</string>
      </property>
      <layout class="QFormLayout" name="formLayout_2">
-      <item row="0" column="1">
-       <widget class="ctkPathLineEdit" name="PathLineEdit" native="true"/>
-      </item>
       <item row="0" column="0">
-       <widget class="QLabel" name="label_8">
+       <widget class="QLabel" name="TrackingFolder_label">
         <property name="text">
-         <string>Tracking File </string>
+         <string>Tracking Folder</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QPushButton" name="organizeData">
+      <item row="0" column="1">
+       <widget class="ctkPathLineEdit" name="TrackingFolder">
+        <property name="label">
+         <string/>
+        </property>
+        <property name="filters">
+         <set>ctkPathLineEdit::Dirs|ctkPathLineEdit::Executable|ctkPathLineEdit::NoDot|ctkPathLineEdit::NoDotDot|ctkPathLineEdit::Readable</set>
+        </property>
+        <property name="options">
+         <set>ctkPathLineEdit::ShowDirsOnly</set>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QLabel" name="label">
         <property name="text">
-         <string>OrganizeData</string>
+         <string>Select Folder with data to load (it might freeze for a second)...</string>
         </property>
        </widget>
       </item>
@@ -38,100 +48,8 @@
     </widget>
    </item>
    <item>
-    <widget class="ctkCollapsibleButton" name="CollapsibleButton" native="true">
-     <property name="text" stdset="0">
-      <string>CollapsibleButton</string>
-     </property>
-     <widget class="QLabel" name="label">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>40</y>
-        <width>91</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Speed (ms)</string>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_9">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>70</y>
-        <width>91</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Image Number</string>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="lineEdit">
-      <property name="geometry">
-       <rect>
-        <x>120</x>
-        <y>40</y>
-        <width>321</width>
-        <height>22</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="lineEdit_2">
-      <property name="geometry">
-       <rect>
-        <x>120</x>
-        <y>70</y>
-        <width>321</width>
-        <height>22</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="ctkPushButton" name="PushButton">
-      <property name="geometry">
-       <rect>
-        <x>160</x>
-        <y>100</y>
-        <width>131</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>play</string>
-      </property>
-     </widget>
-     <widget class="ctkPushButton" name="PushButton_2">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>100</y>
-        <width>131</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>back</string>
-      </property>
-     </widget>
-     <widget class="ctkPushButton" name="PushButton_3">
-      <property name="geometry">
-       <rect>
-        <x>310</x>
-        <y>100</y>
-        <width>131</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>forward</string>
-      </property>
-     </widget>
-    </widget>
-   </item>
-   <item>
-    <widget class="ctkCollapsibleButton" name="outputsCollapsibleButton" native="true">
-     <property name="text" stdset="0">
+    <widget class="ctkCollapsibleButton" name="outputsCollapsibleButton">
+     <property name="text">
       <string>DisplaySettings</string>
      </property>
      <layout class="QFormLayout" name="formLayout_4">
@@ -242,11 +160,6 @@
    <class>ctkPathLineEdit</class>
    <extends>QWidget</extends>
    <header>ctkPathLineEdit.h</header>
-  </customwidget>
-  <customwidget>
-   <class>ctkPushButton</class>
-   <extends>QPushButton</extends>
-   <header>ctkPushButton.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLWidget</class>

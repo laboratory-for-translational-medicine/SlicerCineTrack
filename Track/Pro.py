@@ -7,6 +7,12 @@ import os
 import glob
 import sys
 import SimpleITK as sitk
+
+'''
+This script processes the .mha data by splitting it into Sagittal and Coronal files
+so that it can displayed in 3d slicer more easily
+'''
+
 TranslationsFileName = "Transforms"
 SegmentationFileName = "Segmentation"
 Volume3DFileName = "Volume3D"
@@ -53,7 +59,9 @@ def ImgProcessing(cine2DPathName, maskPathName, CsvPath):
     # Read tracking log, mask and list cine images
     mask3D = sitk.ReadImage(maskPathName, sitk.sitkUInt32)
     cineFiles = ListImages(cine2DPathName)
-    outpath = cine2DPathName + "output"
+    outpath = cine2DPathName+"/output"
+    
+    print('processing: ', outpath)
     Mkpath(outpath)
     outSegPathName = outpath + "\\seg"
     outImgPathName = outpath + "\\img"
@@ -71,29 +79,19 @@ def ImgProcessing(cine2DPathName, maskPathName, CsvPath):
             moving = sitk.ReadImage(cineFiles[imgIterator], sitk.sitkFloat32)
             directionSlice = moving.GetDirection()
             orientation = RetrieveOrientation(directionSlice)
-            if (orientation == "Coronal") or (orientation == "Sagittal"):
-                # If this is the first time this orientation is met:
-                # if (len(coronalSegImageList) == 0) and (orientation == "Coronal"):
-                #     coronalDirection = directionSlice
-                # if (len(sagittalSegImageList) == 0) and (orientation == "Sagittal"):
-                #     sagittalDirection = directionSlice
-                if (orientation == "Coronal"):
-                    affine_transform = sitk.AffineTransform(3)
-                    affine_transform.Translate([float(row[0]), float(row[1]), float(row[2])])
-                    #params = affine_transform.GetParameters()
-                    #affine_transform.SetParameters()
-                    imageOut = sitk.Resample(mask3D, moving, affine_transform.GetInverse())
-                    coronalSegImageList.append(imageOut)
-                    coronalImgImageList.append(moving)
-                elif (orientation == "Sagittal"):
-                    affine_transform = sitk.AffineTransform(3)
-                    affine_transform.Translate([float(row[0]), float(row[1]), float(row[2])])
-                    #params = affine_transform.GetParameters()
-                    #affine_transform.SetParameters()
-                    imageOut = sitk.Resample(mask3D, moving, affine_transform.GetInverse())
-                    sagittalSegImageList.append(imageOut)
-                    sagittalImgImageList.append(moving)
-            imgIterator = imgIterator + 1
+            if (orientation == "Coronal"):
+                affine_transform = sitk.AffineTransform(3)
+                affine_transform.Translate([float(row[0]), float(row[1]), float(row[2])])
+                imageOut = sitk.Resample(mask3D, moving, affine_transform.GetInverse())
+                coronalSegImageList.append(imageOut)
+                coronalImgImageList.append(moving)
+            elif (orientation == "Sagittal"):
+                affine_transform = sitk.AffineTransform(3)
+                affine_transform.Translate([float(row[0]), float(row[1]), float(row[2])])
+                imageOut = sitk.Resample(mask3D, moving, affine_transform.GetInverse())
+                sagittalSegImageList.append(imageOut)
+                sagittalImgImageList.append(moving)
+            imgIterator += 1
     WriteCommonOrientationSlices(coronalSegImageList, "Coronal", outSegPathName)
     WriteCommonOrientationSlices(sagittalSegImageList, "Sagittal", outSegPathName)
     WriteCommonOrientationSlices(coronalImgImageList, "Coronal", outImgPathName)
@@ -101,7 +99,6 @@ def ImgProcessing(cine2DPathName, maskPathName, CsvPath):
     return outpath
 
 def ProTry(input_path):
-    #image_paths = []
     translations_path = ''
     segmentation_path = ''
     for s in os.listdir(input_path):
@@ -112,17 +109,5 @@ def ProTry(input_path):
             segmentation_path = s_path
         elif os.path.isfile(s_path) and TranslationsFileName in s:
             translations_path = s_path
-        elif os.path.isfile(s_path) and Volume3DFileName in s:
-            continue
-        else:
-            #image_paths.append(s_path)
-            continue
     outpath = ImgProcessing(input_path, segmentation_path, translations_path)
     return outpath
-
-if __name__ == '__main__':
-    #input_path = "D:\\AWorkSpace\\SlicerTrack\\Track\\def1.trackpackage\\"
-    #ProTry(input_path)
-    dicomDataDir = "D:\AWorkSpace\SlicerTrack\Track\def1.trackpackage\output"  # input folder with DICOM files
-    pathlist = sorted(os.listdir(dicomDataDir))
-    print(pathlist)
