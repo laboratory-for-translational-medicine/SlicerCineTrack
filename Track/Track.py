@@ -15,10 +15,10 @@ class Track(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "Track"  # TODO: make this more human readable by adding spaces
-    self.parent.categories = ["Tracking"]  # TODO: set categories (folders where the module shows up in the module selector)
-    self.parent.dependencies = []  # TODO: add here list of module names that this module requires
-    self.parent.contributors = ["James McCafferty (laboratory-for-translational-medicine)"]  # TODO: replace with "Firstname Lastname (Organization)"
+    self.parent.title = "Track"
+    self.parent.categories = ["Tracking"]
+    self.parent.dependencies = [] # add here list of module names that this module requires
+    self.parent.contributors = ["James McCafferty (laboratory-for-translational-medicine)", "Fabyan Mikhael (laboratory-for-translational-medicine)"]
     # TODO: update with short description of the module and a link to online module documentation
     self.parent.helpText = """"""
     # TODO: replace with organization, grant and thanks
@@ -81,6 +81,7 @@ def registerSampleData():
 # TrackWidget
 #
 
+#  this is our module that we will load into 3d slicer
 class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
@@ -91,10 +92,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Called when the user opens the module the first time and the widget is initialized.
     """
     ScriptedLoadableModuleWidget.__init__(self, parent)
+
+    #NOT USED
     VTKObservationMixin.__init__(self)  # needed for parameter node observation
+
     self.logic = None
+
+    #NOT USED
     self._parameterNode = None
     self._updatingGUIFromParameterNode = False
+
 
   def setup(self):
     """
@@ -117,31 +124,83 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # in batch mode, without a graphical user interface.
     self.logic = TrackLogic()
 
-    # Connections
 
-    # These connections ensure that we update parameter node when scene is closed
-    self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
-    self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
+        
+    
+    playing = [False]
+    yellow = slicer.app.layoutManager().sliceWidget("Yellow").sliceLogic()
+    green = slicer.app.layoutManager().sliceWidget("Green").sliceLogic()
+
+    def UpdateSlices():
+        yellow.SetSliceOffset(105+self.ui.SequenceSlider.value)
+        green.SetSliceOffset(41+self.ui.SequenceSlider.value)
+
+    def _PlaySeq_():
+      if self.ui.SequenceSlider.value < self.ui.SequenceSlider.maximum and playing[0]:
+        self.ui.SequenceSlider.value += 1
+        self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
+        UpdateSlices()
+        qt.QTimer.singleShot(100, _PlaySeq_)
+      else:
+        playing[0] = False
+
+    def PlaySeq():
+      if playing[0]: return
+      playing[0] = True
+      _PlaySeq_()
+      self.ui.PlaySequenceButton.enabled = False
+      self.ui.StopSequenceButton.enabled = True
+
+    def StopSeq():
+      playing[0] = False
+      self.ui.PlaySequenceButton.enabled = True
+      self.ui.StopSequenceButton.enabled = False
 
 
+    self.ui.PlaySequenceButton.clicked.connect(PlaySeq)
+    self.ui.StopSequenceButton.clicked.connect(StopSeq)
+    self.ui.SequenceSlider.valueChanged.connect(lambda _: UpdateSlices())
+    
+
+
+
+    # # These connections ensure that we update parameter node when scene is closed
+    # # Uncomment these if you need to run any code at the closing events
+    # self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
+    # self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
+
+
+    """
+      -Whenever the user selects a path to the data folder, it will run the OnPathChange function,
+      preparing the data by splitting it into two orientations and saving them as .mha
+      -The processed .mha files are then loaded with the .loaddata()
+      -Finally the images are displayed by using .organize()
+    """
     def OnPathChange(path):
-      self.logic.prepare(path)
-      self.loaddata(path)
-      self.logic.organize()
+      maximum = self.logic.ShowData(path)
+      self.ui.PlaySequenceButton.enabled = True
+      self.ui.SequenceSlider.enabled = True
+      self.ui.SequenceSlider.maximum = 35 
+
     self.ui.TrackingFolder.currentPathChanged.connect(lambda path: OnPathChange(path))
-    # Make sure parameter node is initialized (needed for module reload)
+
+
+    #NOT USED
+    #Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
 
     self.observedMarkupNode = None
     self.markupsObserverTag = None
 
 
+  #NOT USED
   def cleanup(self):
     """
     Called when the application closes and the module widget is destroyed.
     """
     self.removeObservers()
 
+  #NOT USED
   def enter(self):
     """
     Called each time the user opens this module.
@@ -149,6 +208,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Make sure parameter node exists and observed
     self.initializeParameterNode()
 
+  #NOT USED
   def exit(self):
     """
     Called each time the user opens a different module.
@@ -156,6 +216,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Do not react to parameter node changes (GUI wlil be updated when the user enters into the module)
     self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
+  #NOT USED
   def onSceneStartClose(self, caller, event):
     """
     Called just before the scene is closed.
@@ -163,6 +224,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Parameter node will be reset, do not use it anymore
     self.setParameterNode(None)
 
+  #NOT USED
   def onSceneEndClose(self, caller, event):
     """
     Called just after the scene is closed.
@@ -171,6 +233,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.parent.isEntered:
       self.initializeParameterNode()
 
+  #NOT USED
   def initializeParameterNode(self):
     """
     Ensure parameter node exists and observed.
@@ -186,6 +249,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if firstVolumeNode:
         self._parameterNode.SetNodeReferenceID("InputVolume", firstVolumeNode.GetID())
 
+  #NOT USED
   def setParameterNode(self, inputParameterNode):
     """
     Set and observe parameter node.
@@ -207,11 +271,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Initial GUI update
     self.updateGUIFromParameterNode()
 
+  #NOT USED
   def updateGUIFromParameterNode(self,x=0,y=0):
     if self._parameterNode is None:
       return
-    self.ui.applyButton.enabled = self._parameterNode.GetNodeReference("InputVolume")
+    # self.ui.applyButton.enabled = self._parameterNode.GetNodeReference("InputVolume")
 
+  #NOT USED
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
     This method is called when the user makes any change in the GUI.
@@ -231,6 +297,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self._parameterNode.EndModify(wasModified)
 
+  #NOT USED
   def onEnableAutoUpdate(self, autoUpdate):
     if self.markupsObserverTag:
       self.observedMarkupNode.RemoveObserver(self.markupsObserverTag)
@@ -241,36 +308,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.markupsObserverTag = self.observedMarkupNode.AddObserver(
       slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self.onMarkupsUpdated)
   
+  #NOT USED
   def onMarkupsUpdated(self, caller=None, event=None):
     self.onApplyButton()
 
+  #NOT USED
   def onApplyButton(self):
     self.logic.process(self.ui.inputSelector.currentNode(),
       self.ui.invertedOutputSelector.currentNode(),
       self.ui.imageThresholdSliderWidget.value,
       not self.ui.invertOutputCheckBox.checked)
     self.ui.centerOfMassValueLabel.text = str(self.logic.centerOfMass)
-
-  def loaddata(self, path):
-    dicomDataDir = path+"/output"
-    print("di", dicomDataDir, " -- ", path)
-    pathlist = sorted(os.listdir(dicomDataDir))
-    for s in pathlist:
-        filename = os.path.join(dicomDataDir, s)
-        print(filename)
-        if 'seg' in s:
-          slicer.util.loadVolume(filename, properties={'labelmap':True})
-        if 'img' in s:
-          slicer.util.loadVolume(filename, properties={'labelmap':False})
-    return
-
-  @deprecate
-  def onOrganizeData(self):
-    path = self.resourcePath('*.csv')
-    self.logic.prepare(path)
-    self.loaddata()
-    self.logic.organize()
-
 
 #
 # TrackLogic
@@ -291,6 +339,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """
     ScriptedLoadableModuleLogic.__init__(self)
 
+  #NOT USED
   def setDefaultParameters(self, parameterNode):
     """
     Initialize parameter node with default settings.
@@ -306,14 +355,31 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     seq = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode")
     seq.SetName(name)
 
-    value = 0
-    for node in slicer.util.getNodes():
+    for value, node in enumerate(slicer.util.getNodes()):
         if pattern.search(node) != None:
           seq.SetDataNodeAtValue(slicer.util.getNode(node), f'{value}')
-          value = value+1
 
     return seq
 
+  def ShowData(self, path) -> int:
+    """Prepares the data by splitting the different orientations, then loading them and finally displaying them"""
+    ProTry(path)
+    max = self.LoadData(path)
+    self.organize()
+    return max
+
+  def LoadData(self, path) -> int:
+    dicomDataDir = path+"/output"
+    print("di", dicomDataDir, " -- ", path)
+    pathlist = sorted(os.listdir(dicomDataDir))
+    for s in pathlist:
+        filename = os.path.join(dicomDataDir, s)
+        print(filename)
+        if 'seg' in s:
+          slicer.util.loadVolume(filename, properties={'labelmap':True})
+        if 'img' in s:
+          slicer.util.loadVolume(filename, properties={'labelmap':False})
+    return len(pathlist)
 
   def organize(self):
 
@@ -326,7 +392,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     sequences = []
 
     # Create the sequences
-    logging.info("Performing an organize action")
     for orientation in orientations:
       label = orientation["label"]
       img_seq_name = f"Image Sequence {label}"
@@ -354,10 +419,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       view.sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(img_vol_node.GetID())
       view.sliceLogic().GetSliceCompositeNode().SetLabelVolumeID(seg_vol_node.GetID())
 
-  def prepare(self, path):
-    outpath = ProTry(path)
-    return outpath
-
+#NOT USED for now - Create Tests for any new feature if you can
 class TrackTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.

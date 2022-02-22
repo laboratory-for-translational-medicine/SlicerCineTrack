@@ -18,18 +18,18 @@ SegmentationFileName = "Segmentation"
 Volume3DFileName = "Volume3D"
 
 def RetrieveOrientation(direct):
-    # Find the orientation of each image
+    """Find the orientation of each image"""
     orientation = "oblique"
     if (round(abs(direct[2])) == 1):
         orientation = "Sagittal"
     elif (round(abs(direct[5])) == 1):
         orientation = "Coronal"
-    elif (round(abs(direct[8])) == 1):
-        orientation = "Axial"
+    else:# elif (round(abs(direct[8])) == 1):
+        orientation = "Transverse"
     return orientation
 
-def WriteCommonOrientationSlices(slices, direct, outPathBase):
-    orientation = direct
+def WriteCommonOrientationSlices(slices, orientation, outPathBase):
+    """writes the separate orientations out to the output folder"""
     img_number = 10000
     for iterating_sli in slices:
         output_filename = outPathBase + "_" + orientation + "_" + str(img_number) + ".mha"
@@ -38,7 +38,7 @@ def WriteCommonOrientationSlices(slices, direct, outPathBase):
     return
 
 def ListImages(imagePathName):
-    # Find all the moving images in the 'movingFolder' folder
+    """Find all the moving images in the 'movingFolder' folder"""
     types = ["*.dcm", "*.mha"]
     imageFiles = []
     for type in types:
@@ -50,12 +50,13 @@ def ListImages(imagePathName):
     return imageFiles
 
 def Mkpath(path):
-    folder = os.path.exists(path)
-    if not folder:
+    """Creates a folder if it does not already exist"""
+    if not os.path.exists(path):
         os.makedirs(path)
-    return
 
 def ImgProcessing(cine2DPathName, maskPathName, CsvPath):
+    """Splits the .mha files into each of the orientations and writes them to an output file"""
+
     # Read tracking log, mask and list cine images
     mask3D = sitk.ReadImage(maskPathName, sitk.sitkUInt32)
     cineFiles = ListImages(cine2DPathName)
@@ -65,40 +66,49 @@ def ImgProcessing(cine2DPathName, maskPathName, CsvPath):
     Mkpath(outpath)
     outSegPathName = outpath + "\\seg"
     outImgPathName = outpath + "\\img"
+    
     # output images
-    coronalSegImageList = []
-    sagittalSegImageList = []
-    coronalImgImageList = []
-    sagittalImgImageList = []
+    Output = {
+        'Coronal': {
+            'Seg': [],
+            'Img': []
+        },
+        'Sagittal': {
+            'Seg': [],
+            'Img': []
+        },
+        'Transverse': {
+            'Seg': [],
+            'Img': []
+        }
+    }
+
     with open(CsvPath, 'r') as read_transforms:
         csv_reader = csv.reader(read_transforms)
+
+        #discard the names for the columns
         header = next(csv_reader)
-        imgIterator = 0
-        for row in csv_reader:
+
+        for imgIterator, row in enumerate(csv_reader):
             print("image:", imgIterator)
             moving = sitk.ReadImage(cineFiles[imgIterator], sitk.sitkFloat32)
             directionSlice = moving.GetDirection()
             orientation = RetrieveOrientation(directionSlice)
-            if (orientation == "Coronal"):
+            if orientation in Output:
                 affine_transform = sitk.AffineTransform(3)
                 affine_transform.Translate([float(row[0]), float(row[1]), float(row[2])])
                 imageOut = sitk.Resample(mask3D, moving, affine_transform.GetInverse())
-                coronalSegImageList.append(imageOut)
-                coronalImgImageList.append(moving)
-            elif (orientation == "Sagittal"):
-                affine_transform = sitk.AffineTransform(3)
-                affine_transform.Translate([float(row[0]), float(row[1]), float(row[2])])
-                imageOut = sitk.Resample(mask3D, moving, affine_transform.GetInverse())
-                sagittalSegImageList.append(imageOut)
-                sagittalImgImageList.append(moving)
-            imgIterator += 1
-    WriteCommonOrientationSlices(coronalSegImageList, "Coronal", outSegPathName)
-    WriteCommonOrientationSlices(sagittalSegImageList, "Sagittal", outSegPathName)
-    WriteCommonOrientationSlices(coronalImgImageList, "Coronal", outImgPathName)
-    WriteCommonOrientationSlices(sagittalImgImageList, "Sagittal", outImgPathName)
+                Output[orientation]['Seg'].append(imageOut)
+                Output[orientation]['Img'].append(moving)
+
+    for orientation in Output:
+        WriteCommonOrientationSlices(Output[orientation]['Seg'], orientation, outSegPathName)
+        WriteCommonOrientationSlices(Output[orientation]['Img'], orientation, outImgPathName)
     return outpath
 
-def ProTry(input_path):
+def ProTry(input_path, force: bool = False):
+    outpath = input_path+"/output"
+    if os.path.exists(outpath) and not force: return
     translations_path = ''
     segmentation_path = ''
     for s in os.listdir(input_path):
