@@ -1,6 +1,5 @@
 import os, logging, re, vtk, slicer
-
-from numpy import deprecate
+import qt
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 from Pro import ProTry
@@ -127,32 +126,43 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         
     
-    playing = [False]
+    info = {"playing": False, "fps": 1}
     yellow = slicer.app.layoutManager().sliceWidget("Yellow").sliceLogic()
     green = slicer.app.layoutManager().sliceWidget("Green").sliceLogic()
 
     def UpdateSlices():
-        yellow.SetSliceOffset(105+self.ui.SequenceSlider.value)
-        green.SetSliceOffset(41+self.ui.SequenceSlider.value)
+        yellow_bounds = [0] * 6
+        yellow.GetLowestVolumeSliceBounds(yellow_bounds)
+        green_bounds = [0] * 6
+        green.GetLowestVolumeSliceBounds(green_bounds)
+
+        yellow_offset = min(yellow_bounds[4] + self.ui.SequenceSlider.value, yellow_bounds[5] + 0.03)
+        green_offset =  min(green_bounds[4] +  self.ui.SequenceSlider.value, green_bounds[5] - 0.01)
+
+        yellow.SetSliceOffset(yellow_offset)
+        green.SetSliceOffset(green_offset)
 
     def _PlaySeq_():
-      if self.ui.SequenceSlider.value < self.ui.SequenceSlider.maximum and playing[0]:
-        self.ui.SequenceSlider.value += 1
+      if self.ui.SequenceSlider.value < self.ui.SequenceSlider.maximum and info["playing"]:
+        self.ui.SequenceSlider.value += info["fps"]
+        self.ui.SequenceSlider.value = min(self.ui.SequenceSlider.value,self.ui.SequenceSlider.maximum)
         self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
         UpdateSlices()
         qt.QTimer.singleShot(100, _PlaySeq_)
       else:
-        playing[0] = False
+        info["playing"] = False
+        self.ui.PlaySequenceButton.enabled = True
+        self.ui.StopSequenceButton.enabled = False
 
     def PlaySeq():
-      if playing[0]: return
-      playing[0] = True
+      if info["playing"]: return
+      info["playing"] = True
       _PlaySeq_()
       self.ui.PlaySequenceButton.enabled = False
       self.ui.StopSequenceButton.enabled = True
 
     def StopSeq():
-      playing[0] = False
+      info["playing"] = False
       self.ui.PlaySequenceButton.enabled = True
       self.ui.StopSequenceButton.enabled = False
 
@@ -161,8 +171,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.StopSequenceButton.clicked.connect(StopSeq)
     self.ui.SequenceSlider.valueChanged.connect(lambda _: UpdateSlices())
     
-
-
+    def ChangeFps(amount: int):
+      info["fps"] = max(1,info["fps"] + amount)
+      self.ui.Fps.text = f"{info['fps']} fps"
+    self.ui.IncrementFps.clicked.connect(lambda: ChangeFps(+1))
+    self.ui.DecrementFps.clicked.connect(lambda: ChangeFps(-1))
 
     # # These connections ensure that we update parameter node when scene is closed
     # # Uncomment these if you need to run any code at the closing events
@@ -338,6 +351,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     Called when the logic class is instantiated. Can be used for initializing member variables.
     """
     ScriptedLoadableModuleLogic.__init__(self)
+    self.loaded = False
 
   #NOT USED
   def setDefaultParameters(self, parameterNode):
@@ -368,10 +382,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     self.organize()
     return max
 
-  def LoadData(self, path) -> int:
+  def LoadData(self, path, ignore_already_loaded = False) -> int:
     dicomDataDir = path+"/output"
     print("di", dicomDataDir, " -- ", path)
     pathlist = sorted(os.listdir(dicomDataDir))
+    if self.loaded and not ignore_already_loaded: return
     for s in pathlist:
         filename = os.path.join(dicomDataDir, s)
         print(filename)
@@ -379,6 +394,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           slicer.util.loadVolume(filename, properties={'labelmap':True})
         if 'img' in s:
           slicer.util.loadVolume(filename, properties={'labelmap':False})
+    self.loaded = True
     return len(pathlist)
 
   def organize(self):
