@@ -78,6 +78,23 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>FPS:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="Fps">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
       <item row="8" column="0">
@@ -161,16 +178,12 @@
          </spacer>
         </item>
         <item row="1" column="0">
-         <widget class="QPushButton" name="DecrementFps">
-          <property name="text">
-           <string>-1</string>
+         <widget class="QPushButton" name="DecrementFrame">
+          <property name="enabled">
+           <bool>false</bool>
           </property>
-         </widget>
-        </item>
-        <item row="1" column="2">
-         <widget class="QPushButton" name="IncrementFps">
           <property name="text">
-           <string>+1</string>
+           <string>&lt;--</string>
           </property>
          </widget>
         </item>
@@ -201,18 +214,12 @@
          </spacer>
         </item>
         <item row="1" column="1">
-         <widget class="QLabel" name="Fps">
-          <property name="minimumSize">
-           <size>
-            <width>75</width>
-            <height>0</height>
-           </size>
+         <widget class="QPushButton" name="IncrementFrame">
+          <property name="enabled">
+           <bool>false</bool>
           </property>
           <property name="text">
-           <string>1 fps</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+           <string>--&gt;</string>
           </property>
          </widget>
         </item>
