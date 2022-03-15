@@ -2,7 +2,6 @@ import os, logging, re, vtk, slicer
 import qt, csv
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
-from Pro import ProTry
 #
 # Track
 #
@@ -135,7 +134,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     green  = slicer.app.layoutManager().sliceWidget("Green").sliceLogic()
     red    = slicer.app.layoutManager().sliceWidget("Red").sliceLogic()
 
-
+    transformMatrix = vtk.vtkMatrix4x4()
     def UpdateSlices():
         def _move_slice_(slice_widget):
           bounds = [0] * 6
@@ -146,14 +145,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         _move_slice_(green)
         _move_slice_(red)
         val = self.ui.SequenceSlider.value
-        # if val < len(self.csv):
-          # transformMatrix = vtk.vtkMatrix4x4()
-          # row = self.csv[val]
-          # transformMatrix.SetElement(int(float(row[0])),int(float(row[1])), int(float(row[2])))
-          # a = min(5 + val,10)
-          # transformMatrix.SetElement(a,a,a)
-          # self.logic.transformNode.SetMatrixTransformToParent(transformMatrix)
-          # slicer.app.processEvents()
+        if val < len(self.csv):
+          row = self.csv[val]
+          transformMatrix.SetElement(0,3, int(float(row[0])))
+          transformMatrix.SetElement(1,3, int(float(row[1])))
+          transformMatrix.SetElement(2,3, int(float(row[2])))
+        
+          self.logic.transformNode.SetMatrixTransformToParent(transformMatrix)
+          slicer.app.processEvents()
 
         self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
 
@@ -407,7 +406,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """Prepares the data by splitting the different orientations, then loading them and finally displaying them"""
     import time
     start = time.time()
-    ProTry(path)
+    # ProTry(path)
 
     # FOR DEVELOPMENT ONLY
     Loaded = bool(qt.QSettings().value('Modules/SlicerTrack'))
@@ -441,14 +440,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           self.transformNode = transformNode
           slicer.mrmlScene.AddNode(transformNode)
           node.SetAndObserveTransformNodeID(transformNode.GetID())
-          import math, time
-          transformMatrix = vtk.vtkMatrix4x4()
-          for xPos in range(-300,300):
-            transformMatrix.SetElement(0,3, xPos)
-            transformMatrix.SetElement(1,3, math.sin(xPos)*10)
-            transformNode.SetMatrixTransformToParent(transformMatrix)
-            slicer.app.processEvents()
-            time.sleep(0.02)
 
     print(f"loaded in {time.time() - start}s")
     return len(pathlist)
