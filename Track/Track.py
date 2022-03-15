@@ -1,5 +1,5 @@
 import os, logging, re, vtk, slicer
-import qt
+import qt, csv
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 from Pro import ProTry
@@ -96,6 +96,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     VTKObservationMixin.__init__(self)  # needed for parameter node observation
 
     self.logic = None
+    with open("D:\Desktop\SlicerTrack\Track\Data\Transforms.csv", 'r') as read_transforms:
+        csv_reader = csv.reader(read_transforms)
+        next(csv_reader)
+        self.csv = list(csv_reader)
 
     #NOT USED
     self._parameterNode = None
@@ -128,23 +132,34 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     info = {"playing": False, "fps": 1}
     yellow = slicer.app.layoutManager().sliceWidget("Yellow").sliceLogic()
-    green = slicer.app.layoutManager().sliceWidget("Green").sliceLogic()
+    green  = slicer.app.layoutManager().sliceWidget("Green").sliceLogic()
+    red    = slicer.app.layoutManager().sliceWidget("Red").sliceLogic()
+
 
     def UpdateSlices():
-        yellow_bounds = [0] * 6
-        yellow.GetLowestVolumeSliceBounds(yellow_bounds)
-        green_bounds = [0] * 6
-        green.GetLowestVolumeSliceBounds(green_bounds)
+        def _move_slice_(slice_widget):
+          bounds = [0] * 6
+          slice_widget.GetLowestVolumeSliceBounds(bounds)
+          offset = min(bounds[4] + self.ui.SequenceSlider.value, bounds[5])
+          slice_widget.SetSliceOffset(offset)
+        _move_slice_(yellow)
+        _move_slice_(green)
+        _move_slice_(red)
+        val = self.ui.SequenceSlider.value
+        # if val < len(self.csv):
+          # transformMatrix = vtk.vtkMatrix4x4()
+          # row = self.csv[val]
+          # transformMatrix.SetElement(int(float(row[0])),int(float(row[1])), int(float(row[2])))
+          # a = min(5 + val,10)
+          # transformMatrix.SetElement(a,a,a)
+          # self.logic.transformNode.SetMatrixTransformToParent(transformMatrix)
+          # slicer.app.processEvents()
 
-        yellow_offset = min(yellow_bounds[4] + self.ui.SequenceSlider.value, yellow_bounds[5] + 0.03)
-        green_offset =  min(green_bounds[4] +  self.ui.SequenceSlider.value, green_bounds[5] - 0.01)
-
-        yellow.SetSliceOffset(yellow_offset)
-        green.SetSliceOffset(green_offset)
+        self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
 
     def _PlaySeq_():
       if self.ui.SequenceSlider.value < self.ui.SequenceSlider.maximum and info["playing"]:
-        self.ui.SequenceSlider.value += info["fps"]
+        self.ui.SequenceSlider.value += self.ui.Fps.value
         self.ui.SequenceSlider.value = min(self.ui.SequenceSlider.value,self.ui.SequenceSlider.maximum)
         self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
         UpdateSlices()
@@ -171,11 +186,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.StopSequenceButton.clicked.connect(StopSeq)
     self.ui.SequenceSlider.valueChanged.connect(lambda _: UpdateSlices())
     
-    def ChangeFps(amount: int):
-      info["fps"] = max(1,info["fps"] + amount)
-      self.ui.Fps.text = f"{info['fps']} fps"
-    self.ui.IncrementFps.clicked.connect(lambda: ChangeFps(+1))
-    self.ui.DecrementFps.clicked.connect(lambda: ChangeFps(-1))
+    def ChangeFrame(amount: int):
+      value = max(0, self.ui.SequenceSlider.value + amount)
+      value = min(value,self.ui.SequenceSlider.maximum)
+      self.ui.SequenceSlider.value = value
+      # print(self.ui.SequenceSlider.value ,value)
+      UpdateSlices()
+    self.ui.IncrementFrame.clicked.connect(lambda: ChangeFrame(+1))
+    self.ui.DecrementFrame.clicked.connect(lambda: ChangeFrame(-1))
 
     # # These connections ensure that we update parameter node when scene is closed
     # # Uncomment these if you need to run any code at the closing events
@@ -190,10 +208,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       -Finally the images are displayed by using .organize()
     """
     def OnPathChange(path):
-      maximum = self.logic.ShowData(path)
+      self.logic.ClearNodes()
+      self.logic.ShowData(path)
       self.ui.PlaySequenceButton.enabled = True
       self.ui.SequenceSlider.enabled = True
-      self.ui.SequenceSlider.maximum = 35 
+      self.ui.IncrementFrame.enabled = True
+      self.ui.DecrementFrame.enabled = True
+
+      def _bounds_(slice_widget):
+        bounds = [0] * 6
+        slice_widget.GetLowestVolumeSliceBounds(bounds)
+        return int(bounds[5]-bounds[4]) - 1
+      maximum = max(_bounds_(red), _bounds_(green), _bounds_(yellow))
+      self.ui.SequenceSlider.maximum =maximum
 
     self.ui.TrackingFolder.currentPathChanged.connect(lambda path: OnPathChange(path))
 
@@ -206,12 +233,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.markupsObserverTag = None
 
 
-  #NOT USED
   def cleanup(self):
     """
     Called when the application closes and the module widget is destroyed.
     """
     self.removeObservers()
+    self.logic.ClearNodes()
 
   #NOT USED
   def enter(self):
@@ -351,7 +378,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     Called when the logic class is instantiated. Can be used for initializing member variables.
     """
     ScriptedLoadableModuleLogic.__init__(self)
-    self.loaded = False
+    self.nodes = []
+    self.transformNode = None
 
   #NOT USED
   def setDefaultParameters(self, parameterNode):
@@ -363,9 +391,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     if not parameterNode.GetParameter("Invert"):
       parameterNode.SetParameter("Invert", "false")
 
-  # creates a sequence nodes from all nodes in the scene with
-  # as a regex pattern
+
   def createSequenceNode(self, name, pattern):
+    """creates a sequence nodes from all nodes in the scene with a regex pattern"""
     seq = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode")
     seq.SetName(name)
 
@@ -377,25 +405,108 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
   def ShowData(self, path) -> int:
     """Prepares the data by splitting the different orientations, then loading them and finally displaying them"""
+    import time
+    start = time.time()
     ProTry(path)
-    max = self.LoadData(path)
-    self.organize()
+
+    # FOR DEVELOPMENT ONLY
+    Loaded = bool(qt.QSettings().value('Modules/SlicerTrack'))
+    print("var: ", Loaded)
+    if not Loaded or slicer.util.confirmOkCancelDisplay("Force load (dev)?"):
+      qt.QSettings().setValue('Modules/SlicerTrack', True)
+      self._loadData_(path)
+      # self._organize_()
+    #######################
+    # self.LoadData(path)
+    # self.organize()
+    print(f"finished ShowData() in {time.time() - start}s")
     return max
 
-  def LoadData(self, path, ignore_already_loaded = False) -> int:
+  def _loadData_(self, path) -> int:
+    import time
+    dicomDataDir = path
+    print("di", dicomDataDir, " -- ", path)
+    pathlist = sorted(os.listdir(dicomDataDir))
+    start = time.time()
+    for s in pathlist:
+        filename = os.path.join(dicomDataDir, s)
+        if "Volume" in s:
+          node = slicer.util.loadVolume(filename)
+          self.nodes.append(node)
+        elif "Segmentation_nrrd" in s:
+          node = slicer.util.loadSegmentation(filename)
+          self.nodes.append(node)
+          # Create transform and apply to sample volume
+          transformNode = slicer.vtkMRMLTransformNode()
+          self.transformNode = transformNode
+          slicer.mrmlScene.AddNode(transformNode)
+          node.SetAndObserveTransformNodeID(transformNode.GetID())
+          import math, time
+          transformMatrix = vtk.vtkMatrix4x4()
+          for xPos in range(-300,300):
+            transformMatrix.SetElement(0,3, xPos)
+            transformMatrix.SetElement(1,3, math.sin(xPos)*10)
+            transformNode.SetMatrixTransformToParent(transformMatrix)
+            slicer.app.processEvents()
+            time.sleep(0.02)
+
+    print(f"loaded in {time.time() - start}s")
+    return len(pathlist)
+  def _organize_(self):
+
+    orientations = [
+      { "label" : "Sagittal", "slicerName" : "Sagittal", "viewColor" : "Yellow" },
+      { "label": "Coronal", "slicerName" : "Coronal", "viewColor" : "Green" },
+      { "label": "Transverse", "slicerName" : "Axial", "viewColor" : "Red" }
+    ]
+
+    sequences = []
+
+    # Create the sequences
+    for orientation in orientations:
+      label = orientation["label"]
+      img_seq_name = f"Image Sequence {label}"
+      img = self.createSequenceNode(img_seq_name, re.compile('Volume.*'))
+      sequences.append(img)
+      self.nodes.append(img)
+
+    # sync the sequences
+    seqBrowser = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode")
+    for i in sequences:
+      seqBrowser.AddSynchronizedSequenceNodeID(i.GetID())
+
+    for orientation in orientations:
+      view = slicer.app.layoutManager().sliceWidget(orientation["viewColor"])
+      label = orientation["label"]
+
+      img_seq_name = f"Image Sequence {label}"
+      
+      img_vol_node = slicer.util.getNode(img_seq_name)
+      
+      view.sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(img_vol_node.GetID())
+
+
+  def LoadData(self, path) -> int:
+    import time
     dicomDataDir = path+"/output"
     print("di", dicomDataDir, " -- ", path)
     pathlist = sorted(os.listdir(dicomDataDir))
-    if self.loaded and not ignore_already_loaded: return
+    start = time.time()
     for s in pathlist:
         filename = os.path.join(dicomDataDir, s)
         print(filename)
         if 'seg' in s:
-          slicer.util.loadVolume(filename, properties={'labelmap':True})
+          node = slicer.util.loadVolume(filename, properties={'labelmap':True})
+          self.nodes.append(node)
         if 'img' in s:
-          slicer.util.loadVolume(filename, properties={'labelmap':False})
-    self.loaded = True
+          node = slicer.util.loadVolume(filename, properties={'labelmap':False})
+          self.nodes.append(node)
+    print(f"loaded in {time.time() - start}s")
     return len(pathlist)
+
+  def ClearNodes(self):
+    for node in self.nodes:
+      slicer.mrmlScene.RemoveNode(node)
 
   def organize(self):
 
@@ -416,6 +527,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       seg = self.createSequenceNode(seg_seq_name, re.compile(f'.*seg_{label}.*'))
       sequences.append(img)
       sequences.append(seg)
+      self.nodes.append(img)
+      self.nodes.append(seg)
 
     # sync the sequences
     seqBrowser = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode")
