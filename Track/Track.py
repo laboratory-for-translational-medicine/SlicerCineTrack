@@ -128,22 +128,33 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
         
-    
+    # this is the variables that will be used to store parameters
     info = {"playing": False, "fps": 1}
+
+    # Each of these three corresponds to the three windows in the GUI
     yellow = slicer.app.layoutManager().sliceWidget("Yellow").sliceLogic()
     green  = slicer.app.layoutManager().sliceWidget("Green").sliceLogic()
     red    = slicer.app.layoutManager().sliceWidget("Red").sliceLogic()
 
+    # this will store the transformation of the mask/segmentation
     transformMatrix = vtk.vtkMatrix4x4()
     def UpdateSlices():
+        """This method updates the offset of all three sliceWidget windows"""
         def _move_slice_(slice_widget):
-          bounds = [0] * 6
+          """This inner function will set offset of one window passed in"""
+          bounds = [0] * 6 #buffer to hold min-max of the 3 axes 
           slice_widget.GetLowestVolumeSliceBounds(bounds)
-          offset = min(bounds[4] + self.ui.SequenceSlider.value, bounds[5])
-          slice_widget.SetSliceOffset(offset)
+          #calculate the offset needed to get to the current "Frame"
+          offset = min(bounds[4] + self.ui.SequenceSlider.value, bounds[5]) 
+          slice_widget.SetSliceOffset(offset) # set it.
+
+        #We can now update each window
         _move_slice_(yellow)
         _move_slice_(green)
         _move_slice_(red)
+
+        #attempting to move the segmentation mask only if the frame we are on
+        #has a corresponding row in the csv file
         val = self.ui.SequenceSlider.value
         if val < len(self.csv):
           row = self.csv[val]
@@ -154,21 +165,26 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.logic.transformNode.SetMatrixTransformToParent(transformMatrix)
           slicer.app.processEvents()
 
+        #changing the seconds label as we have updated the slices
         self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
 
     def _PlaySeq_():
+      """This will continously move the slider to the next frame / second"""
+      # we need to make sure we have not hit the max frame and that we are actually still playing
       if self.ui.SequenceSlider.value < self.ui.SequenceSlider.maximum and info["playing"]:
         self.ui.SequenceSlider.value += self.ui.Fps.value
         self.ui.SequenceSlider.value = min(self.ui.SequenceSlider.value,self.ui.SequenceSlider.maximum)
         self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
         UpdateSlices()
-        qt.QTimer.singleShot(100, _PlaySeq_)
+        qt.QTimer.singleShot(100, _PlaySeq_) #this is used to repeat the function to loop
       else:
+        #we then change the information accordingly and enable/disable the correct buttons
         info["playing"] = False
         self.ui.PlaySequenceButton.enabled = True
         self.ui.StopSequenceButton.enabled = False
 
     def PlaySeq():
+      """This method will play the sequence, making sure that it will only play it once even if you double click"""
       if info["playing"]: return
       info["playing"] = True
       _PlaySeq_()
@@ -180,16 +196,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.PlaySequenceButton.enabled = True
       self.ui.StopSequenceButton.enabled = False
 
-
+    #connecting the events to their respective functions
     self.ui.PlaySequenceButton.clicked.connect(PlaySeq)
     self.ui.StopSequenceButton.clicked.connect(StopSeq)
     self.ui.SequenceSlider.valueChanged.connect(lambda _: UpdateSlices())
     
     def ChangeFrame(amount: int):
+      """This method will change the frame of the sequence, making sure the value is within range"""
       value = max(0, self.ui.SequenceSlider.value + amount)
       value = min(value,self.ui.SequenceSlider.maximum)
       self.ui.SequenceSlider.value = value
-      # print(self.ui.SequenceSlider.value ,value)
+      # we can then update the slices so it displays the correct frame
       UpdateSlices()
     self.ui.IncrementFrame.clicked.connect(lambda: ChangeFrame(+1))
     self.ui.DecrementFrame.clicked.connect(lambda: ChangeFrame(-1))
@@ -207,17 +224,27 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       -Finally the images are displayed by using .organize()
     """
     def OnPathChange(path):
+      """When we have changed path, we need to load data and display it"""
       self.logic.ClearNodes()
       self.logic.ShowData(path)
+
+      #after loading data, set orientations
+      slicer.app.layoutManager().sliceWidget("Yellow").mrmlSliceNode().SetOrientationToAxial()
+      slicer.app.layoutManager().sliceWidget("Green").mrmlSliceNode().SetOrientationToAxial()
+      slicer.app.layoutManager().sliceWidget("Red").mrmlSliceNode().SetOrientationToAxial()
+
+      #enabling buttons since we have loaded data
       self.ui.PlaySequenceButton.enabled = True
       self.ui.SequenceSlider.enabled = True
       self.ui.IncrementFrame.enabled = True
       self.ui.DecrementFrame.enabled = True
 
       def _bounds_(slice_widget):
+        """This function will return the upper bound of the sliceWidget passed in"""
         bounds = [0] * 6
         slice_widget.GetLowestVolumeSliceBounds(bounds)
         return int(bounds[5]-bounds[4]) - 1
+      #we pick the lowest offset max. This will be our max frame value
       maximum = max(_bounds_(red), _bounds_(green), _bounds_(yellow))
       self.ui.SequenceSlider.maximum =maximum
 
@@ -429,9 +456,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     start = time.time()
     for s in pathlist:
         filename = os.path.join(dicomDataDir, s)
-        if "Volume" in s:
+        if "Stack" in s:
           node = slicer.util.loadVolume(filename)
           self.nodes.append(node)
+          print(f"loaded {filename}", node)
         elif "Segmentation_nrrd" in s:
           node = slicer.util.loadSegmentation(filename)
           self.nodes.append(node)
