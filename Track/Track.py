@@ -454,12 +454,14 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     print("di", dicomDataDir, " -- ", path)
     pathlist = sorted(os.listdir(dicomDataDir))
     start = time.time()
+    volumes = []
     for s in pathlist:
         filename = os.path.join(dicomDataDir, s)
         if "Stack" in s:
           node = slicer.util.loadVolume(filename)
           self.nodes.append(node)
-          print(f"loaded {filename}", node)
+          volumes.append(node)
+          print(f"loaded {filename}")
         elif "Segmentation_nrrd" in s:
           node = slicer.util.loadSegmentation(filename)
           self.nodes.append(node)
@@ -468,7 +470,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           self.transformNode = transformNode
           slicer.mrmlScene.AddNode(transformNode)
           node.SetAndObserveTransformNodeID(transformNode.GetID())
-
+          
+    axis = ["Yellow", "Green", "Red"]
+    for volume in volumes:
+      widget = axis.pop()
+      compositeNode = slicer.app.layoutManager().sliceWidget(widget).sliceLogic().GetSliceCompositeNode()
+      compositeNode.SetBackgroundVolumeID(volume.GetID())
     print(f"loaded in {time.time() - start}s")
     return len(pathlist)
   def _organize_(self):
