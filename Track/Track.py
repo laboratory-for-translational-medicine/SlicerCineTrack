@@ -95,7 +95,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     VTKObservationMixin.__init__(self)  # needed for parameter node observation
 
     self.logic = None
-    with open("D:\Desktop\SlicerTrack\Track\Data\Transforms.csv", 'r') as read_transforms:
+    transformationsPath = os.path.join(os.path.dirname(__file__), 'Data/Transforms.csv')
+    with open(transformationsPath, 'r') as read_transforms:
         csv_reader = csv.reader(read_transforms)
         next(csv_reader)
         self.csv = list(csv_reader)
