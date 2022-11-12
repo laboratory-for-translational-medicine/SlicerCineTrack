@@ -18,13 +18,20 @@
      </property>
      <layout class="QFormLayout" name="formLayout_2">
       <item row="0" column="0">
+        <widget class="QLabel" name="2DTimeSeriesFolder_label">
+          <property name="text">
+            <string>2D Time Series Images Folder</string>
+          </property>
+        </widget>
+      </item>
+      <item row="1" column="0">
        <widget class="QLabel" name="TrackingFolder_label">
         <property name="text">
          <string>Tracking Folder</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
+      <item row="1" column="1">
        <widget class="ctkPathLineEdit" name="TrackingFolder">
         <property name="label">
          <string/>
@@ -37,7 +44,7 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0" colspan="2">
+      <item row="2" column="0" colspan="2">
        <widget class="QLabel" name="label">
         <property name="text">
          <string>Select Folder with data to load (it might freeze for a second)...</string>
