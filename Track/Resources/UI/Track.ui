@@ -24,6 +24,16 @@
           </property>
         </widget>
       </item>
+      <item row="0" column="1">
+        <widget class="ctkPathLineEdit" name="2DTimeSeriesFolder">
+          <property name="filters">
+            <set>ctkPathLineEdit::Dirs</set>
+          </property>
+          <property name="options">
+            <set>ctkPathLineEdit::ShowDirsOnly</set>
+          </property>
+        </widget>
+      </item>
       <item row="1" column="0">
        <widget class="QLabel" name="TrackingFolder_label">
         <property name="text">
