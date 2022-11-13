@@ -20,7 +20,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="3DVolume_label">
         <property name="text">
-         <string>3D Volume</string>
+         <string>3D Volume:</string>
         </property>
        </widget>
       </item>
