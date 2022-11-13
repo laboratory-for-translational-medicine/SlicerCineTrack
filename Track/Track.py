@@ -249,7 +249,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       maximum = max(_bounds_(red), _bounds_(green), _bounds_(yellow))
       self.ui.SequenceSlider.maximum =maximum
 
-    self.ui.TrackingFolder.currentPathChanged.connect(lambda path: OnPathChange(path))
+    #self.ui.TrackingFolder.currentPathChanged.connect(lambda path: OnPathChange(path))
 
 
     #NOT USED
