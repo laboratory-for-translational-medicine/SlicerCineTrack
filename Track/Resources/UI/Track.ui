@@ -20,7 +20,7 @@
       <item row="0" column="0">
         <widget class="QLabel" name="2DTimeSeriesFolder_label">
           <property name="text">
-            <string>2D Time Series Images Folder</string>
+            <string>2D Time Series Images Folder:</string>
           </property>
         </widget>
       </item>
