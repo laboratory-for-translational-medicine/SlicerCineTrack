@@ -25,7 +25,7 @@
         </widget>
       </item>
       <item row="0" column="1">
-        <widget class="ctkPathLineEdit" name="2DTimeSeriesFolder">
+        <widget class="ctkPathLineEdit" name="Folder2DTimeSeries">
           <property name="filters">
             <set>ctkPathLineEdit::Dirs</set>
           </property>
