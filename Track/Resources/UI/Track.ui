@@ -25,7 +25,7 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="ctkPathLineEdit" name="Folder3DVolumne">
+       <widget class="ctkPathLineEdit" name="Path3DVolume">
         <property name="label">
          <string/>
         </property>
