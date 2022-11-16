@@ -35,29 +35,19 @@
         </widget>
       </item>
       <item row="1" column="0">
-       <widget class="QLabel" name="TrackingFolder_label">
+       <widget class="QLabel" name="3DVolume_label">
         <property name="text">
-         <string>Tracking Folder</string>
+         <string>3D Volume:</string>
         </property>
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="ctkPathLineEdit" name="TrackingFolder">
+       <widget class="ctkPathLineEdit" name="Path3DVolume">
         <property name="label">
          <string/>
         </property>
         <property name="filters">
-         <set>ctkPathLineEdit::Dirs|ctkPathLineEdit::Executable|ctkPathLineEdit::NoDot|ctkPathLineEdit::NoDotDot|ctkPathLineEdit::Readable</set>
-        </property>
-        <property name="options">
-         <set>ctkPathLineEdit::ShowDirsOnly</set>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0" colspan="2">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Select Folder with data to load (it might freeze for a second)...</string>
+         <set>ctkPathLineEdit::Files|ctkPathLineEdit::Executable|ctkPathLineEdit::NoDot|ctkPathLineEdit::NoDotDot|ctkPathLineEdit::Readable</set>
         </property>
        </widget>
       </item>
