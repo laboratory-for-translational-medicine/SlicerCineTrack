@@ -51,6 +51,20 @@
         </property>
        </widget>
       </item>
+      <item row="2" column="0">
+        <widget class="QLabel" name="TransformationsFile_label">
+          <property name="text">
+            <string>Transformations File (.csv):</string>
+          </property>
+        </widget>
+      </item>
+      <item row="2" column="1">
+        <widget class="ctkPathLineEdit" name="TransformationsFile">
+          <property name="filters">
+            <set>ctkPathLineEdit::Files|ctkPathLineEdit::NoDot|ctkPathLineEdit::NoDotDot|ctkPathLineEdit::Readable</set>
+          </property>
+        </widget>
+      </item>
      </layout>
     </widget>
    </item>
