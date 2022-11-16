@@ -18,13 +18,30 @@
      </property>
      <layout class="QFormLayout" name="formLayout_2">
       <item row="0" column="0">
+        <widget class="QLabel" name="2DTimeSeriesFolder_label">
+          <property name="text">
+            <string>2D Time Series Images Folder:</string>
+          </property>
+        </widget>
+      </item>
+      <item row="0" column="1">
+        <widget class="ctkPathLineEdit" name="Folder2DTimeSeries">
+          <property name="filters">
+            <set>ctkPathLineEdit::Dirs</set>
+          </property>
+          <property name="options">
+            <set>ctkPathLineEdit::ShowDirsOnly</set>
+          </property>
+        </widget>
+      </item>
+      <item row="1" column="0">
        <widget class="QLabel" name="3DVolume_label">
         <property name="text">
          <string>3D Volume:</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
+      <item row="1" column="1">
        <widget class="ctkPathLineEdit" name="Path3DVolume">
         <property name="label">
          <string/>
