@@ -1,4 +1,4 @@
-import os, logging, re, vtk, slicer
+import os, logging, re, vtk, slicer, ctk
 import qt, csv
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
@@ -63,14 +63,143 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Load widget from .ui file (created by Qt Designer).
     # Additional widgets can be instantiated manually and added to self.layout.
-    uiWidget = slicer.util.loadUI(self.resourcePath('UI/Track.ui'))
-    self.layout.addWidget(uiWidget)
-    self.ui = slicer.util.childWidgetVariables(uiWidget)
+
+    # UI using xml method
+    # uiWidget = slicer.util.loadUI(self.resourcePath('UI/Track.ui'))
+    # self.layout.addWidget(uiWidget)
+    # self.ui = slicer.util.childWidgetVariables(uiWidget)
 
     # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
     # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
     # "setMRMLScene(vtkMRMLScene*)" slot.
-    uiWidget.setMRMLScene(slicer.mrmlScene)
+    # uiWidget.setMRMLScene(slicer.mrmlScene)
+
+    #
+    # Begin GUI construction
+    #
+
+    #
+    # Inputs Area
+    # 
+
+    inputsCollapsibleButton = ctk.ctkCollapsibleButton()
+    inputsCollapsibleButton.text = "Inputs"
+    self.layout.addWidget(inputsCollapsibleButton)
+
+    # Layout within the dummy collapsible button
+    self.inputsFormLayout = qt.QFormLayout(inputsCollapsibleButton)
+
+    # File and folder selectors for our input data
+
+    # 2D time series image data folder selector
+    self.Folder2DTimeSeries = ctk.ctkPathLineEdit()
+    self.Folder2DTimeSeries.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
+    self.Folder2DTimeSeries.options = ctk.ctkPathLineEdit.ShowDirsOnly
+    self.Folder2DTimeSeries.settingKey = 'Folder2DTimeSeries'
+
+    self.inputsFormLayout.addRow("2D Time Series Images Folder:", self.Folder2DTimeSeries)
+
+    # 3D volumne file selector
+    self.Path3DVolume = ctk.ctkPathLineEdit()
+    self.Path3DVolume.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.Path3DVolume.settingKey = 'Path3DVolume'
+
+    self.inputsFormLayout.addRow("3D Volume file:", self.Path3DVolume)
+
+    # Transformations file selector 
+    self.TransformationsFile = ctk.ctkPathLineEdit()
+    self.TransformationsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.TransformationsFile.settingKey = 'TransformationsFile'
+
+    self.inputsFormLayout.addRow("Transformations File (.csv):", self.TransformationsFile)
+
+    #
+    # Sequence Area
+    # 
+
+    sequenceCollapsibleButton = ctk.ctkCollapsibleButton()
+    sequenceCollapsibleButton.text = "Sequence"
+    self.layout.addWidget(sequenceCollapsibleButton)
+
+    # Layout within the dummy collapsible button
+    self.sequenceFormLayout = qt.QFormLayout(sequenceCollapsibleButton)
+    
+    # Control layout
+    self.controlWidget = qt.QWidget()
+    self.controlLayout = qt.QHBoxLayout()
+    self.controlWidget.setLayout(self.controlLayout)
+    self.sequenceFormLayout.addWidget(self.controlWidget)
+
+    # Play button
+    self.PlaySequenceButton = qt.QPushButton("Play")
+    self.PlaySequenceButton.enabled = False
+    self.PlaySequenceButton.setSizePolicy(qt.QSizePolicy.Minimum,qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.PlaySequenceButton)
+    
+    # Play button
+    self.PauseSequenceButton = qt.QPushButton("Pause")
+    self.PauseSequenceButton.enabled = False
+    self.PauseSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum,qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.PauseSequenceButton)
+
+    # Play button
+    self.StopSequenceButton = qt.QPushButton("Stop")
+    self.StopSequenceButton.enabled = False
+    self.StopSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum,qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.StopSequenceButton)
+
+    # Fps label and spinbox
+    fpsLabel = qt.QLabel("FPS:")
+    fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed,qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(fpsLabel)
+
+    self.Fps = qt.QSpinBox()
+    self.Fps.minimum = 1
+    self.Fps.maximum = 24
+    self.Fps.setSizePolicy(qt.QSizePolicy.Fixed,qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.Fps)
+
+    # Increment and Decrement frame button
+    self.changeFrameWidget = qt.QWidget()
+    self.changeFrameLayout = qt.QHBoxLayout()
+    self.changeFrameWidget.setLayout(self.changeFrameLayout)
+    self.sequenceFormLayout.addRow(self.changeFrameWidget)
+
+    # Decrease Frame
+    self.DecrementFrame = qt.QPushButton("<-")
+    self.DecrementFrame.enabled = False
+    self.DecrementFrame.setSizePolicy(qt.QSizePolicy.Maximum,qt.QSizePolicy.Minimum)
+    self.changeFrameLayout.addWidget(self.DecrementFrame)
+
+    # Increase Frame
+    self.IncrementFrame = qt.QPushButton("->")
+    self.IncrementFrame.enabled = False
+    self.IncrementFrame.setSizePolicy(qt.QSizePolicy.Maximum,qt.QSizePolicy.Maximum)
+    self.changeFrameLayout.addWidget(self.IncrementFrame)
+
+    # Sequence Slider
+    # self.sliderWidget = qt.QWidget()
+    # self.sliderLayout = qt.QHBoxLayout()
+    # self.sliderWidget.setLayout(self.sliderLayout)
+    # self.sequenceFormLayout.addWidget(self.sliderWidget)
+    
+    self.SequenceSlider = qt.QSlider(0x1)  #0x1 is Horizontal, for some reason qt.Horizontal doesn't work, so we have to put in the constant value here
+    self.SequenceSlider.enabled = True
+    self.SequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
+    # self.SequenceSlider.setSizePolicy(qt.QSizePolicy.setHorizontalStretch(0))
+    # self.SequenceSlider.setSizePolicy(qt.QSizePolicy.setVerticalStretch(0))
+
+    self.changeFrameLayout.addWidget(self.SequenceSlider)
+
+    self.SequenceFrame = qt.QLabel("0.0s")
+    self.SequenceFrame.enabled = True
+    self.SequenceFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+
+    self.changeFrameLayout.addWidget(self.SequenceFrame)
+
+    #
+    # End GUI construction
+    #
 
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
@@ -95,7 +224,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           bounds = [0] * 6 #buffer to hold min-max of the 3 axes 
           slice_widget.GetLowestVolumeSliceBounds(bounds)
           #calculate the offset needed to get to the current "Frame"
-          offset = min(bounds[4] + self.ui.SequenceSlider.value, bounds[5]) 
+          offset = min(bounds[4] + self.SequenceSlider.value, bounds[5]) 
           slice_widget.SetSliceOffset(offset) # set it.
 
         #We can now update each window
@@ -105,7 +234,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         #attempting to move the segmentation mask only if the frame we are on
         #has a corresponding row in the csv file
-        val = self.ui.SequenceSlider.value
+        val = self.SequenceSlider.value
         if val < len(self.csv):
           row = self.csv[val]
           transformMatrix.SetElement(0,3, int(float(row[0])))
@@ -116,50 +245,50 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           slicer.app.processEvents()
 
         #changing the seconds label as we have updated the slices
-        self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
+        self.SequenceFrame.text = f"{float(self.SequenceSlider.value):.1f}s"
 
     def _PlaySeq_():
       """This will continously move the slider to the next frame / second"""
       # we need to make sure we have not hit the max frame and that we are actually still playing
-      if self.ui.SequenceSlider.value < self.ui.SequenceSlider.maximum and info["playing"]:
-        self.ui.SequenceSlider.value += self.ui.Fps.value
-        self.ui.SequenceSlider.value = min(self.ui.SequenceSlider.value,self.ui.SequenceSlider.maximum)
-        self.ui.SequenceFrame.text = f"{float(self.ui.SequenceSlider.value):.1f}s"
+      if self.SequenceSlider.value < self.SequenceSlider.maximum and info["playing"]:
+        self.SequenceSlider.value += self.Fps.value
+        self.SequenceSlider.value = min(self.SequenceSlider.value,self.SequenceSlider.maximum)
+        self.SequenceFrame.text = f"{float(self.SequenceSlider.value):.1f}s"
         UpdateSlices()
         qt.QTimer.singleShot(100, _PlaySeq_) #this is used to repeat the function to loop
       else:
         #we then change the information accordingly and enable/disable the correct buttons
         info["playing"] = False
-        self.ui.PlaySequenceButton.enabled = True
-        self.ui.StopSequenceButton.enabled = False
+        self.PlaySequenceButton.enabled = True
+        self.StopSequenceButton.enabled = False
 
     def PlaySeq():
       """This method will play the sequence, making sure that it will only play it once even if you double click"""
       if info["playing"]: return
       info["playing"] = True
       _PlaySeq_()
-      self.ui.PlaySequenceButton.enabled = False
-      self.ui.StopSequenceButton.enabled = True
+      self.PlaySequenceButton.enabled = False
+      self.StopSequenceButton.enabled = True
 
     def StopSeq():
       info["playing"] = False
-      self.ui.PlaySequenceButton.enabled = True
-      self.ui.StopSequenceButton.enabled = False
+      self.PlaySequenceButton.enabled = True
+      self.StopSequenceButton.enabled = False
 
     #connecting the events to their respective functions
-    self.ui.PlaySequenceButton.clicked.connect(PlaySeq)
-    self.ui.StopSequenceButton.clicked.connect(StopSeq)
-    self.ui.SequenceSlider.valueChanged.connect(lambda _: UpdateSlices())
+    self.PlaySequenceButton.clicked.connect(PlaySeq)
+    self.StopSequenceButton.clicked.connect(StopSeq)
+    self.SequenceSlider.valueChanged.connect(lambda _: UpdateSlices())
     
     def ChangeFrame(amount: int):
       """This method will change the frame of the sequence, making sure the value is within range"""
-      value = max(0, self.ui.SequenceSlider.value + amount)
-      value = min(value,self.ui.SequenceSlider.maximum)
-      self.ui.SequenceSlider.value = value
+      value = max(0, self.SequenceSlider.value + amount)
+      value = min(value,self.SequenceSlider.maximum)
+      self.SequenceSlider.value = value
       # we can then update the slices so it displays the correct frame
       UpdateSlices()
-    self.ui.IncrementFrame.clicked.connect(lambda: ChangeFrame(+1))
-    self.ui.DecrementFrame.clicked.connect(lambda: ChangeFrame(-1))
+    self.IncrementFrame.clicked.connect(lambda: ChangeFrame(+1))
+    self.DecrementFrame.clicked.connect(lambda: ChangeFrame(-1))
 
     # # These connections ensure that we update parameter node when scene is closed
     # # Uncomment these if you need to run any code at the closing events
@@ -184,10 +313,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       slicer.app.layoutManager().sliceWidget("Red").mrmlSliceNode().SetOrientationToAxial()
 
       #enabling buttons since we have loaded data
-      self.ui.PlaySequenceButton.enabled = True
-      self.ui.SequenceSlider.enabled = True
-      self.ui.IncrementFrame.enabled = True
-      self.ui.DecrementFrame.enabled = True
+      self.PlaySequenceButton.enabled = True
+      self.SequenceSlider.enabled = True
+      self.IncrementFrame.enabled = True
+      self.DecrementFrame.enabled = True
 
       def _bounds_(slice_widget):
         """This function will return the upper bound of the sliceWidget passed in"""
@@ -196,9 +325,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return int(bounds[5]-bounds[4]) - 1
       #we pick the lowest offset max. This will be our max frame value
       maximum = max(_bounds_(red), _bounds_(green), _bounds_(yellow))
-      self.ui.SequenceSlider.maximum =maximum
+      self.SequenceSlider.maximum =maximum
 
-    #self.ui.TrackingFolder.currentPathChanged.connect(lambda path: OnPathChange(path))
+    # will replace with new input selector
+    self.Folder2DTimeSeries.currentPathChanged.connect(lambda path: OnPathChange(path))
 
 
     #NOT USED
@@ -291,7 +421,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   def updateGUIFromParameterNode(self,x=0,y=0):
     if self._parameterNode is None:
       return
-    # self.ui.applyButton.enabled = self._parameterNode.GetNodeReference("InputVolume")
+    # self.applyButton.enabled = self._parameterNode.GetNodeReference("InputVolume")
 
   #NOT USED
   def updateParameterNodeFromGUI(self, caller=None, event=None):
@@ -305,11 +435,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
 
-    self._parameterNode.SetNodeReferenceID("InputVolume", self.ui.inputSelector.currentNodeID)
-    self._parameterNode.SetNodeReferenceID("OutputVolume", self.ui.outputSelector.currentNodeID)
-    self._parameterNode.SetParameter("Threshold", str(self.ui.imageThresholdSliderWidget.value))
-    self._parameterNode.SetParameter("Invert", "true" if self.ui.invertOutputCheckBox.checked else "false")
-    self._parameterNode.SetNodeReferenceID("OutputVolumeInverse", self.ui.invertedOutputSelector.currentNodeID)
+    self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
+    self._parameterNode.SetNodeReferenceID("OutputVolume", self.outputSelector.currentNodeID)
+    self._parameterNode.SetParameter("Threshold", str(self.imageThresholdSliderWidget.value))
+    self._parameterNode.SetParameter("Invert", "true" if self.invertOutputCheckBox.checked else "false")
+    self._parameterNode.SetNodeReferenceID("OutputVolumeInverse", self.invertedOutputSelector.currentNodeID)
 
     self._parameterNode.EndModify(wasModified)
 
@@ -319,8 +449,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.observedMarkupNode.RemoveObserver(self.markupsObserverTag)
       self.observedMarkupNode = None
       self.markupsObserverTag = None
-    if autoUpdate and self.ui.inputSelector.currentNode:
-      self.observedMarkupNode = self.ui.inputSelector.currentNode()
+    if autoUpdate and self.inputSelector.currentNode:
+      self.observedMarkupNode = self.inputSelector.currentNode()
       self.markupsObserverTag = self.observedMarkupNode.AddObserver(
       slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self.onMarkupsUpdated)
   
@@ -330,11 +460,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   #NOT USED
   def onApplyButton(self):
-    self.logic.process(self.ui.inputSelector.currentNode(),
-      self.ui.invertedOutputSelector.currentNode(),
-      self.ui.imageThresholdSliderWidget.value,
-      not self.ui.invertOutputCheckBox.checked)
-    self.ui.centerOfMassValueLabel.text = str(self.logic.centerOfMass)
+    self.logic.process(self.inputSelector.currentNode(),
+      self.invertedOutputSelector.currentNode(),
+      self.imageThresholdSliderWidget.value,
+      not self.invertOutputCheckBox.checked)
+    self.centerOfMassValueLabel.text = str(self.logic.centerOfMass)
 
 #
 # TrackLogic
