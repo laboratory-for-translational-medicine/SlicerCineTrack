@@ -223,7 +223,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Called when the application closes and the module widget is destroyed.
     """
     self.removeObservers()
-    self.logic.ClearNodes()
 
   def enter(self):
     """
@@ -350,12 +349,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Begin playback when user clicks the "Play" button.
     """
     
-    with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+    #with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
       # Compute output
       # TODO: change this to logic.play()
       #self.logic.process(self.ui.inputSelector.currentNode(), self.ui.outputSelector.currentNode(),
       #                   self.ui.imageThresholdSliderWidget.value, self.ui.invertOutputCheckBox.checked)
 
+    return
 
 #
 # TrackLogic
