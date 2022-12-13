@@ -336,6 +336,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # TODO: Change this to our parameters
     # TODO: Probably should add an outline on how we structure our parameter node for documentation
+    if self.Folder2DTimeSeries.currentPath:
+      self._parameterNode.SetParameter("Folder2DTimeSeries", self.Folder2DTimeSeries.currentPath)
+    if self.Path3DVolume.currentPath:
+      self._parameterNode.SetParameter("Path3DVolume", self.Path3DVolume.currentPath)
+    if self.TransformationsFile.currentPath:
+      self._parameterNode.SetParameter("TransformationsFile", self.TransformationsFile.currentPath)
     #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
     #self._parameterNode.SetNodeReferenceID("OutputVolume", self.outputSelector.currentNodeID)
     #self._parameterNode.SetParameter("Threshold", str(self.imageThresholdSliderWidget.value))
