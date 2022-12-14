@@ -222,6 +222,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Called when the application closes and the module widget is destroyed.
     """
+    if self._parameterNode is not None:
+      folderID = self._parameterNode.GetParameter("VirtualFolder2DImages")
+      if folderID:
+        shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+        shNode.RemoveItem(int(folderID)) # this will remove any children nodes (2d image nodes) as well
+
     self.removeObservers()
 
   def enter(self):
@@ -282,6 +288,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # those are reflected immediately in the GUI.
     if self._parameterNode is not None:
       self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+    
     self._parameterNode = inputParameterNode
     if self._parameterNode is not None:
       self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
@@ -353,12 +360,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           imageFiles.append(item)
           totalImages += 1
 
-      # Load the images into 3D Slicer and place them in the virtual folder
+      # Load the images into 3D Slicer
       print(f"{totalImages} 2D time-series images will be loaded into 3D Slicer")
       for i in range(totalImages):
         filepath = os.path.join(self.Folder2DTimeSeries.currentPath, f"{i:05d}.mha")
         loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
-        
+        # Place image into the virtual folder
         imageID = shNode.GetItemByDataNode(loadedImageNode)
         shNode.SetItemParent(imageID, folderID)
 
