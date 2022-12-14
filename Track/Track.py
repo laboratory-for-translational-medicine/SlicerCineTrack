@@ -334,14 +334,40 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
 
-    # TODO: Change this to our parameters
-    # TODO: Probably should add an outline on how we structure our parameter node for documentation
+    shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+
     if self.Folder2DTimeSeries.currentPath:
+      # Set a param to hold the path to the folder containing the 2D time-series images
       self._parameterNode.SetParameter("Folder2DTimeSeries", self.Folder2DTimeSeries.currentPath)
+
+      # Set a param to hold the ID of a virtual folder within the subject hierarchy which will hold
+      # the 2D time-series images for the duration of the program's life
+      sceneID = shNode.GetSceneItemID()
+      folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
+      self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID)) # value must be str
+
+      totalImages = 0
+      imageFiles = []
+      for item in os.listdir(self.Folder2DTimeSeries.currentPath):
+        if re.match('[0-9]{5}\.mha', item): # five numbers followed by .mha
+          imageFiles.append(item)
+          totalImages += 1
+
+      # Load the images into 3D Slicer and place them in the virtual folder
+      print(f"{totalImages} 2D time-series images will be loaded into 3D Slicer")
+      for i in range(totalImages):
+        filepath = os.path.join(self.Folder2DTimeSeries.currentPath, f"{i:05d}.mha")
+        loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
+        
+        imageID = shNode.GetItemByDataNode(loadedImageNode)
+        shNode.SetItemParent(imageID, folderID)
+
     if self.Path3DVolume.currentPath:
       self._parameterNode.SetParameter("Path3DVolume", self.Path3DVolume.currentPath)
+
     if self.TransformationsFile.currentPath:
       self._parameterNode.SetParameter("TransformationsFile", self.TransformationsFile.currentPath)
+
     #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
     #self._parameterNode.SetNodeReferenceID("OutputVolume", self.outputSelector.currentNodeID)
     #self._parameterNode.SetParameter("Threshold", str(self.imageThresholdSliderWidget.value))
