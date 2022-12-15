@@ -93,26 +93,26 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # File and folder selectors for our input data
 
     # 2D time series image data folder selector
-    self.Folder2DTimeSeries = ctk.ctkPathLineEdit()
-    self.Folder2DTimeSeries.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
-    self.Folder2DTimeSeries.options = ctk.ctkPathLineEdit.ShowDirsOnly
-    self.Folder2DTimeSeries.settingKey = 'Folder2DTimeSeries'
+    self.folder2DTimeSeries = ctk.ctkPathLineEdit()
+    self.folder2DTimeSeries.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
+    self.folder2DTimeSeries.options = ctk.ctkPathLineEdit.ShowDirsOnly
+    self.folder2DTimeSeries.settingKey = 'folder2DTimeSeries'
 
-    self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.Folder2DTimeSeries)
+    self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.folder2DTimeSeries)
 
     # 3D volumne file selector
-    self.Path3DVolume = ctk.ctkPathLineEdit()
-    self.Path3DVolume.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
-    self.Path3DVolume.settingKey = 'Path3DVolume'
+    self.path3DVolume = ctk.ctkPathLineEdit()
+    self.path3DVolume.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.path3DVolume.settingKey = 'path3DVolume'
 
-    self.inputsFormLayout.addRow("3D Volume File:", self.Path3DVolume)
+    self.inputsFormLayout.addRow("3D Volume File:", self.path3DVolume)
 
     # Transformations file selector 
-    self.TransformationsFile = ctk.ctkPathLineEdit()
-    self.TransformationsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
-    self.TransformationsFile.settingKey = 'TransformationsFile'
+    self.transformationsFile = ctk.ctkPathLineEdit()
+    self.transformationsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.transformationsFile.settingKey = 'transformationsFile'
 
-    self.inputsFormLayout.addRow("Transformations File (.csv):", self.TransformationsFile)
+    self.inputsFormLayout.addRow("Transformations File (.csv):", self.transformationsFile)
 
     ## Sequence Area
 
@@ -130,27 +130,27 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceFormLayout.addWidget(self.controlWidget)
 
     # Play button
-    self.PlaySequenceButton = qt.QPushButton("Play")
-    self.PlaySequenceButton.enabled = True
-    self.PlaySequenceButton.setSizePolicy(qt.QSizePolicy.Minimum,qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.PlaySequenceButton)
+    self.playSequenceButton = qt.QPushButton("Play")
+    self.playSequenceButton.enabled = True
+    self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.playSequenceButton)
     
     # Stop button
-    self.StopSequenceButton = qt.QPushButton("Stop")
-    self.StopSequenceButton.enabled = False
-    self.StopSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum,qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.StopSequenceButton)
+    self.stopSequenceButton = qt.QPushButton("Stop")
+    self.stopSequenceButton.enabled = False
+    self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.stopSequenceButton)
 
     # Fps label and spinbox
     fpsLabel = qt.QLabel("FPS:")
-    fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed,qt.QSizePolicy.Minimum)
+    fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
     self.controlLayout.addWidget(fpsLabel)
 
-    self.Fps = qt.QSpinBox()
-    self.Fps.minimum = 1
-    self.Fps.maximum = 24
-    self.Fps.setSizePolicy(qt.QSizePolicy.Fixed,qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.Fps)
+    self.fps = qt.QSpinBox()
+    self.fps.minimum = 1
+    self.fps.maximum = 24
+    self.fps.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.fps)
 
     # Increment and Decrement frame button
     self.changeFrameWidget = qt.QWidget()
@@ -159,16 +159,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceFormLayout.addRow(self.changeFrameWidget)
 
     # Decrease Frame
-    self.DecrementFrame = qt.QPushButton("⯇")
-    self.DecrementFrame.enabled = False
-    self.DecrementFrame.setSizePolicy(qt.QSizePolicy.Maximum,qt.QSizePolicy.Minimum)
-    self.changeFrameLayout.addWidget(self.DecrementFrame)
+    self.decrementFrame = qt.QPushButton("⯇")
+    self.decrementFrame.enabled = False
+    self.decrementFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Minimum)
+    self.changeFrameLayout.addWidget(self.decrementFrame)
 
     # Increase Frame
-    self.IncrementFrame = qt.QPushButton("⯈")
-    self.IncrementFrame.enabled = False
-    self.IncrementFrame.setSizePolicy(qt.QSizePolicy.Maximum,qt.QSizePolicy.Maximum)
-    self.changeFrameLayout.addWidget(self.IncrementFrame)
+    self.incrementFrame = qt.QPushButton("⯈")
+    self.incrementFrame.enabled = False
+    self.incrementFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+    self.changeFrameLayout.addWidget(self.incrementFrame)
 
     # Sequence Slider
     # self.sliderWidget = qt.QWidget()
@@ -176,17 +176,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # self.sliderWidget.setLayout(self.sliderLayout)
     # self.sequenceFormLayout.addWidget(self.sliderWidget)
     
-    self.SequenceSlider = qt.QSlider(0x1)  #0x1 is Horizontal, for some reason qt.Horizontal doesn't work, so we have to put in the constant value here
-    self.SequenceSlider.enabled = True
-    self.SequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
-    # self.SequenceSlider.setSizePolicy(qt.QSizePolicy.setHorizontalStretch(0))
-    # self.SequenceSlider.setSizePolicy(qt.QSizePolicy.setVerticalStretch(0))
-    self.changeFrameLayout.addWidget(self.SequenceSlider)
+    # 0x1 is horizontal, for some reason qt.Horizontal doesn't work, so we use the literal here
+    self.sequenceSlider = qt.QSlider(0x1)
+    self.sequenceSlider.enabled = True
+    self.sequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
+    # self.sequenceSlider.setSizePolicy(qt.QSizePolicy.setHorizontalStretch(0))
+    # self.sequenceSlider.setSizePolicy(qt.QSizePolicy.setVerticalStretch(0))
+    self.changeFrameLayout.addWidget(self.sequenceSlider)
 
-    self.SequenceFrame = qt.QLabel("0.0s")
-    self.SequenceFrame.enabled = True
-    self.SequenceFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.changeFrameLayout.addWidget(self.SequenceFrame)
+    self.sequenceFrame = qt.QLabel("0.0s")
+    self.sequenceFrame.enabled = True
+    self.sequenceFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.changeFrameLayout.addWidget(self.sequenceFrame)
 
     #
     # End GUI
@@ -206,10 +207,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
     # (in the selected parameter node).
-    self.PlaySequenceButton.connect("clicked(bool)", self.onPlayButton)
-    self.Folder2DTimeSeries.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("Folder2DTimeSeries", "currentPathChanged"))
-    self.Path3DVolume.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("Path3DVolume", "currentPathChanged"))
-    self.TransformationsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("TransformationsFile", "currentPathChanged"))
+    self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
+    self.folder2DTimeSeries.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("folder2DTimeSeries", "currentPathChanged"))
+    self.path3DVolume.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("path3DVolume", "currentPathChanged"))
+    self.transformationsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("transformationsFile", "currentPathChanged"))
 
     #
     # End logic
@@ -302,7 +303,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
     self._updatingGUIFromParameterNode = True
     
-    self.Folder2DTimeSeries.currentPath = self._parameterNode.GetParameter("Folder2DTimeSeries")
+    self.folder2DTimeSeries.currentPath = self._parameterNode.GetParameter("folder2DTimeSeries")
     #self.ui.inputSelector.setCurrentNode(self._parameterNode.GetNodeReference("InputVolume"))
     #self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolume"))
     #self.ui.invertedOutputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolumeInverse"))
@@ -336,26 +337,26 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
-    if caller == "Folder2DTimeSeries" and event == "currentPathChanged":
+    if caller == "folder2DTimeSeries" and event == "currentPathChanged":
       # If there was a path from before and a virtual folder exists, delete it (and the data inside)
-      if self._parameterNode.GetParameter("Folder2DTimeSeries") and self._parameterNode.GetParameter("VirtualFolder2DImages"):
-        folderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
+      if self._parameterNode.GetParameter("folder2DTimeSeries") and self._parameterNode.GetParameter("virtualFolder2DImages"):
+        folderID = int(self._parameterNode.GetParameter("virtualFolder2DImages"))
         shNode.RemoveItem(int(folderID)) # this will remove any children nodes as well
-        self._parameterNode.UnsetParameter("VirtualFolder2DImages")
+        self._parameterNode.UnsetParameter("virtualFolder2DImages")
 
       # Set a param to hold the path to the folder containing the 2D time-series images
-      self._parameterNode.SetParameter("Folder2DTimeSeries", self.Folder2DTimeSeries.currentPath)
+      self._parameterNode.SetParameter("folder2DTimeSeries", self.folder2DTimeSeries.currentPath)
 
-      # Load the images into 3D slicer and place them in a virtual folder
-      folderID = self.loadImagesIntoVirtualFolder(shNode, self.Folder2DTimeSeries.currentPath)
+      # Load the images into 3D Slicer and place them in a virtual folder
+      folderID = self.loadImagesIntoVirtualFolder(shNode, self.folder2DTimeSeries.currentPath)
       if folderID:
-        self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID)) # value must be str
+        self._parameterNode.SetParameter("virtualFolder2DImages", str(folderID)) # value must be str
 
-    if caller == "Path3DVolume" and event == "currentPathChanged":
-      self._parameterNode.SetParameter("Path3DVolume", self.Path3DVolume.currentPath)
+    if caller == "path3DVolume" and event == "currentPathChanged":
+      self._parameterNode.SetParameter("path3DVolume", self.path3DVolume.currentPath)
 
-    if caller == "TransformationsFile" and event =="currentPathChanged":
-      self._parameterNode.SetParameter("TransformationsFile", self.TransformationsFile.currentPath)
+    if caller == "transformationsFile" and event =="currentPathChanged":
+      self._parameterNode.SetParameter("transformationsFile", self.transformationsFile.currentPath)
 
     #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
     #self._parameterNode.SetNodeReferenceID("OutputVolume", self.outputSelector.currentNodeID)
@@ -404,7 +405,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       return folderID
     else:
       slicer.util.warningDisplay("No image files were found within the folder: "
-                                f"{self.Folder2DTimeSeries.currentPath}", "Input Error")
+                                f"{self.folder2DTimeSeries.currentPath}", "Input Error")
       return None
 
   def onPlayButton(self):
