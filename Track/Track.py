@@ -370,7 +370,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           shNode.SetItemParent(imageID, folderID)
 
         # We do the following to clear the view of the slices. I expected {"show": False} to
-        # to prevent anything from being shown at all, but the first loaded image appears in the
+        # prevent anything from being shown at all, but the first loaded image will appear in the
         # foreground. This seems to be a bug in 3D Slicer.
         layoutManager = slicer.app.layoutManager()
         for viewName in layoutManager.sliceViewNames():
