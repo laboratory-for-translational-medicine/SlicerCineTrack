@@ -346,40 +346,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # Set a param to hold the path to the folder containing the 2D time-series images
       self._parameterNode.SetParameter("Folder2DTimeSeries", self.Folder2DTimeSeries.currentPath)
 
-      imageFiles = []
-      for item in os.listdir(self.Folder2DTimeSeries.currentPath):
-        if re.match('[0-9]{5}\.mha', item): # five numbers followed by .mha
-          imageFiles.append(item)
-      imageFiles.sort()
-
-      if len(imageFiles) != 0:
-        # Set a param to hold the ID of a virtual folder within the subject hierarchy which will hold
-        # the 2D time-series images for the duration of the program's life. We only want to create
-        # this virtual folder if there were image files found within the provided path.
-        sceneID = shNode.GetSceneItemID()
-        folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
+      # Load the images into 3D slicer and place them in a virtual folder
+      folderID = self.loadImagesIntoVirtualFolder(shNode, self.Folder2DTimeSeries.currentPath)
+      if folderID:
         self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID)) # value must be str
-
-        print(f"{len(imageFiles)} 2D time-series images will be loaded into 3D Slicer")
-
-        for file in imageFiles:
-          filepath = os.path.join(self.Folder2DTimeSeries.currentPath, file)
-          loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
-          # Place image into the virtual folder
-          imageID = shNode.GetItemByDataNode(loadedImageNode)
-          shNode.SetItemParent(imageID, folderID)
-
-        # We do the following to clear the view of the slices. I expected {"show": False} to
-        # prevent anything from being shown at all, but the first loaded image will appear in the
-        # foreground. This seems to be a bug in 3D Slicer.
-        layoutManager = slicer.app.layoutManager()
-        for viewName in layoutManager.sliceViewNames():
-           layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
-
-      else:
-        slicer.util.warningDisplay("No image files were found within the folder: "
-                                  f"{self.Folder2DTimeSeries.currentPath}", "Input Error")
-
 
     if caller == "Path3DVolume" and event == "currentPathChanged":
       self._parameterNode.SetParameter("Path3DVolume", self.Path3DVolume.currentPath)
@@ -394,6 +364,48 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #self._parameterNode.SetNodeReferenceID("OutputVolumeInverse", self.invertedOutputSelector.currentNodeID)
 
     self._parameterNode.EndModify(wasModified)
+
+  def loadImagesIntoVirtualFolder(self, shNode, path):
+    """
+    Loads the 2D time-series images located within the provided path into 3D Slicer. They are then
+    placed within a virtual folder in the subject hierarchy for better organization.
+    :param shNode: node representing the subject hierarchy
+    :param path: path to folder containing the 2D images to be imported
+    """
+    imageFiles = []
+    for item in os.listdir(path):
+      if re.match('[0-9]{5}\.mha', item): # five numbers followed by .mha
+        imageFiles.append(item)
+    imageFiles.sort()
+
+    if len(imageFiles) != 0:
+      # Set a param to hold the ID of a virtual folder within the subject hierarchy which will hold
+      # the 2D time-series images for the duration of the program's life. We only want to create
+      # this virtual folder if there were image files found within the provided path.
+      sceneID = shNode.GetSceneItemID()
+      folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
+
+      print(f"{len(imageFiles)} 2D time-series images will be loaded into 3D Slicer")
+
+      for file in imageFiles:
+        filepath = os.path.join(path, file)
+        loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
+        # Place image into the virtual folder
+        imageID = shNode.GetItemByDataNode(loadedImageNode)
+        shNode.SetItemParent(imageID, folderID)
+
+      # We do the following to clear the view of the slices. I expected {"show": False} to
+      # prevent anything from being shown at all, but the first loaded image will appear in the
+      # foreground. This seems to be a bug in 3D Slicer.
+      layoutManager = slicer.app.layoutManager()
+      for viewName in layoutManager.sliceViewNames():
+          layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
+
+      return folderID
+    else:
+      slicer.util.warningDisplay("No image files were found within the folder: "
+                                f"{self.Folder2DTimeSeries.currentPath}", "Input Error")
+      return None
 
   def onPlayButton(self):
     """
