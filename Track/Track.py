@@ -93,12 +93,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # File and folder selectors for our input data
 
     # 2D time series image data folder selector
-    self.folder2DTimeSeries = ctk.ctkPathLineEdit()
-    self.folder2DTimeSeries.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
-    self.folder2DTimeSeries.options = ctk.ctkPathLineEdit.ShowDirsOnly
-    self.folder2DTimeSeries.settingKey = 'folder2DTimeSeries'
+    self.selector2DImagesFolder = ctk.ctkPathLineEdit()
+    self.selector2DImagesFolder.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
+    self.selector2DImagesFolder.options = ctk.ctkPathLineEdit.ShowDirsOnly
+    self.selector2DImagesFolder.settingKey = '2DImagesFolder'
 
-    self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.folder2DTimeSeries)
+    self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.selector2DImagesFolder)
 
     # 3D volumne file selector
     self.path3DSegmentation = ctk.ctkPathLineEdit()
