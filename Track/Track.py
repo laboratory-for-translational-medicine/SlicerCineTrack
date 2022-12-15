@@ -207,9 +207,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
     # (in the selected parameter node).
     self.PlaySequenceButton.connect("clicked(bool)", self.onPlayButton)
-    self.Folder2DTimeSeries.connect("currentPathChanged(QString)", self.updateParameterNodeFromGUI)
-    self.Path3DVolume.connect("currentPathChanged(QString)", self.updateParameterNodeFromGUI)
-    self.TransformationsFile.connect("currentPathChanged(QString)", self.updateParameterNodeFromGUI)
+    self.Folder2DTimeSeries.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("Folder2DTimeSeries", "currentPathChanged"))
+    self.Path3DVolume.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("Path3DVolume", "currentPathChanged"))
+    self.TransformationsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("TransformationsFile", "currentPathChanged"))
 
     #
     # End logic
@@ -222,12 +222,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Called when the application closes and the module widget is destroyed.
     """
-    if self._parameterNode is not None:
-      folderID = self._parameterNode.GetParameter("VirtualFolder2DImages")
-      if folderID:
-        shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-        shNode.RemoveItem(int(folderID)) # this will remove any children nodes (2d image nodes) as well
-
     self.removeObservers()
 
   def enter(self):
@@ -308,8 +302,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
     self._updatingGUIFromParameterNode = True
     
-    # TODO: change this to our ui features
-    # Update node selectors and sliders
+    self.Folder2DTimeSeries.currentPath = self._parameterNode.GetParameter("Folder2DTimeSeries")
     #self.ui.inputSelector.setCurrentNode(self._parameterNode.GetNodeReference("InputVolume"))
     #self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolume"))
     #self.ui.invertedOutputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolumeInverse"))
@@ -343,36 +336,55 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
-    if self.Folder2DTimeSeries.currentPath:
+    if caller == "Folder2DTimeSeries" and event == "currentPathChanged":
+      # If there was a path from before and a virtual folder exists, delete it (and the data inside)
+      if self._parameterNode.GetParameter("Folder2DTimeSeries") and self._parameterNode.GetParameter("VirtualFolder2DImages"):
+        folderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
+        shNode.RemoveItem(int(folderID)) # this will remove any children nodes as well
+        self._parameterNode.UnsetParameter("VirtualFolder2DImages")
+
       # Set a param to hold the path to the folder containing the 2D time-series images
       self._parameterNode.SetParameter("Folder2DTimeSeries", self.Folder2DTimeSeries.currentPath)
 
-      # Set a param to hold the ID of a virtual folder within the subject hierarchy which will hold
-      # the 2D time-series images for the duration of the program's life
-      sceneID = shNode.GetSceneItemID()
-      folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
-      self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID)) # value must be str
-
-      totalImages = 0
       imageFiles = []
       for item in os.listdir(self.Folder2DTimeSeries.currentPath):
         if re.match('[0-9]{5}\.mha', item): # five numbers followed by .mha
           imageFiles.append(item)
-          totalImages += 1
+      imageFiles.sort()
 
-      # Load the images into 3D Slicer
-      print(f"{totalImages} 2D time-series images will be loaded into 3D Slicer")
-      for i in range(totalImages):
-        filepath = os.path.join(self.Folder2DTimeSeries.currentPath, f"{i:05d}.mha")
-        loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
-        # Place image into the virtual folder
-        imageID = shNode.GetItemByDataNode(loadedImageNode)
-        shNode.SetItemParent(imageID, folderID)
+      if len(imageFiles) != 0:
+        # Set a param to hold the ID of a virtual folder within the subject hierarchy which will hold
+        # the 2D time-series images for the duration of the program's life. We only want to create
+        # this virtual folder if there were image files found within the provided path.
+        sceneID = shNode.GetSceneItemID()
+        folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
+        self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID)) # value must be str
 
-    if self.Path3DVolume.currentPath:
+        print(f"{len(imageFiles)} 2D time-series images will be loaded into 3D Slicer")
+
+        for file in imageFiles:
+          filepath = os.path.join(self.Folder2DTimeSeries.currentPath, file)
+          loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
+          # Place image into the virtual folder
+          imageID = shNode.GetItemByDataNode(loadedImageNode)
+          shNode.SetItemParent(imageID, folderID)
+
+        # We do the following to clear the view of the slices. I expected {"show": False} to
+        # to prevent anything from being shown at all, but the first loaded image appears in the
+        # foreground. This seems to be a bug in 3D Slicer.
+        layoutManager = slicer.app.layoutManager()
+        for viewName in layoutManager.sliceViewNames():
+           layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
+
+      else:
+        slicer.util.warningDisplay("No image files were found within the folder: "
+                                  f"{self.Folder2DTimeSeries.currentPath}", "Input Error")
+
+
+    if caller == "Path3DVolume" and event == "currentPathChanged":
       self._parameterNode.SetParameter("Path3DVolume", self.Path3DVolume.currentPath)
 
-    if self.TransformationsFile.currentPath:
+    if caller == "TransformationsFile" and event =="currentPathChanged":
       self._parameterNode.SetParameter("TransformationsFile", self.TransformationsFile.currentPath)
 
     #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
