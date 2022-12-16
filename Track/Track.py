@@ -101,11 +101,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.selector2DImagesFolder)
 
     # 3D segmentation file selector
-    self.path3DSegmentation = ctk.ctkPathLineEdit()
-    self.path3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
-    self.path3DSegmentation.settingKey = 'path3DSegmentation'
+    self.selector3DSegmentation = ctk.ctkPathLineEdit()
+    self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.selector3DSegmentation.settingKey = '3DSegmentation'
 
-    self.inputsFormLayout.addRow("3D Segmentation File:", self.path3DSegmentation)
+    self.inputsFormLayout.addRow("3D Segmentation File:", self.selector3DSegmentation)
 
     # Transformations file selector 
     self.transformationsFile = ctk.ctkPathLineEdit()
