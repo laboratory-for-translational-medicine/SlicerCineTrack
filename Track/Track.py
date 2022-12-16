@@ -101,11 +101,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.folder2DTimeSeries)
 
     # 3D volumne file selector
-    self.path3DVolume = ctk.ctkPathLineEdit()
-    self.path3DVolume.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
-    self.path3DVolume.settingKey = 'path3DVolume'
+    self.path3DSegmentation = ctk.ctkPathLineEdit()
+    self.path3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.path3DSegmentation.settingKey = 'path3DSegmentation'
 
-    self.inputsFormLayout.addRow("3D Volume File:", self.path3DVolume)
+    self.inputsFormLayout.addRow("3D Segmentation File:", self.path3DSegmentation)
 
     # Transformations file selector 
     self.transformationsFile = ctk.ctkPathLineEdit()
@@ -209,7 +209,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # (in the selected parameter node).
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
     self.folder2DTimeSeries.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("folder2DTimeSeries", "currentPathChanged"))
-    self.path3DVolume.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("path3DVolume", "currentPathChanged"))
+    self.path3DSegmentation.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("path3DSegmentation", "currentPathChanged"))
     self.transformationsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("transformationsFile", "currentPathChanged"))
 
     #
@@ -352,8 +352,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if folderID:
         self._parameterNode.SetParameter("virtualFolder2DImages", str(folderID)) # value must be str
 
-    if caller == "path3DVolume" and event == "currentPathChanged":
-      self._parameterNode.SetParameter("path3DVolume", self.path3DVolume.currentPath)
+    if caller == "path3DSegmentation" and event == "currentPathChanged":
+      self._parameterNode.SetParameter("path3DSegmentation", self.path3DSegmentation.currentPath)
 
     if caller == "transformationsFile" and event =="currentPathChanged":
       self._parameterNode.SetParameter("transformationsFile", self.transformationsFile.currentPath)
