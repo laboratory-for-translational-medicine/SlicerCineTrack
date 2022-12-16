@@ -107,12 +107,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.inputsFormLayout.addRow("3D Segmentation File:", self.selector3DSegmentation)
 
-    # Transformations file selector 
-    self.transformationsFile = ctk.ctkPathLineEdit()
-    self.transformationsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
-    self.transformationsFile.settingKey = 'transformationsFile'
+    # Transforms file selector
+    self.selectorTransformsFile = ctk.ctkPathLineEdit()
+    self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.selectorTransformsFile.settingKey = 'TransformsFile'
 
-    self.inputsFormLayout.addRow("Transformations File (.csv):", self.transformationsFile)
+    self.inputsFormLayout.addRow("Transforms File (.csv):", self.selectorTransformsFile)
 
     ## Sequence Area
 
