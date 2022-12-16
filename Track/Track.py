@@ -93,26 +93,26 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # File and folder selectors for our input data
 
     # 2D time series image data folder selector
-    self.folder2DTimeSeries = ctk.ctkPathLineEdit()
-    self.folder2DTimeSeries.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
-    self.folder2DTimeSeries.options = ctk.ctkPathLineEdit.ShowDirsOnly
-    self.folder2DTimeSeries.settingKey = 'folder2DTimeSeries'
+    self.selector2DImagesFolder = ctk.ctkPathLineEdit()
+    self.selector2DImagesFolder.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
+    self.selector2DImagesFolder.options = ctk.ctkPathLineEdit.ShowDirsOnly
+    self.selector2DImagesFolder.settingKey = '2DImagesFolder'
 
-    self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.folder2DTimeSeries)
+    self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.selector2DImagesFolder)
 
-    # 3D volumne file selector
-    self.path3DSegmentation = ctk.ctkPathLineEdit()
-    self.path3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
-    self.path3DSegmentation.settingKey = 'path3DSegmentation'
+    # 3D segmentation file selector
+    self.selector3DSegmentation = ctk.ctkPathLineEdit()
+    self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.selector3DSegmentation.settingKey = '3DSegmentation'
 
-    self.inputsFormLayout.addRow("3D Segmentation File:", self.path3DSegmentation)
+    self.inputsFormLayout.addRow("3D Segmentation File:", self.selector3DSegmentation)
 
-    # Transformations file selector 
-    self.transformationsFile = ctk.ctkPathLineEdit()
-    self.transformationsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
-    self.transformationsFile.settingKey = 'transformationsFile'
+    # Transforms file selector
+    self.selectorTransformsFile = ctk.ctkPathLineEdit()
+    self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.selectorTransformsFile.settingKey = 'TransformsFile'
 
-    self.inputsFormLayout.addRow("Transformations File (.csv):", self.transformationsFile)
+    self.inputsFormLayout.addRow("Transforms File (.csv):", self.selectorTransformsFile)
 
     ## Sequence Area
 
@@ -208,9 +208,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
     # (in the selected parameter node).
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
-    self.folder2DTimeSeries.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("folder2DTimeSeries", "currentPathChanged"))
-    self.path3DSegmentation.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("path3DSegmentation", "currentPathChanged"))
-    self.transformationsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("transformationsFile", "currentPathChanged"))
+    self.selector2DImagesFolder.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged"))
+    self.selector3DSegmentation.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
+    self.selectorTransformsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selectorTransformsFile", "currentPathChanged"))
 
     #
     # End logic
@@ -303,7 +303,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
     self._updatingGUIFromParameterNode = True
     
-    self.folder2DTimeSeries.currentPath = self._parameterNode.GetParameter("folder2DTimeSeries")
+    self.selector2DImagesFolder.currentPath = self._parameterNode.GetParameter("2DImagesFolder")
     #self.ui.inputSelector.setCurrentNode(self._parameterNode.GetNodeReference("InputVolume"))
     #self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolume"))
     #self.ui.invertedOutputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolumeInverse"))
@@ -337,26 +337,28 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
-    if caller == "folder2DTimeSeries" and event == "currentPathChanged":
+    if caller == "selector2DImagesFolder" and event == "currentPathChanged":
       # If a virtual folder exists, delete it (and the data inside), because the path has changed
-      if self._parameterNode.GetParameter("virtualFolder2DImages"):
-        folderID = int(self._parameterNode.GetParameter("virtualFolder2DImages"))
+      if self._parameterNode.GetParameter("VirtualFolder"):
+        folderID = int(self._parameterNode.GetParameter("VirtualFolder"))
         shNode.RemoveItem(int(folderID)) # this will remove any children nodes as well
-        self._parameterNode.UnsetParameter("virtualFolder2DImages")
+        self._parameterNode.UnsetParameter("VirtualFolder")
 
       # Set a param to hold the path to the folder containing the 2D time-series images
-      self._parameterNode.SetParameter("folder2DTimeSeries", self.folder2DTimeSeries.currentPath)
+      self._parameterNode.SetParameter("2DImagesFolder", self.selector2DImagesFolder.currentPath)
 
-      # Load the images into 3D Slicer and place them in a virtual folder
-      folderID = self.loadImagesIntoVirtualFolder(shNode, self.folder2DTimeSeries.currentPath)
+      # Load the images into 3D Slicer
+      folderID = self.loadImagesIntoVirtualFolder(shNode, self.selector2DImagesFolder.currentPath)
       if folderID:
-        self._parameterNode.SetParameter("virtualFolder2DImages", str(folderID)) # value must be str
+        # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
+        # the 2D time-series images
+        self._parameterNode.SetParameter("VirtualFolder", str(folderID)) # value must be str
 
-    if caller == "path3DSegmentation" and event == "currentPathChanged":
-      self._parameterNode.SetParameter("path3DSegmentation", self.path3DSegmentation.currentPath)
+    if caller == "selector3DSegmentation" and event == "currentPathChanged":
+      self._parameterNode.SetParameter("3DSegmentation", self.selector3DSegmentation.currentPath)
 
-    if caller == "transformationsFile" and event =="currentPathChanged":
-      self._parameterNode.SetParameter("transformationsFile", self.transformationsFile.currentPath)
+    if caller == "selectorTransformsFile" and event == "currentPathChanged":
+      self._parameterNode.SetParameter("TransformsFile", self.selectorTransformsFile.currentPath)
 
     #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
     #self._parameterNode.SetNodeReferenceID("OutputVolume", self.outputSelector.currentNodeID)
@@ -379,10 +381,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         imageFiles.append(item)
     imageFiles.sort()
 
+    # We only want to create the virtual folder if image files were found within the provided path
     if len(imageFiles) != 0:
-      # Set a param to hold the ID of a virtual folder within the subject hierarchy which will hold
-      # the 2D time-series images for the duration of the program's life. We only want to create
-      # this virtual folder if there were image files found within the provided path.
       sceneID = shNode.GetSceneItemID()
       folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
 
