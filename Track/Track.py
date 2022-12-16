@@ -338,8 +338,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
     if caller == "folder2DTimeSeries" and event == "currentPathChanged":
-      # If there was a path from before and a virtual folder exists, delete it (and the data inside)
-      if self._parameterNode.GetParameter("folder2DTimeSeries") and self._parameterNode.GetParameter("virtualFolder2DImages"):
+      # If a virtual folder exists, delete it (and the data inside), because the path has changed
+      if self._parameterNode.GetParameter("virtualFolder2DImages"):
         folderID = int(self._parameterNode.GetParameter("virtualFolder2DImages"))
         shNode.RemoveItem(int(folderID)) # this will remove any children nodes as well
         self._parameterNode.UnsetParameter("virtualFolder2DImages")
@@ -405,7 +405,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       return folderID
     else:
       slicer.util.warningDisplay("No image files were found within the folder: "
-                                f"{self.folder2DTimeSeries.currentPath}", "Input Error")
+                                f"{path}", "Input Error")
       return None
 
   def onPlayButton(self):
