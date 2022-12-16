@@ -357,7 +357,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
       self._parameterNode.SetParameter("3DSegmentation", self.selector3DSegmentation.currentPath)
 
-    if caller == "selectorTransformsFile" and event =="currentPathChanged":
+    if caller == "selectorTransformsFile" and event == "currentPathChanged":
       self._parameterNode.SetParameter("TransformsFile", self.selectorTransformsFile.currentPath)
 
     #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
