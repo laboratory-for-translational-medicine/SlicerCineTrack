@@ -304,6 +304,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._updatingGUIFromParameterNode = True
     
     self.selector2DImagesFolder.currentPath = self._parameterNode.GetParameter("2DImagesFolder")
+    self.selector3DSegmentation.currentPath = self._parameterNode.GetParameter("3DSegmentation")
     #self.ui.inputSelector.setCurrentNode(self._parameterNode.GetNodeReference("InputVolume"))
     #self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolume"))
     #self.ui.invertedOutputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolumeInverse"))
@@ -355,7 +356,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("VirtualFolder", str(folderID)) # value must be str
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
-      self._parameterNode.SetParameter("3DSegmentation", self.selector3DSegmentation.currentPath)
+      # Segmentation file should end with .mha
+      if re.match('.*\.mha', self.selector3DSegmentation.currentPath):
+        # Set a param to hold the path to the 3D segmentation file
+        self._parameterNode.SetParameter("3DSegmentationPath", self.selector3DSegmentation.currentPath)
+
+        segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation,
+                                                  {"singleFile": True, "show": False})
+        # Set a param to hold the 3D segmentation node ID within the subject hierarchy
+        nodeID = shNode.GetItemByDataNode(segmentationNode)
+        self._parameterNode.SetParameter("3DSegmentationNode", nodeID)
+      else:
+        self.selector3DSegmentation.currentPath = None
+        slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type",
+                                   "Input Error")
 
     if caller == "selectorTransformsFile" and event == "currentPathChanged":
       self._parameterNode.SetParameter("TransformsFile", self.selectorTransformsFile.currentPath)
