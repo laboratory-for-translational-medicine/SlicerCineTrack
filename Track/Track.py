@@ -430,7 +430,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   def clearSliceForegrounds(self):
     """
     Clear each slice view from having anything visible in the foreground. This often happens
-    inadvertantly when using loadVolume() with "show" set to False.
+    inadvertently when using loadVolume() with "show" set to False.
     """
     layoutManager = slicer.app.layoutManager()
     for viewName in layoutManager.sliceViewNames():
