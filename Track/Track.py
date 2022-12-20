@@ -342,7 +342,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # If a virtual folder exists, delete it (and the data inside), because the path has changed
       if self._parameterNode.GetParameter("VirtualFolder"):
         folderID = int(self._parameterNode.GetParameter("VirtualFolder"))
-        shNode.RemoveItem(int(folderID)) # this will remove any children nodes as well
+        shNode.RemoveItem(folderID) # this will remove any children nodes as well
         self._parameterNode.UnsetParameter("VirtualFolder")
 
       # Set a param to hold the path to the folder containing the 2D time-series images
