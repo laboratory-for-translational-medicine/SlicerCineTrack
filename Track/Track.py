@@ -369,6 +369,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if re.match('.*\.mha', self.selector3DSegmentation.currentPath):
         segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
                                                   {"singleFile": True, "show": False})
+        self.clearSliceForegrounds()
+        segmentationNode.SetName("3D Segmentation")
         # Set a param to hold the 3D segmentation node ID within the subject hierarchy
         nodeID = shNode.GetItemByDataNode(segmentationNode)
         self._parameterNode.SetParameter("3DSegmentationNode", str(nodeID))
@@ -417,15 +419,22 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # We do the following to clear the view of the slices. I expected {"show": False} to
       # prevent anything from being shown at all, but the first loaded image will appear in the
       # foreground. This seems to be a bug in 3D Slicer.
-      layoutManager = slicer.app.layoutManager()
-      for viewName in layoutManager.sliceViewNames():
-          layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
+      self.clearSliceForegrounds()
 
       return folderID
     else:
       slicer.util.warningDisplay("No image files were found within the folder: "
                                 f"{path}", "Input Error")
       return None
+
+  def clearSliceForegrounds(self):
+    """
+    Clear each slice view from having anything visible in the foreground. This often happens
+    inadvertantly when using loadVolume() with "show" set to False.
+    """
+    layoutManager = slicer.app.layoutManager()
+    for viewName in layoutManager.sliceViewNames():
+      layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
   def onPlayButton(self):
     """
