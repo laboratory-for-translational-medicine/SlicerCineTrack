@@ -304,6 +304,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._updatingGUIFromParameterNode = True
     
     self.selector2DImagesFolder.currentPath = self._parameterNode.GetParameter("2DImagesFolder")
+    self.selector3DSegmentation.currentPath = self._parameterNode.GetParameter("3DSegmentationPath")
     #self.ui.inputSelector.setCurrentNode(self._parameterNode.GetNodeReference("InputVolume"))
     #self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolume"))
     #self.ui.invertedOutputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolumeInverse"))
@@ -341,7 +342,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # If a virtual folder exists, delete it (and the data inside), because the path has changed
       if self._parameterNode.GetParameter("VirtualFolder"):
         folderID = int(self._parameterNode.GetParameter("VirtualFolder"))
-        shNode.RemoveItem(int(folderID)) # this will remove any children nodes as well
+        shNode.RemoveItem(folderID) # this will remove any children nodes as well
         self._parameterNode.UnsetParameter("VirtualFolder")
 
       # Set a param to hold the path to the folder containing the 2D time-series images
@@ -355,7 +356,27 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("VirtualFolder", str(folderID)) # value must be str
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
-      self._parameterNode.SetParameter("3DSegmentation", self.selector3DSegmentation.currentPath)
+      # If a 3D segmentation node already exists, delete it before we load the new one
+      if self._parameterNode.GetParameter("3DSegmentationNode"):
+        nodeID = int(self._parameterNode.GetParameter("3DSegmentationNode"))
+        shNode.RemoveItem(nodeID)
+        self._parameterNode.UnsetParameter("3DSegmentationNode")
+
+      # Set a param to hold the path to the 3D segmentation file
+      self._parameterNode.SetParameter("3DSegmentationPath", self.selector3DSegmentation.currentPath)
+
+      # Segmentation file should end with .mha
+      if re.match('.*\.mha', self.selector3DSegmentation.currentPath):
+        segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
+                                                  {"singleFile": True, "show": False})
+        self.clearSliceForegrounds()
+        segmentationNode.SetName("3D Segmentation")
+        # Set a param to hold the 3D segmentation node ID within the subject hierarchy
+        nodeID = shNode.GetItemByDataNode(segmentationNode)
+        self._parameterNode.SetParameter("3DSegmentationNode", str(nodeID))
+      else:
+        slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
+                                   "The file was not loaded into 3D Slicer.", "Input Error")
 
     if caller == "selectorTransformsFile" and event == "currentPathChanged":
       self._parameterNode.SetParameter("TransformsFile", self.selectorTransformsFile.currentPath)
@@ -398,15 +419,22 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # We do the following to clear the view of the slices. I expected {"show": False} to
       # prevent anything from being shown at all, but the first loaded image will appear in the
       # foreground. This seems to be a bug in 3D Slicer.
-      layoutManager = slicer.app.layoutManager()
-      for viewName in layoutManager.sliceViewNames():
-          layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
+      self.clearSliceForegrounds()
 
       return folderID
     else:
       slicer.util.warningDisplay("No image files were found within the folder: "
                                 f"{path}", "Input Error")
       return None
+
+  def clearSliceForegrounds(self):
+    """
+    Clear each slice view from having anything visible in the foreground. This often happens
+    inadvertently when using loadVolume() with "show" set to False.
+    """
+    layoutManager = slicer.app.layoutManager()
+    for viewName in layoutManager.sliceViewNames():
+      layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
   def onPlayButton(self):
     """
