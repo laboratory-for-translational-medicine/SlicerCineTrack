@@ -339,11 +339,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
     if caller == "selector2DImagesFolder" and event == "currentPathChanged":
-      # If a virtual folder exists, delete it (and the data inside), because the path has changed
-      if self._parameterNode.GetParameter("VirtualFolder"):
-        folderID = int(self._parameterNode.GetParameter("VirtualFolder"))
+      # If the virtual folder holding the 2D images exists, then delete it (and the data inside)
+      # because the folder path has changed, so we may need to upload new 2D images
+      if self._parameterNode.GetParameter("VirtualFolder2DImages"):
+        folderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
         shNode.RemoveItem(folderID) # this will remove any children nodes as well
-        self._parameterNode.UnsetParameter("VirtualFolder")
+        self._parameterNode.UnsetParameter("VirtualFolder2DImages")
 
       # Set a param to hold the path to the folder containing the 2D time-series images
       self._parameterNode.SetParameter("2DImagesFolder", self.selector2DImagesFolder.currentPath)
@@ -353,7 +354,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if folderID:
         # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
         # the 2D time-series images
-        self._parameterNode.SetParameter("VirtualFolder", str(folderID)) # value must be str
+        self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID))
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
       # If a 3D segmentation node already exists, delete it before we load the new one
