@@ -111,6 +111,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsFile = ctk.ctkPathLineEdit()
     self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
     self.selectorTransformsFile.settingKey = 'TransformsFile'
+    self.selectorTransformsFile.enabled = False
 
     self.inputsFormLayout.addRow("Transforms File (.csv):", self.selectorTransformsFile)
 
@@ -305,11 +306,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     self.selector2DImagesFolder.currentPath = self._parameterNode.GetParameter("2DImagesFolder")
     self.selector3DSegmentation.currentPath = self._parameterNode.GetParameter("3DSegmentationPath")
+    self.selectorTransformsFile.currentPath = self._parameterNode.GetParameter("TransformsFilePath")
     #self.ui.inputSelector.setCurrentNode(self._parameterNode.GetNodeReference("InputVolume"))
     #self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolume"))
     #self.ui.invertedOutputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolumeInverse"))
     #self.ui.imageThresholdSliderWidget.value = float(self._parameterNode.GetParameter("Threshold"))
     #self.ui.invertOutputCheckBox.checked = (self._parameterNode.GetParameter("Invert") == "true")
+
+    if self._parameterNode.GetParameter("VirtualFolder2DImages"):
+      self.selectorTransformsFile.enabled = True
+    else:
+      self.selectorTransformsFile.enabled = False
+      # simply by providing a bad vf path, we may need to delete all of our transform objects
 
     # TODO: Change this to the 'Play' button
     # Update buttons states and tooltips
@@ -346,6 +354,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         shNode.RemoveItem(folderID) # this will remove any children nodes as well
         self._parameterNode.UnsetParameter("VirtualFolder2DImages")
 
+      # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
+      # if the path changes, we want to remove any of transforms related information. The user
+      # should reselect the transforms file they wish to use with the 2D images.
+      if self._parameterNode.GetParameter("TransformsFilePath"):
+        self._parameterNode.UnsetParameter("TransformsFilePath")
+        if self._parameterNode.GetParameter("VirtualFolderTransforms"):
+          folderID = int(self._parameterNode.GetParameter("VirtualFolderTransforms"))
+          shNode.RemoveItem(folderID) # removes children nodes as well
+          self._parameterNode.UnsetParameter("VirtualFolder2DImages")
+      
       # Set a param to hold the path to the folder containing the 2D time-series images
       self._parameterNode.SetParameter("2DImagesFolder", self.selector2DImagesFolder.currentPath)
 
@@ -380,7 +398,39 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                    "The file was not loaded into 3D Slicer.", "Input Error")
 
     if caller == "selectorTransformsFile" and event == "currentPathChanged":
-      self._parameterNode.SetParameter("TransformsFile", self.selectorTransformsFile.currentPath)
+      # If a virtual folder holding the transformations exists, delete it, since a new file that
+      # may have new transformations has been provided
+      if self._parameterNode.GetParameter("VirtualFolderTransforms"):
+        folderID = int(self._parameterNode.GetParameter("VirtualFolderTransforms"))
+        shNode.RemoveItem(folderID) # This will remove any children nodes as well
+        self._parameterNode.UnsetParameter("VirtualFolderTransforms")
+      
+      # Set a param to hold the path to the transformations .csv file
+      self._parameterNode.SetParameter("TransformsFilePath", self.selectorTransformsFile.currentPath)
+      
+      # It is implied that a VirtualFolder2DImages exists (since the selector is enabled)
+      imagesVirtualFolderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
+      numImages = shNode.GetNumberOfItemChildren(imagesVirtualFolderID)
+
+      # If even one line cannot be read correctly/is missing our playback cannot be successful. We
+      # will validate the tranformations input first. If the input is valid, we get a list
+      # containing all of the transformations read from the file.
+      transformsList = \
+                   self.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages)
+
+      if transformsList:
+        # Get all the images as a list of their IDs in the subject hierarchy
+        imagesIDs = []
+        shNode.GetItemChildren(imagesVirtualFolderID, imagesIDs)
+
+        # Create transform nodes from the transform data and place them into a virtual folder
+        transformsVirtualFolderID = \
+           self.createTransformNodesFromTransformData(shNode, transformsList, imagesIDs, numImages)
+
+        # Set a param to hold the ID of a virtual folder which holds the transform nodes
+        self._parameterNode("VirtualFolderTransforms", str(transformsVirtualFolderID))
+      else:
+        print("uh oh")
 
     #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
     #self._parameterNode.SetNodeReferenceID("OutputVolume", self.outputSelector.currentNodeID)
@@ -389,6 +439,94 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #self._parameterNode.SetNodeReferenceID("OutputVolumeInverse", self.invertedOutputSelector.currentNodeID)
 
     self._parameterNode.EndModify(wasModified)
+
+  def createTransformNodesFromTransformData(self, shNode, transforms, imagesIDs, numImages):
+    """
+    For every image and it's matching transformation, create a transform node which will hold
+    the transformation data for that image wthin 3D Slicer. Place them in a virtual folder.
+    :param shNode: node representing the subject hierarchy
+    :param transforms: list of transforms extrapolated from the transforms .csv file
+    :param imagesIDs: list of 2D images by their subject hierarchy ID
+    :param numImages: number of 2D images loaded into 3D Slicer
+    """
+    # Create a folder to hold the transform nodes
+    sceneID = shNode.GetSceneItemID()
+    transformsVirtualFolderID = shNode.CreateFolderItem(sceneID, "Transforms")
+    
+    for i in range(numImages):
+      imageID = imagesIDs[i]
+      imageNode = shNode.GetItemDataNode(imageID)
+      currentTransform = transforms[i]
+
+      # We use the direction matrix held within the metadata of the image file to understand
+      # how the transformation data needs to be transformed, so that it can correctly translate
+      # the 3D segmentation during playback. This is because the coordinate system used when
+      # generating the transformation data is not necessarily the same as 3D Slicer's own. The
+      # direction matrix helps us to convert between these coordinate systems.
+      #
+      # Mathematically:
+      # /ΔLR\   /x x x 0\   /X\
+      # |ΔPA| = |x x x 0| * |Y|
+      # |ΔIS|   |x x x 0|   |Z|
+      # \ 0 /   \0 0 0 0/   \0/
+      # Where x represents the direction matrix and X, Y, and Z represent the data from the
+      # transforms .csv file.
+      directionMatrix = vtk.vtkMatrix4x4() # Create an empty 4x4 matrix
+      imageNode.GetIJKToRASDirectionMatrix(directionMatrix)
+      currentTransform.append(0) # Needs to be 4x1 to multiply with a 4x4 
+      convertedTransform = [0, 0, 0, 0]
+      directionMatrix.MultiplyPoint(currentTransform, convertedTransform)
+
+      # Create a transform matrix from the converted transform
+      transformMatrix = vtk.vtkMatrix4x4()
+      transformMatrix.SetElement(0, 3, convertedTransform[0]) # LR translation
+      transformMatrix.SetElement(1, 3, convertedTransform[1]) # PA translation
+      transformMatrix.SetElement(2, 3, convertedTransform[2]) # IS translation
+
+      # Create a LinearTransform node to hold our transform matrix 
+      transformNode = \
+             slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"Transform {i + 1}")
+      transformNode.ApplyTransformMatrix(transformMatrix)
+
+      # Add the transform node to the transform nodes virtual folder
+      transformNodeID = shNode.GetItemByDataNode(transformNode)
+      shNode.SetItemParent(transformNodeID, transformsVirtualFolderID)
+
+    return transformsVirtualFolderID
+
+  def validateTransformsInput(self, filepath, numImages):
+    """
+    Checks to ensure that the data in the provided transformation file is valid and matches the
+    number of 2D images that have been loaded into 3D Slicer.
+    :param filepath: path to the transforms file (which should be a .csv file)
+    :param numImages: the number of 2D time-series images that have already been loaded
+    """
+    transformationsList = []
+
+    # Check that the transforms file is a .csv type
+    if re.match('.*\.csv', filepath):
+      with open(filepath, "r") as f:
+        for line in f:
+          # Remove any newlines or spaces
+          line = line.strip().replace(' ', '')
+          # Ignore empty lines and the header
+          if line == '' or 'X,Y,Z':
+            continue
+          else:
+            currentTransform = line.split(',')
+            try:
+              transformationsList.append( [float(currentTransform[0]),
+                                           float(currentTransform[1]),
+                                           float(currentTransform[2])] )
+            except:
+              # If there was an error reading the line, break out because we can't/shouldn't
+              # perform the playback if the transformation data is corrupt or missing.
+              break
+
+    if len(transformationsList) != numImages:
+      return None
+    else:
+      return transformationsList
 
   def loadImagesIntoVirtualFolder(self, shNode, path):
     """
