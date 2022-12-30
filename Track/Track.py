@@ -429,7 +429,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set a param to hold the ID of a virtual folder which holds the transform nodes
         self._parameterNode.SetParameter("VirtualFolderTransforms", str(transformsVirtualFolderID))
       else:
-        print("uh oh")
+        slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
+                                   f"{self.selectorTransformsFile.currentPath}",
+                                   "Validation Error")
 
     #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
     #self._parameterNode.SetNodeReferenceID("OutputVolume", self.outputSelector.currentNodeID)
@@ -490,6 +492,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       transformNodeID = shNode.GetItemByDataNode(transformNode)
       shNode.SetItemParent(transformNodeID, transformsVirtualFolderID)
 
+    print(f"{len(transforms)} transforms were loaded into 3D Slicer as transform nodes")
     return transformsVirtualFolderID
 
   def validateTransformsInput(self, filepath, numImages):
