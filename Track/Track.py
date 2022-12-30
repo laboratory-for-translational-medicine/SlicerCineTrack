@@ -317,7 +317,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.selectorTransformsFile.enabled = True
     else:
       self.selectorTransformsFile.enabled = False
-      # simply by providing a bad vf path, we may need to delete all of our transform objects
 
     # TODO: Change this to the 'Play' button
     # Update buttons states and tooltips
@@ -363,7 +362,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           folderID = int(self._parameterNode.GetParameter("VirtualFolderTransforms"))
           shNode.RemoveItem(folderID) # removes children nodes as well
           self._parameterNode.UnsetParameter("VirtualFolder2DImages")
-      
+
       # Set a param to hold the path to the folder containing the 2D time-series images
       self._parameterNode.SetParameter("2DImagesFolder", self.selector2DImagesFolder.currentPath)
 
@@ -404,10 +403,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         folderID = int(self._parameterNode.GetParameter("VirtualFolderTransforms"))
         shNode.RemoveItem(folderID) # This will remove any children nodes as well
         self._parameterNode.UnsetParameter("VirtualFolderTransforms")
-      
+
       # Set a param to hold the path to the transformations .csv file
       self._parameterNode.SetParameter("TransformsFilePath", self.selectorTransformsFile.currentPath)
-      
+
       # It is implied that a VirtualFolder2DImages exists (since the selector is enabled)
       imagesVirtualFolderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
       numImages = shNode.GetNumberOfItemChildren(imagesVirtualFolderID)
@@ -428,7 +427,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
            self.createTransformNodesFromTransformData(shNode, transformsList, imagesIDs, numImages)
 
         # Set a param to hold the ID of a virtual folder which holds the transform nodes
-        self._parameterNode("VirtualFolderTransforms", str(transformsVirtualFolderID))
+        self._parameterNode.SetParameter("VirtualFolderTransforms", str(transformsVirtualFolderID))
       else:
         print("uh oh")
 
@@ -452,7 +451,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Create a folder to hold the transform nodes
     sceneID = shNode.GetSceneItemID()
     transformsVirtualFolderID = shNode.CreateFolderItem(sceneID, "Transforms")
-    
+
     for i in range(numImages):
       imageID = imagesIDs[i]
       imageNode = shNode.GetItemDataNode(imageID)
@@ -463,7 +462,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # the 3D segmentation during playback. This is because the coordinate system used when
       # generating the transformation data is not necessarily the same as 3D Slicer's own. The
       # direction matrix helps us to convert between these coordinate systems.
-      #
       # Mathematically:
       # /ΔLR\   /x x x 0\   /X\
       # |ΔPA| = |x x x 0| * |Y|
@@ -510,9 +508,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           # Remove any newlines or spaces
           line = line.strip().replace(' ', '')
           # Ignore empty lines and the header
-          if line == '' or 'X,Y,Z':
+          if line == '' or line == 'X,Y,Z':
             continue
           else:
+            # Extract each floating point value from the line
             currentTransform = line.split(',')
             try:
               transformationsList.append( [float(currentTransform[0]),
