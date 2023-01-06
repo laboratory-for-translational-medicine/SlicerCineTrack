@@ -372,6 +372,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
         # the 2D time-series images
         self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID))
+      else:
+        slicer.util.warningDisplay("No image files were found within the folder: "
+                                   f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
       # If a 3D segmentation node already exists, delete it before we load the new one
@@ -537,6 +540,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     :param shNode: node representing the subject hierarchy
     :param path: path to folder containing the 2D images to be imported
     """
+    folderID = None
+
+    # Find all the image file names within the provided dir
     imageFiles = []
     for item in os.listdir(path):
       if re.match('[0-9]{5}\.mha', item): # five numbers followed by .mha
@@ -562,11 +568,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # foreground. This seems to be a bug in 3D Slicer.
       self.clearSliceForegrounds()
 
-      return folderID
-    else:
-      slicer.util.warningDisplay("No image files were found within the folder: "
-                                f"{path}", "Input Error")
-      return None
+    return folderID
 
   def clearSliceForegrounds(self):
     """
