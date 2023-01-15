@@ -356,14 +356,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.UnsetParameter("VirtualFolder2DImages")
 
       # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
-      # if the path changes, we want to remove any of transforms related information. The user
-      # should reselect the transforms file they wish to use with the 2D images.
+      # if the path changes, we want to remove any transforms related information. The user should
+      # reselect the transforms file they wish to use with the 2D images.
       if self._parameterNode.GetParameter("TransformsFilePath"):
         self._parameterNode.UnsetParameter("TransformsFilePath")
         if self._parameterNode.GetParameter("VirtualFolderTransforms"):
           folderID = int(self._parameterNode.GetParameter("VirtualFolderTransforms"))
           shNode.RemoveItem(folderID) # removes children nodes as well
-          self._parameterNode.UnsetParameter("VirtualFolder2DImages")
+          self._parameterNode.UnsetParameter("VirtualFolderTransforms")
 
       # Set a param to hold the path to the folder containing the 2D time-series images
       self._parameterNode.SetParameter("2DImagesFolder", self.selector2DImagesFolder.currentPath)
