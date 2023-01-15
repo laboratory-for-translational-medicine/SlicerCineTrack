@@ -716,7 +716,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     elif imageOrientation == "Coronal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Anterior)
 
-    # Render changes and create artificial pause to let the user recognize the visualization
+    # Render changes and use an artificial pause to let the user recognize the visualization
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
     time.sleep(1)
@@ -744,7 +744,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     if self.currentImageIndex == (shNode.GetNumberOfItemChildren(virtualFolderTransformsID) - 1):
       self.playing = False
 
-    # Render changes and create artificial pause to let user recognize the alignment
+    # Render changes and use an artificial pause to let user recognize the alignment
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
     time.sleep(1)
