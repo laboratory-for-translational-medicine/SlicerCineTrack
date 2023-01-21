@@ -310,7 +310,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
     self._updatingGUIFromParameterNode = True
-    
+
+    # We strictly only want to reset the visuals/state if the parameter node has been modified.
+    # Whereas updateGUIFromParamterNode() can be called when the module is reloaded or reopened.
+    if event == "ModifiedEvent":
+      self.logic.resetState(self._parameterNode.GetParameter("3DSegmentationNode"))
+
     self.selector2DImagesFolder.currentPath = self._parameterNode.GetParameter("2DImagesFolder")
     self.selector3DSegmentation.currentPath = self._parameterNode.GetParameter("3DSegmentationPath")
     self.selectorTransformsFile.currentPath = self._parameterNode.GetParameter("TransformsFilePath")
@@ -325,8 +330,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     else:
       self.selectorTransformsFile.enabled = False
 
-    # If the 2D images, transforms and 3D segmentation have been provided
-    if self._parameterNode.GetParameter("VirtualFolder2DImages") and self._parameterNode.GetParameter("VirtualFolderTransforms") and self._parameterNode.GetParameter("3DSegmentationNode"):
+    # True if the 2D images, transforms and 3D segmentation have been provided
+    inputsProvided = self._parameterNode.GetParameter("VirtualFolder2DImages") and \
+                     self._parameterNode.GetParameter("VirtualFolderTransforms") and \
+                     self._parameterNode.GetParameter("3DSegmentationNode")
+    # Enable 'Play' button if inputs have been provided and the playback has not completed
+    if inputsProvided and not self.logic.completed:
       self.playSequenceButton.enabled = True
     else:
       self.playSequenceButton.enabled = False
@@ -612,6 +621,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            int(self._parameterNode.GetParameter("3DSegmentationNode")),
                            self.VisualizationEvent)
 
+    # If the sequence has finished, disable the 'Play' button
+    if self.logic.completed:
+      self.playSequenceButton.enabled = False
+
 #
 # TrackLogic
 #
@@ -633,6 +646,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     ScriptedLoadableModuleLogic.__init__(self)
     self.playing = False
     self.currentImageIndex = 0
+    self.completed = False
 
   def setDefaultParameters(self, parameterNode):
     """
@@ -743,6 +757,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # If this is the last image to be aligned, set playing to False
     if self.currentImageIndex == (shNode.GetNumberOfItemChildren(virtualFolderTransformsID) - 1):
       self.playing = False
+      self.completed = True
 
     # Render changes and use an artificial pause to let user recognize the alignment
     slicer.util.forceRenderAllViews()
@@ -750,6 +765,36 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     time.sleep(1)
 
     slicer.mrmlScene.InvokeEvent(completionEvent)
+
+  def resetState(self, segmentationID):
+    """
+    Resets the visual state of the 3D Slicer views, as well as the logical state (restarts playback
+    from the beginning). This function is called when a parameter/input is changed.
+    :param segmentationID: subject hierarchy ID of the 3D segmentation (empty string if N/A)
+    """
+    self.playing = False
+    self.currentImageIndex = 0
+    self.completed = False
+
+    # Clear slice views
+    layoutManager = slicer.app.layoutManager()
+    for name in layoutManager.sliceViewNames():
+      sliceWidget = layoutManager.sliceWidget(name)
+      # Remove 2D slice from being shown in the 3D view
+      sliceNode = sliceWidget.mrmlSliceNode()
+      sliceNode.SetSliceVisible(False)
+      # Remove any data being shown in the slice view
+      sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+      sliceCompositeNode.SetBackgroundVolumeID("None")
+      sliceCompositeNode.SetForegroundVolumeID("None")
+
+    # Clear segmentation from 3D view (only needed if the segmentation exists)
+    if segmentationID:
+      shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+      shNode.SetItemDisplayVisibility(int(segmentationID), 0)
+
+    slicer.util.forceRenderAllViews()
+    slicer.app.processEvents()
 
   # TODO: This is the legacy SlicerTrack logic. It should be removed once SlicerTrack is stable.
   # def createSequenceNode(self, name, pattern):
