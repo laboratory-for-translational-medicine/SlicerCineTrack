@@ -6,8 +6,10 @@ project(Track)
 # Extension meta-information
 set(EXTENSION_HOMEPAGE "https://www.slicer.org/wiki/Documentation/Nightly/Extensions/Track")
 set(EXTENSION_CATEGORY "Tracking")
-set(EXTENSION_CONTRIBUTORS "James McCafferty (laboratory-for-translational-medicine)")
-set(EXTENSION_DESCRIPTION "Module for Slicer3D providing tracking tools and displacement visualizations")
+set(EXTENSION_CONTRIBUTORS "James McCafferty (laboratory-for-translational-medicine), \
+                            HaPhan Tran (laboratory-for-translational-medicine), \
+                            Mubariz Afzal (laboratory-for-translational-medicine)")
+set(EXTENSION_DESCRIPTION "Module providing tracking tools and displacement visualizations")
 set(EXTENSION_ICONURL "http://www.example.com/Slicer/Extensions/Track.png")
 set(EXTENSION_SCREENSHOTURLS "http://www.example.com/Slicer/Extensions/Track/Screenshots/1.png")
 set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
