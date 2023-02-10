@@ -124,58 +124,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Layout within the dummy collapsible button
     self.sequenceFormLayout = qt.QFormLayout(sequenceCollapsibleButton)
     
-    # Control layout
-    self.controlWidget = qt.QWidget()
-    self.controlLayout = qt.QHBoxLayout()
-    self.controlWidget.setLayout(self.controlLayout)
-    self.sequenceFormLayout.addWidget(self.controlWidget)
-
-    # Play button
-    self.playSequenceButton = qt.QPushButton("Play")
-    self.playSequenceButton.enabled = False
-    self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.playSequenceButton)
-    
-    # Stop button
-    self.stopSequenceButton = qt.QPushButton("Stop")
-    self.stopSequenceButton.enabled = False
-    self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.stopSequenceButton)
-
-    # Fps label and spinbox
-    fpsLabel = qt.QLabel("FPS:")
-    fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(fpsLabel)
-
-    self.fps = qt.QSpinBox()
-    self.fps.minimum = 1
-    self.fps.maximum = 24
-    self.fps.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.fps)
-
-    # Increment and Decrement frame button
-    self.changeFrameWidget = qt.QWidget()
-    self.changeFrameLayout = qt.QHBoxLayout()
-    self.changeFrameWidget.setLayout(self.changeFrameLayout)
-    self.sequenceFormLayout.addRow(self.changeFrameWidget)
-
-    # Decrease Frame
-    self.decrementFrame = qt.QPushButton("⯇")
-    self.decrementFrame.enabled = False
-    self.decrementFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Minimum)
-    self.changeFrameLayout.addWidget(self.decrementFrame)
-
-    # Increase Frame
-    self.incrementFrame = qt.QPushButton("⯈")
-    self.incrementFrame.enabled = False
-    self.incrementFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
-    self.changeFrameLayout.addWidget(self.incrementFrame)
-
     # Sequence Slider
-    # self.sliderWidget = qt.QWidget()
-    # self.sliderLayout = qt.QHBoxLayout()
-    # self.sliderWidget.setLayout(self.sliderLayout)
-    # self.sequenceFormLayout.addWidget(self.sliderWidget)
+    self.sliderWidget = qt.QWidget()
+    self.sliderWidget.setMinimumHeight(50)
+    self.sliderLayout = qt.QHBoxLayout()
+    self.sliderWidget.setLayout(self.sliderLayout)
+    self.sequenceFormLayout.addWidget(self.sliderWidget)
     
     # 0x1 is horizontal, for some reason qt.Horizontal doesn't work, so we use the literal here
     self.sequenceSlider = qt.QSlider(0x1)
@@ -183,13 +137,81 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     # self.sequenceSlider.setSizePolicy(qt.QSizePolicy.setHorizontalStretch(0))
     # self.sequenceSlider.setSizePolicy(qt.QSizePolicy.setVerticalStretch(0))
-    self.changeFrameLayout.addWidget(self.sequenceSlider)
+    self.sliderLayout.addWidget(self.sequenceSlider)
 
-    self.sequenceFrame = qt.QLabel("0.0s")
-    self.sequenceFrame.enabled = True
-    self.sequenceFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.changeFrameLayout.addWidget(self.sequenceFrame)
+    # current frame spinbox
+    self.currentFrame = qt.QSpinBox()
+    self.currentFrame.setFont(qt.QFont('Times',25))
+    self.currentFrame.minimum = 0
+    self.currentFrame.maximum = 0  # when we load data, this will be set to total number of 2d images
+    self.currentFrame.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
+    self.sliderLayout.addWidget(self.currentFrame)
+      
+    self.divisionFrameLabel = qt.QLabel("/")
+    self.divisionFrameLabel.setFont(qt.QFont('Times',25))
+    self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+    self.sliderLayout.addWidget(self.divisionFrameLabel)
 
+    # this label will show total number of images
+    self.totalFrameLabel = qt.QLabel("0")
+    self.totalFrameLabel.setFont(qt.QFont('Times',25))
+    self.totalFrameLabel.enabled = True
+    self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.sliderLayout.addWidget(self.totalFrameLabel)
+
+    #### End - Sequence Slider
+
+    # Media Control layout
+    self.controlWidget = qt.QWidget()
+    self.controlWidget.setMinimumHeight(60)
+    self.controlLayout = qt.QHBoxLayout()
+    self.controlWidget.setLayout(self.controlLayout)
+    self.sequenceFormLayout.addWidget(self.controlWidget)
+
+    # Play button
+    self.playSequenceButton = qt.QPushButton("⏯")
+    self.playSequenceButton.setFont(qt.QFont('Times',25))
+    self.playSequenceButton.enabled = False
+    self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.playSequenceButton)
+    
+    # Stop button
+    self.stopSequenceButton = qt.QPushButton("⏹")
+    self.stopSequenceButton.setFont(qt.QFont('Times',25))
+    self.stopSequenceButton.enabled = False
+    self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.stopSequenceButton)
+
+
+ # Decrease Frame
+    self.previousFrameButton = qt.QPushButton("⏪")
+    self.previousFrameButton.setFont(qt.QFont('Times',25))
+    self.previousFrameButton.enabled = False
+    self.previousFrameButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.previousFrameButton)
+
+    # Increase Frame
+    self.nextFrameButton = qt.QPushButton("⏩")
+    self.nextFrameButton.setFont(qt.QFont('Times',25))
+    self.nextFrameButton.enabled = False
+    self.nextFrameButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.nextFrameButton)
+
+    
+    # Fps label and spinbox
+    self.fpsLabel = qt.QLabel("FPS:")
+    self.fpsLabel.setFont(qt.QFont('Times',25))
+    self.fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.fpsLabel)
+
+    self.fps = qt.QDoubleSpinBox()
+    self.fps.setFont(qt.QFont('Times',25))
+    self.fps.minimum = 1
+    self.fps.maximum = 24
+    self.fps.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.fps)
+
+   
     #
     # End GUI
     #
