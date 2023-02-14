@@ -647,6 +647,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     self.playing = False
     self.currentImageIndex = 0
     self.completed = False
+    self.timer = qt.QTimer()
+    self.delay = 1000
 
   def setDefaultParameters(self, parameterNode):
     """
@@ -730,12 +732,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     elif imageOrientation == "Coronal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Anterior)
 
-    # Render changes and use an artificial pause to let the user recognize the visualization
+    # Render changes
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
-    time.sleep(1)
 
-    slicer.mrmlScene.InvokeEvent(completionEvent)
+    # Invoke completion event and use artificial pause to let the user recognize the visualization
+    self.timer.singleShot(self.delay, lambda: slicer.mrmlScene.InvokeEvent(completionEvent))
 
   def align(self, segmentationID, virtualFolderTransformsID, completionEvent):
     """
@@ -759,12 +761,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       self.playing = False
       self.completed = True
 
-    # Render changes and use an artificial pause to let user recognize the alignment
+    # Render changes
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
-    time.sleep(1)
 
-    slicer.mrmlScene.InvokeEvent(completionEvent)
+    # Invoke completion event and use artificial pause to let the user recognize the alignment
+    self.timer.singleShot(self.delay, lambda: slicer.mrmlScene.InvokeEvent(completionEvent))
 
   def resetState(self, segmentationID):
     """
