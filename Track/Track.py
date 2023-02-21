@@ -217,6 +217,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
+    self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
     self.selector2DImagesFolder.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged"))
     self.selector3DSegmentation.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
     self.selectorTransformsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selectorTransformsFile", "currentPathChanged"))
@@ -334,11 +335,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     inputsProvided = self._parameterNode.GetParameter("VirtualFolder2DImages") and \
                      self._parameterNode.GetParameter("VirtualFolderTransforms") and \
                      self._parameterNode.GetParameter("3DSegmentationNode")
-    # Enable 'Play' button if inputs have been provided and the playback has not completed
-    if inputsProvided and not self.logic.completed:
-      self.playSequenceButton.enabled = True
-    else:
-      self.playSequenceButton.enabled = False
+
+    self.updatePlaybackButtons(inputsProvided)
 
     # All the GUI updates are done
     self._updatingGUIFromParameterNode = False
@@ -446,12 +444,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
                                    f"{self.selectorTransformsFile.currentPath}",
                                    "Validation Error")
-
-    #self._parameterNode.SetNodeReferenceID("InputVolume", self.inputSelector.currentNodeID)
-    #self._parameterNode.SetNodeReferenceID("OutputVolume", self.outputSelector.currentNodeID)
-    #self._parameterNode.SetParameter("Threshold", str(self.imageThresholdSliderWidget.value))
-    #self._parameterNode.SetParameter("Invert", "true" if self.invertOutputCheckBox.checked else "false")
-    #self._parameterNode.SetNodeReferenceID("OutputVolumeInverse", self.invertedOutputSelector.currentNodeID)
 
     self._parameterNode.EndModify(wasModified)
 
@@ -600,6 +592,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                          int(self._parameterNode.GetParameter("3DSegmentationNode")),
                          self.VisualizationEvent)
 
+    self.updatePlaybackButtons(True)
+
+  def onStopButton(self):
+    """
+    Stop the playback, after the current image's visualization and alignment completes.
+    """
+    self.logic.playing = False
+
+    self.updatePlaybackButtons(True)
+
   def onVisualizationComplete(self, caller, event):
     """
     Function invoked when the visualization of the image data (2D image + 3D segmentation) is
@@ -620,10 +622,30 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
                            int(self._parameterNode.GetParameter("3DSegmentationNode")),
                            self.VisualizationEvent)
+    else:
+      # We update here in case that the end of the playback was reached (last image). In which
+      # case, 'playing' should have been set to False within align()
+      self.updatePlaybackButtons(True)
 
-    # If the sequence has finished, disable the 'Play' button
-    if self.logic.completed:
+  def updatePlaybackButtons(self, inputsProvided):
+    """
+    Function to update which playback buttons are enabled or disabled according to the state.
+    :param inputsProvided: True if all the 3 inputs have been provided: The 2D images folder,
+                           the 3D segmentation, and the transforms file.
+    """
+    if inputsProvided:
+      if self.logic.playing:
+        self.playSequenceButton.enabled = False
+        self.stopSequenceButton.enabled = True
+      else:
+        if self.logic.atLastImage:
+          self.playSequenceButton.enabled = False
+        else:
+          self.playSequenceButton.enabled = True
+        self.stopSequenceButton.enabled = False
+    else:
       self.playSequenceButton.enabled = False
+      self.stopSequenceButton.enabled = False
 
 #
 # TrackLogic
@@ -645,10 +667,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """
     ScriptedLoadableModuleLogic.__init__(self)
     self.playing = False
+    self.atLastImage = False
     self.currentImageIndex = 0
-    self.completed = False
     self.timer = qt.QTimer()
-    self.delay = 1000
+    self.delay = 1000 # milliseconds
 
   def setDefaultParameters(self, parameterNode):
     """
@@ -759,7 +781,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # If this is the last image to be aligned, set playing to False
     if self.currentImageIndex == (shNode.GetNumberOfItemChildren(virtualFolderTransformsID) - 1):
       self.playing = False
-      self.completed = True
+      self.atLastImage = True
 
     # Render changes
     slicer.util.forceRenderAllViews()
@@ -775,8 +797,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     :param segmentationID: subject hierarchy ID of the 3D segmentation (empty string if N/A)
     """
     self.playing = False
+    self.atLastImage = False
     self.currentImageIndex = 0
-    self.completed = False
 
     # Clear slice views
     layoutManager = slicer.app.layoutManager()
@@ -797,164 +819,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
-
-  # TODO: This is the legacy SlicerTrack logic. It should be removed once SlicerTrack is stable.
-  # def createSequenceNode(self, name, pattern):
-  #   """creates a sequence nodes from all nodes in the scene with a regex pattern"""
-  #   seq = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode")
-  #   seq.SetName(name)
-
-  #   for value, node in enumerate(slicer.util.getNodes()):
-  #       if pattern.search(node) != None:
-  #         seq.SetDataNodeAtValue(slicer.util.getNode(node), f'{value}')
-
-  #   return seq
-
-  # def ShowData(self, path) -> int:
-  #   """Prepares the data by splitting the different orientations, then loading them and finally displaying them"""
-  #   import time
-  #   start = time.time()
-  #   # ProTry(path)
-
-  #   # FOR DEVELOPMENT ONLY
-  #   Loaded = bool(qt.QSettings().value('Modules/SlicerTrack'))
-  #   print("var: ", Loaded)
-  #   if not Loaded or slicer.util.confirmOkCancelDisplay("Force load (dev)?"):
-  #     qt.QSettings().setValue('Modules/SlicerTrack', True)
-  #     self._loadData_(path)
-  #     # self._organize_()
-  #   #######################
-  #   # self.LoadData(path)
-  #   # self.organize()
-  #   print(f"finished ShowData() in {time.time() - start}s")
-  #   return max
-
-  # def _loadData_(self, path) -> int:
-  #   import time
-  #   dicomDataDir = path
-  #   print("di", dicomDataDir, " -- ", path)
-  #   pathlist = sorted(os.listdir(dicomDataDir))
-  #   start = time.time()
-  #   volumes = []
-  #   for s in pathlist:
-  #       filename = os.path.join(dicomDataDir, s)
-  #       if "Stack" in s:
-  #         node = slicer.util.loadVolume(filename)
-  #         self.nodes.append(node)
-  #         volumes.append(node)
-  #         print(f"loaded {filename}")
-  #       elif "Segmentation_nrrd" in s:
-  #         node = slicer.util.loadSegmentation(filename)
-  #         self.nodes.append(node)
-  #         # Create transform and apply to sample volume
-  #         transformNode = slicer.vtkMRMLTransformNode()
-  #         self.transformNode = transformNode
-  #         slicer.mrmlScene.AddNode(transformNode)
-  #         node.SetAndObserveTransformNodeID(transformNode.GetID())
-          
-  #   axis = ["Yellow", "Green", "Red"]
-  #   for volume in volumes:
-  #     widget = axis.pop()
-  #     compositeNode = slicer.app.layoutManager().sliceWidget(widget).sliceLogic().GetSliceCompositeNode()
-  #     compositeNode.SetBackgroundVolumeID(volume.GetID())
-  #   print(f"loaded in {time.time() - start}s")
-  #   return len(pathlist)
-  # def _organize_(self):
-
-  #   orientations = [
-  #     { "label" : "Sagittal", "slicerName" : "Sagittal", "viewColor" : "Yellow" },
-  #     { "label": "Coronal", "slicerName" : "Coronal", "viewColor" : "Green" },
-  #     { "label": "Transverse", "slicerName" : "Axial", "viewColor" : "Red" }
-  #   ]
-
-  #   sequences = []
-
-  #   # Create the sequences
-  #   for orientation in orientations:
-  #     label = orientation["label"]
-  #     img_seq_name = f"Image Sequence {label}"
-  #     img = self.createSequenceNode(img_seq_name, re.compile('Volume.*'))
-  #     sequences.append(img)
-  #     self.nodes.append(img)
-
-  #   # sync the sequences
-  #   seqBrowser = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode")
-  #   for i in sequences:
-  #     seqBrowser.AddSynchronizedSequenceNodeID(i.GetID())
-
-  #   for orientation in orientations:
-  #     view = slicer.app.layoutManager().sliceWidget(orientation["viewColor"])
-  #     label = orientation["label"]
-
-  #     img_seq_name = f"Image Sequence {label}"
-      
-  #     img_vol_node = slicer.util.getNode(img_seq_name)
-      
-  #     view.sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(img_vol_node.GetID())
-
-
-  # def LoadData(self, path) -> int:
-  #   import time
-  #   dicomDataDir = path+"/output"
-  #   print("di", dicomDataDir, " -- ", path)
-  #   pathlist = sorted(os.listdir(dicomDataDir))
-  #   start = time.time()
-  #   for s in pathlist:
-  #       filename = os.path.join(dicomDataDir, s)
-  #       print(filename)
-  #       if 'seg' in s:
-  #         node = slicer.util.loadVolume(filename, properties={'labelmap':True})
-  #         self.nodes.append(node)
-  #       if 'img' in s:
-  #         node = slicer.util.loadVolume(filename, properties={'labelmap':False})
-  #         self.nodes.append(node)
-  #   print(f"loaded in {time.time() - start}s")
-  #   return len(pathlist)
-
-  # def ClearNodes(self):
-  #   for node in self.nodes:
-  #     slicer.mrmlScene.RemoveNode(node)
-
-  # def organize(self):
-
-  #   orientations = [
-  #     { "label" : "Sagittal", "slicerName" : "Sagittal", "viewColor" : "Yellow" },
-  #     { "label": "Coronal", "slicerName" : "Coronal", "viewColor" : "Green" },
-  #     { "label": "Transverse", "slicerName" : "Axial", "viewColor" : "Red" }
-  #   ]
-
-  #   sequences = []
-
-  #   # Create the sequences
-  #   for orientation in orientations:
-  #     label = orientation["label"]
-  #     img_seq_name = f"Image Sequence {label}"
-  #     seg_seq_name = f"Segmentation Sequence {label}"
-  #     img = self.createSequenceNode(img_seq_name, re.compile(f'.*img_{label}.*'))
-  #     seg = self.createSequenceNode(seg_seq_name, re.compile(f'.*seg_{label}.*'))
-  #     sequences.append(img)
-  #     sequences.append(seg)
-  #     self.nodes.append(img)
-  #     self.nodes.append(seg)
-
-  #   # sync the sequences
-  #   seqBrowser = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode")
-  #   for i in sequences:
-  #     seqBrowser.AddSynchronizedSequenceNodeID(i.GetID())
-
-  #   for orientation in orientations:
-  #     view = slicer.app.layoutManager().sliceWidget(orientation["viewColor"])
-  #     label = orientation["label"]
-
-  #     img_seq_name = f"Image Sequence {label}"
-  #     seg_seq_name = f"Segmentation Sequence {label}"
-      
-  #     img_vol_node = slicer.util.getNode(img_seq_name)
-  #     seg_vol_node = slicer.util.getNode(seg_seq_name)
-      
-  #     view.sliceLogic().GetSliceCompositeNode().SetBackgroundVolumeID(img_vol_node.GetID())
-  #     view.sliceLogic().GetSliceCompositeNode().SetLabelVolumeID(seg_vol_node.GetID())
-
 
 #
 # TrackTest
