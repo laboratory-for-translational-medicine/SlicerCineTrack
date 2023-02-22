@@ -883,7 +883,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
   def atFirstImage(self):
     """
-    Returns whether we are at the first image of the playback sequence
+    Returns whether we are at the first image of the playback sequence.
     """
     # If no image has been shown yet (i.e the index is None) we default to True
     if self.currentImageIndex is None:
@@ -893,7 +893,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
   def atLastImage(self):
     """
-    Returns whether we are at the last image of the playback squence
+    Returns whether we are at the last image of the playback squence.
     """
     # If no image has been shown yet (i.e. the index is None) we default to False
     if self.currentImageIndex is None:
