@@ -1,8 +1,5 @@
-import csv
-import logging
 import os
 import re
-import time
 
 import ctk
 import qt
@@ -214,10 +211,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.addObserver(slicer.mrmlScene, self.VisualizationEvent, self.onVisualizationComplete)
     self.addObserver(slicer.mrmlScene, self.AlignmentEvent, self.onAlignmentComplete)
 
-    # These connections ensure that whenever user changes some settings on the GUI, that is saved
-    # in the MRML scene (in the selected parameter node).
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
+    self.incrementFrame.connect("clicked(bool)", self.onIncrement)
+    self.decrementFrame.connect("clicked(bool)", self.onDecrement)
+
+    # These connections ensure that whenever user changes some settings on the GUI, that is saved
+    # in the MRML scene (in the selected parameter node).
     self.selector2DImagesFolder.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged"))
     self.selector3DSegmentation.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
     self.selectorTransformsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selectorTransformsFile", "currentPathChanged"))
@@ -361,6 +361,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         folderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
         shNode.RemoveItem(folderID) # this will remove any children nodes as well
         self._parameterNode.UnsetParameter("VirtualFolder2DImages")
+        self.logic.totalImages = None
 
       # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
       # if the path changes, we want to remove any transforms related information. The user should
@@ -381,6 +382,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
         # the 2D time-series images
         self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID))
+        self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
       else:
         slicer.util.warningDisplay("No image files were found within the folder: "
                                    f"{self.selector2DImagesFolder.currentPath}", "Input Error")
@@ -588,9 +590,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     self.logic.playing = True
 
+    # The current image index is None if we haven't started playback. When it has any int value, it
+    # means that image is currently shown in the slice view, so we start playing with the next one.
+    if self.logic.currentImageIndex is None:
+      self.logic.currentImageIndex = 0
+    else:
+      self.logic.currentImageIndex += 1
+
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationNode")),
-                         self.VisualizationEvent)
+                         int(self._parameterNode.GetParameter("3DSegmentationNode")))
+
+    # Invoke completion event and use artificial pause to let user recognize the visualization
+    self.logic.timer.singleShot(self.logic.delay,
+                                lambda: slicer.mrmlScene.InvokeEvent(self.VisualizationEvent))
 
     self.updatePlaybackButtons(True)
 
@@ -602,29 +614,74 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.updatePlaybackButtons(True)
 
+  def onIncrement(self):
+    """
+    Move forward in the playback one step.
+    """
+    # The current image index is None if we haven't started playback. When it has any int value, it
+    # means that image is currently shown in the slice view, so we start playing with the next one.
+    if self.logic.currentImageIndex is None:
+      self.logic.currentImageIndex = 0
+    elif self.logic.currentImageIndex >= (self.logic.totalImages - 1):
+      print("Error: Cannot increment beyond the last image")
+      return
+    else:
+      self.logic.currentImageIndex += 1
+
+    self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
+                         int(self._parameterNode.GetParameter("3DSegmentationNode")))
+    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationNode")),
+                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
+
+    self.updatePlaybackButtons(True)
+
+  def onDecrement(self):
+    """
+    Move backwards in the playback one step.
+    """
+    if self.logic.currentImageIndex <= 0:
+      print("Error: Cannot decrement beyond the image at index 0")
+      return
+    else:
+      self.logic.currentImageIndex -= 1
+
+    self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
+                         int(self._parameterNode.GetParameter("3DSegmentationNode")))
+    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationNode")),
+                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
+
+    self.updatePlaybackButtons(True)
+
   def onVisualizationComplete(self, caller, event):
     """
     Function invoked when the visualization of the image data (2D image + 3D segmentation) is
     complete.
     """
     self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationNode")),
-                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")),
-                     self.AlignmentEvent)
+                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
+
+    # Invoke completion event and use artificial pause to let the user recognize the alignment
+    self.logic.timer.singleShot(self.logic.delay,
+                                lambda: slicer.mrmlScene.InvokeEvent(self.AlignmentEvent))
+
 
   def onAlignmentComplete(self, caller, event):
     """
     Function invoked when the alignment of the 3D segmentation using the transformation data is
     complete.
     """
-    # Begin the next image's visualization, only if we are in a 'playing' state
-    if self.logic.playing:
+    # Begin the next image's visualization, only if we are playing and not at the last image
+    if self.logic.playing and not self.logic.atLastImage():
       self.logic.currentImageIndex += 1
       self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                           int(self._parameterNode.GetParameter("3DSegmentationNode")),
-                           self.VisualizationEvent)
+                           int(self._parameterNode.GetParameter("3DSegmentationNode")))
+
+      # Invoke completion event and use artificial pause to let user recognize the visualization
+      self.logic.timer.singleShot(self.logic.delay,
+                                  lambda: slicer.mrmlScene.InvokeEvent(self.VisualizationEvent))
     else:
-      # We update here in case that the end of the playback was reached (last image). In which
-      # case, 'playing' should have been set to False within align()
+      # We update here in case that the end of the playback was reached (last image)
+      self.logic.playing = False
       self.updatePlaybackButtons(True)
 
   def updatePlaybackButtons(self, inputsProvided):
@@ -635,17 +692,33 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     if inputsProvided:
       if self.logic.playing:
+        # If we are playing
         self.playSequenceButton.enabled = False
         self.stopSequenceButton.enabled = True
+        self.incrementFrame.enabled = False
+        self.decrementFrame.enabled = False
       else:
-        if self.logic.atLastImage:
+        # If we are paused
+        if self.logic.atLastImage():
           self.playSequenceButton.enabled = False
+          self.incrementFrame.enabled = False
+          self.decrementFrame.enabled = True
+        elif self.logic.atFirstImage():
+          self.playSequenceButton.enabled = True
+          self.incrementFrame.enabled = True
+          self.decrementFrame.enabled = False
         else:
           self.playSequenceButton.enabled = True
+          self.incrementFrame.enabled = True
+          self.decrementFrame.enabled = True
+
         self.stopSequenceButton.enabled = False
     else:
+      # If inputs are missing
       self.playSequenceButton.enabled = False
       self.stopSequenceButton.enabled = False
+      self.incrementFrame.enabled = False
+      self.decrementFrame.enabled = False
 
 #
 # TrackLogic
@@ -667,8 +740,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """
     ScriptedLoadableModuleLogic.__init__(self)
     self.playing = False
-    self.atLastImage = False
-    self.currentImageIndex = 0
+    self.currentImageIndex = None
+    self.totalImages = None
     self.timer = qt.QTimer()
     self.delay = 1000 # milliseconds
 
@@ -682,7 +755,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     #if not parameterNode.GetParameter("Invert"):
     #  parameterNode.SetParameter("Invert", "false")
 
-  def visualize(self, virtualFolderImagesID, segmentationID, completionEvent):
+  def visualize(self, virtualFolderImagesID, segmentationID):
     """
     Visualizes the image data (2D image and 3D segmentation) within the 3D Slicer views (slice view
     and 3D view). No alignment is done at this step.
@@ -758,10 +831,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
 
-    # Invoke completion event and use artificial pause to let the user recognize the visualization
-    self.timer.singleShot(self.delay, lambda: slicer.mrmlScene.InvokeEvent(completionEvent))
-
-  def align(self, segmentationID, virtualFolderTransformsID, completionEvent):
+  def align(self, segmentationID, virtualFolderTransformsID):
     """
     Aligns and translates the 3D segmentation according to the transformation data.
     :param segmentationID: subject hierarchy ID of the 3D segmentation
@@ -778,17 +848,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # upon the ROI of the 2D image.
     segmentationNode.SetAndObserveTransformNodeID(transformNode.GetID())
 
-    # If this is the last image to be aligned, set playing to False
-    if self.currentImageIndex == (shNode.GetNumberOfItemChildren(virtualFolderTransformsID) - 1):
-      self.playing = False
-      self.atLastImage = True
-
     # Render changes
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
-
-    # Invoke completion event and use artificial pause to let the user recognize the alignment
-    self.timer.singleShot(self.delay, lambda: slicer.mrmlScene.InvokeEvent(completionEvent))
 
   def resetState(self, segmentationID):
     """
@@ -797,8 +859,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     :param segmentationID: subject hierarchy ID of the 3D segmentation (empty string if N/A)
     """
     self.playing = False
-    self.atLastImage = False
-    self.currentImageIndex = 0
+    self.currentImageIndex = None
 
     # Clear slice views
     layoutManager = slicer.app.layoutManager()
@@ -819,6 +880,26 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
+
+  def atFirstImage(self):
+    """
+    Returns whether we are at the first image of the playback sequence.
+    """
+    # If no image has been shown yet (i.e the index is None) we default to True
+    if self.currentImageIndex is None:
+      return True
+    else:
+      return self.currentImageIndex == 0
+
+  def atLastImage(self):
+    """
+    Returns whether we are at the last image of the playback squence.
+    """
+    # If no image has been shown yet (i.e. the index is None) we default to False
+    if self.currentImageIndex is None:
+      return False
+    else:
+      return self.currentImageIndex == (self.totalImages - 1)
 
 #
 # TrackTest
