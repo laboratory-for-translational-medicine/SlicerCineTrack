@@ -393,6 +393,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         nodeID = int(self._parameterNode.GetParameter("3DSegmentationNode"))
         shNode.RemoveItem(nodeID)
         self._parameterNode.UnsetParameter("3DSegmentationNode")
+        if self._parameterNode.GetParameter("3DSegmentationLabelMap"):
+          labelMapID = int(self._parameterNode.GetParameter("3DSegmentationLabelMap"))
+          shNode.RemoveItem(labelMapID)
+          self._parameterNode.UnsetParameter("3DSegmentationLabelMap")
 
       # Set a param to hold the path to the 3D segmentation file
       self._parameterNode.SetParameter("3DSegmentationPath", self.selector3DSegmentation.currentPath)
@@ -406,6 +410,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set a param to hold the 3D segmentation node ID within the subject hierarchy
         nodeID = shNode.GetItemByDataNode(segmentationNode)
         self._parameterNode.SetParameter("3DSegmentationNode", str(nodeID))
+
+        # Create a label map of the 3D segmentation that will be used to define the mask overlayed
+        # on the 2D images during playback
+        volumesModuleLogic = slicer.modules.volumes.logic()
+        segmentationLabelMap = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode',
+                                                                  "3D Segmentation Label Map")
+        volumesModuleLogic.CreateLabelVolumeFromVolume(slicer.mrmlScene, segmentationLabelMap,
+                                                       segmentationNode)
+        # Set a param to hold the 3D segmentation label map ID
+        labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
+        self._parameterNode.SetParameter("3DSegmentationLabelMap", str(labelMapID))
       else:
         slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
                                    "The file was not loaded into 3D Slicer.", "Input Error")
