@@ -286,6 +286,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     if inputParameterNode:
       self.logic.setDefaultParameters(inputParameterNode)
+      # If the provided parameter node indicates that we had already loaded the 2D images, note the
+      # total images amount within the corresponding variable, as it may have been lost on reload.
+      if inputParameterNode.GetParameter("VirtualFolder2DImages"):
+        shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+        folderID = int(inputParameterNode.GetParameter("VirtualFolder2DImages"))
+        self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
 
     # Unobserve previously selected parameter node and add an observer to the newly selected.
     # Changes of parameter node are observed so that whenever parameters are changed by a script or any other module
@@ -382,6 +388,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
         # the 2D time-series images
         self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID))
+        # Track the number of total images within the variable totalImages
         self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
       else:
         slicer.util.warningDisplay("No image files were found within the folder: "
