@@ -315,7 +315,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # We strictly only want to reset the visuals/state if the parameter node has been modified.
     # Whereas updateGUIFromParamterNode() can be called when the module is reloaded or reopened.
     if event == "ModifiedEvent":
-      self.logic.resetState(self._parameterNode.GetParameter("3DSegmentationNode"))
+      self.logic.resetState(self._parameterNode.GetParameter("3DSegmentationLabelMap"))
 
     self.selector2DImagesFolder.currentPath = self._parameterNode.GetParameter("2DImagesFolder")
     self.selector3DSegmentation.currentPath = self._parameterNode.GetParameter("3DSegmentationPath")
@@ -393,6 +393,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         nodeID = int(self._parameterNode.GetParameter("3DSegmentationNode"))
         shNode.RemoveItem(nodeID)
         self._parameterNode.UnsetParameter("3DSegmentationNode")
+        if self._parameterNode.GetParameter("3DSegmentationLabelMap"):
+          labelMapID = int(self._parameterNode.GetParameter("3DSegmentationLabelMap"))
+          shNode.RemoveItem(labelMapID)
+          self._parameterNode.UnsetParameter("3DSegmentationLabelMap")
 
       # Set a param to hold the path to the 3D segmentation file
       self._parameterNode.SetParameter("3DSegmentationPath", self.selector3DSegmentation.currentPath)
@@ -406,6 +410,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set a param to hold the 3D segmentation node ID within the subject hierarchy
         nodeID = shNode.GetItemByDataNode(segmentationNode)
         self._parameterNode.SetParameter("3DSegmentationNode", str(nodeID))
+
+        # Create a label map of the 3D segmentation that will be used to define the mask overlayed
+        # on the 2D images during playback
+        volumesModuleLogic = slicer.modules.volumes.logic()
+        segmentationLabelMap = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode',
+                                                                  "3D Segmentation Label Map")
+        volumesModuleLogic.CreateLabelVolumeFromVolume(slicer.mrmlScene, segmentationLabelMap,
+                                                       segmentationNode)
+        # Set a param to hold the 3D segmentation label map ID
+        labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
+        self._parameterNode.SetParameter("3DSegmentationLabelMap", str(labelMapID))
       else:
         slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
                                    "The file was not loaded into 3D Slicer.", "Input Error")
@@ -598,7 +613,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.logic.currentImageIndex += 1
 
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationNode")))
+                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
 
     # Invoke completion event and use artificial pause to let user recognize the visualization
     self.logic.timer.singleShot(self.logic.delay,
@@ -629,8 +644,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.logic.currentImageIndex += 1
 
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationNode")))
-    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationNode")),
+                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
+    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
                      int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
 
     self.updatePlaybackButtons(True)
@@ -646,8 +661,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.logic.currentImageIndex -= 1
 
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationNode")))
-    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationNode")),
+                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
+    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
                      int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
 
     self.updatePlaybackButtons(True)
@@ -657,7 +672,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Function invoked when the visualization of the image data (2D image + 3D segmentation) is
     complete.
     """
-    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationNode")),
+    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
                      int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
 
     # Invoke completion event and use artificial pause to let the user recognize the alignment
@@ -674,7 +689,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.logic.playing and not self.logic.atLastImage():
       self.logic.currentImageIndex += 1
       self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                           int(self._parameterNode.GetParameter("3DSegmentationNode")))
+                           int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
 
       # Invoke completion event and use artificial pause to let user recognize the visualization
       self.logic.timer.singleShot(self.logic.delay,
@@ -755,12 +770,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     #if not parameterNode.GetParameter("Invert"):
     #  parameterNode.SetParameter("Invert", "false")
 
-  def visualize(self, virtualFolderImagesID, segmentationID):
+  def visualize(self, virtualFolderImagesID, segmentationLabelMapID):
     """
     Visualizes the image data (2D image and 3D segmentation) within the 3D Slicer views (slice view
     and 3D view). No alignment is done at this step.
     :param virtualFolderImagesID: subject hierarchy ID of the virtual folder containing the 2D images
-    :param segmentationID: subject hierarchy ID of the 3D segmentation
+    :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
     :param completionEvent: event to invoke on visualization completion
     """
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
@@ -768,11 +783,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     imageID = shNode.GetItemByPositionUnderParent(virtualFolderImagesID, self.currentImageIndex)
     imageNode = shNode.GetItemDataNode(imageID)
-    segmentationNode = shNode.GetItemDataNode(segmentationID)
+    labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
 
     # Make the 3D segmentation visible in the 3D view
     tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
-    tmpIdList.InsertNextId(segmentationID)
+    tmpIdList.InsertNextId(segmentationLabelMapID)
     threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
     shNode.ShowItemsInView(tmpIdList, threeDViewNode)
 
@@ -803,9 +818,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
     sliceCompositeNode.SetBackgroundVolumeID(imageNode.GetID())
 
-    # Make the 3D segmentation visible as an overlay in the slice view
-    sliceCompositeNode.SetForegroundVolumeID(segmentationNode.GetID())
-    sliceCompositeNode.SetForegroundOpacity(0.2)
+    # Make the 3D segmentation label map visible as a label map layer in the slice view
+    sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
+    sliceCompositeNode.SetLabelOpacity(0.4)
 
     # Fit the 2D image in the slice view for a neater look
     sliceWidget.fitSliceToBackground()
@@ -831,32 +846,32 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
 
-  def align(self, segmentationID, virtualFolderTransformsID):
+  def align(self, segmentationLabelMapID, virtualFolderTransformsID):
     """
-    Aligns and translates the 3D segmentation according to the transformation data.
-    :param segmentationID: subject hierarchy ID of the 3D segmentation
+    Aligns and translates the 3D segmentation label map according to the transformation data.
+    :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
     :param virtualFolderTransformsID: subject hierarchy ID of the virtual folder containing the transforms
     :param completionEvent: event to invoke on alignment completion
     """
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
-    segmentationNode = shNode.GetItemDataNode(segmentationID)
+    labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
     transformID = shNode.GetItemByPositionUnderParent(virtualFolderTransformsID, self.currentImageIndex)
     transformNode = shNode.GetItemDataNode(transformID)
 
-    # Translate the 3D segmentation using the transform data so that the 3D segmentation overlays
-    # upon the ROI of the 2D image.
-    segmentationNode.SetAndObserveTransformNodeID(transformNode.GetID())
+    # Translate the 3D segmentation label map using the transform data so that the 3D segmentation
+    # label map overlays upon the ROI of the 2D image.
+    labelMapNode.SetAndObserveTransformNodeID(transformNode.GetID())
 
     # Render changes
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
 
-  def resetState(self, segmentationID):
+  def resetState(self, segmentationLabelMapID):
     """
     Resets the visual state of the 3D Slicer views, as well as the logical state (restarts playback
     from the beginning). This function is called when a parameter/input is changed.
-    :param segmentationID: subject hierarchy ID of the 3D segmentation (empty string if N/A)
+    :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
     """
     self.playing = False
     self.currentImageIndex = None
@@ -873,10 +888,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       sliceCompositeNode.SetBackgroundVolumeID("None")
       sliceCompositeNode.SetForegroundVolumeID("None")
 
-    # Clear segmentation from 3D view (only needed if the segmentation exists)
-    if segmentationID:
+    # Clear segmentation label map from 3D view (only if the label map exists)
+    if segmentationLabelMapID:
       shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-      shNode.SetItemDisplayVisibility(int(segmentationID), 0)
+      shNode.SetItemDisplayVisibility(int(segmentationLabelMapID), 0)
 
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
