@@ -804,31 +804,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
     shNode.ShowItemsInView(tmpIdList, threeDViewNode)
 
-    # Note the orientation of the image
-    tmpMatrix = vtk.vtkMatrix4x4()
-    imageNode.GetIJKToRASMatrix(tmpMatrix)
-    scanOrder = imageNode.ComputeScanOrderFromIJKToRAS(tmpMatrix)
+    sliceWidget = self.getSliceWidget(layoutManager, imageNode)
 
-    if scanOrder == "LR" or scanOrder == "RL":
-      imageOrientation = "Sagittal"
-    elif scanOrder == "AP" or scanOrder == "PA":
-      imageOrientation = "Coronal"
-    else:
-      print(f"Error: Unexpected image scan order {scanOrder}.")
-      exit(1)
-
-    # Find the slice widget that has the same orientation as the image
-    sliceWidget = None
+    # We also clear any text in the slice view corners that may have been left over
     for name in layoutManager.sliceViewNames():
-      widget = layoutManager.sliceWidget(name)
-      if widget.sliceOrientation == imageOrientation:
-        sliceWidget = widget
-      # We also clear any text in the slice view corner that may have been left over
-      widget.sliceView().cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "")
-
-    if not sliceWidget:
-      print(f"Error: A slice with the {imageOrientation} orientation was not found.")
-      exit(1)
+      view = layoutManager.sliceWidget(name).sliceView()
+      view.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "")
 
     # Make the 2D image visible in the slice view
     sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
@@ -853,9 +834,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     # Move 3D view camera/perspective to have a better view of the current image
     threeDViewController = layoutManager.threeDWidget(threeDViewNode.GetName()).threeDController()
-    if imageOrientation == "Sagittal":
+    if sliceWidget.sliceOrientation == "Sagittal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Left)
-    elif imageOrientation == "Coronal":
+    elif sliceWidget.sliceOrientation == "Coronal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Anterior)
 
     # Place "Pre Alignment" text in slice view corner
@@ -886,30 +867,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # label map overlays upon the ROI of the 2D image.
     labelMapNode.SetAndObserveTransformNodeID(transformNode.GetID())
 
-    # Note the orientation of the image
-    tmpMatrix = vtk.vtkMatrix4x4()
-    imageNode.GetIJKToRASMatrix(tmpMatrix)
-    scanOrder = imageNode.ComputeScanOrderFromIJKToRAS(tmpMatrix)
-
-    if scanOrder == "LR" or scanOrder == "RL":
-      imageOrientation = "Sagittal"
-    elif scanOrder == "AP" or scanOrder == "PA":
-      imageOrientation = "Coronal"
-    else:
-      print(f"Error: Unexpected image scan order {scanOrder}.")
-      exit(1)
-
-    # Find the slice widget that has the same orientation as the image
-    sliceWidget = None
-    for name in layoutManager.sliceViewNames():
-      if layoutManager.sliceWidget(name).sliceOrientation == imageOrientation:
-        sliceWidget = layoutManager.sliceWidget(name)
-
-    if not sliceWidget:
-      print(f"Error: A slice with the {imageOrientation} orientation was not found.")
-      exit(1)
-
     # Place "Post Alignment" text in slice view corner
+    sliceWidget = self.getSliceWidget(layoutManager, imageNode)
     sliceView = sliceWidget.sliceView()
     sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Post Alignment")
 
@@ -965,6 +924,38 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       return False
     else:
       return self.currentImageIndex == (self.totalImages - 1)
+
+  def getSliceWidget(self, layoutManager, imageNode):
+    """
+    This function helps to determine the slice widget that corresponds to the orientation of the
+    provided image. (i.e. the slice widget that would display the image)
+    :param layoutManager: node representing the MRML layout manager
+    :param imageNode: node representing the 2D image
+    """
+    # Determine the orientation of the image
+    tmpMatrix = vtk.vtkMatrix4x4()
+    imageNode.GetIJKToRASMatrix(tmpMatrix)
+    scanOrder = imageNode.ComputeScanOrderFromIJKToRAS(tmpMatrix)
+
+    if scanOrder == "LR" or scanOrder == "RL":
+      imageOrientation = "Sagittal"
+    elif scanOrder == "AP" or scanOrder == "PA":
+      imageOrientation = "Coronal"
+    else:
+      print(f"Error: Unexpected image scan order {scanOrder}.")
+      exit(1)
+
+    # Find the slice widget that has the same orientation as the image
+    sliceWidget = None
+    for name in layoutManager.sliceViewNames():
+      if layoutManager.sliceWidget(name).sliceOrientation == imageOrientation:
+        sliceWidget = layoutManager.sliceWidget(name)
+
+    if not sliceWidget:
+      print(f"Error: A slice with the {imageOrientation} orientation was not found.")
+      exit(1)
+
+    return sliceWidget
 
 #
 # TrackTest
