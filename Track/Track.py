@@ -653,7 +653,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
                          int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
     self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
+                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")),
+                     int(self._parameterNode.GetParameter("VirtualFolder2DImages")))
 
     self.updatePlaybackButtons(True)
 
@@ -670,7 +671,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
                          int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
     self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
+                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")),
+                     int(self._parameterNode.GetParameter("VirtualFolder2DImages")))
 
     self.updatePlaybackButtons(True)
 
@@ -680,7 +682,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     complete.
     """
     self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
+                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")),
+                     int(self._parameterNode.GetParameter("VirtualFolder2DImages")))
 
     # Invoke completion event and use artificial pause to let the user recognize the alignment
     self.logic.timer.singleShot(self.logic.delay,
@@ -783,7 +786,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     and 3D view). No alignment is done at this step.
     :param virtualFolderImagesID: subject hierarchy ID of the virtual folder containing the 2D images
     :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
-    :param completionEvent: event to invoke on visualization completion
     """
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
     layoutManager = slicer.app.layoutManager()
@@ -792,34 +794,22 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     imageNode = shNode.GetItemDataNode(imageID)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
 
+    # Remove any transformation currently being applied to the 3D segmentation. This allows us to
+    # see the default overlay of the 3D segmentation over the current 2D image.
+    labelMapNode.SetAndObserveTransformNodeID(None)
+
     # Make the 3D segmentation visible in the 3D view
     tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
     tmpIdList.InsertNextId(segmentationLabelMapID)
     threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
     shNode.ShowItemsInView(tmpIdList, threeDViewNode)
 
-    # Note the orientation of the image
-    tmpMatrix = vtk.vtkMatrix4x4()
-    imageNode.GetIJKToRASMatrix(tmpMatrix)
-    scanOrder = imageNode.ComputeScanOrderFromIJKToRAS(tmpMatrix)
+    sliceWidget = self.getSliceWidget(layoutManager, imageNode)
 
-    if scanOrder == "LR" or scanOrder == "RL":
-      imageOrientation = "Sagittal"
-    elif scanOrder == "AP" or scanOrder == "PA":
-      imageOrientation = "Coronal"
-    else:
-      print(f"Error: Unexpected image scan order {scanOrder}.")
-      exit(1)
-
-    # Find the slice widget that has the same orientation as the image
-    sliceWidget = None
+    # We also clear any text in the slice view corners that may have been left over
     for name in layoutManager.sliceViewNames():
-      if layoutManager.sliceWidget(name).sliceOrientation == imageOrientation:
-        sliceWidget = layoutManager.sliceWidget(name)
-
-    if not sliceWidget:
-      print(f"Error: A slice with the {imageOrientation} orientation was not found.")
-      exit(1)
+      view = layoutManager.sliceWidget(name).sliceView()
+      view.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "")
 
     # Make the 2D image visible in the slice view
     sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
@@ -844,31 +834,43 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     # Move 3D view camera/perspective to have a better view of the current image
     threeDViewController = layoutManager.threeDWidget(threeDViewNode.GetName()).threeDController()
-    if imageOrientation == "Sagittal":
+    if sliceWidget.sliceOrientation == "Sagittal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Left)
-    elif imageOrientation == "Coronal":
+    elif sliceWidget.sliceOrientation == "Coronal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Anterior)
+
+    # Place "Pre Alignment" text in slice view corner
+    sliceView = sliceWidget.sliceView()
+    sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Pre Alignment")
 
     # Render changes
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
 
-  def align(self, segmentationLabelMapID, virtualFolderTransformsID):
+  def align(self, segmentationLabelMapID, virtualFolderTransformsID, virtualFolderImagesID):
     """
     Aligns and translates the 3D segmentation label map according to the transformation data.
     :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
     :param virtualFolderTransformsID: subject hierarchy ID of the virtual folder containing the transforms
-    :param completionEvent: event to invoke on alignment completion
+    :param virtualFolderImagesID: subject hierarchy ID of the virtual folder containing the 2D images
     """
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+    layoutManager = slicer.app.layoutManager()
 
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
     transformID = shNode.GetItemByPositionUnderParent(virtualFolderTransformsID, self.currentImageIndex)
     transformNode = shNode.GetItemDataNode(transformID)
+    imageID = shNode.GetItemByPositionUnderParent(virtualFolderImagesID, self.currentImageIndex)
+    imageNode = shNode.GetItemDataNode(imageID)
 
     # Translate the 3D segmentation label map using the transform data so that the 3D segmentation
     # label map overlays upon the ROI of the 2D image.
     labelMapNode.SetAndObserveTransformNodeID(transformNode.GetID())
+
+    # Place "Post Alignment" text in slice view corner
+    sliceWidget = self.getSliceWidget(layoutManager, imageNode)
+    sliceView = sliceWidget.sliceView()
+    sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Post Alignment")
 
     # Render changes
     slicer.util.forceRenderAllViews()
@@ -922,6 +924,38 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       return False
     else:
       return self.currentImageIndex == (self.totalImages - 1)
+
+  def getSliceWidget(self, layoutManager, imageNode):
+    """
+    This function helps to determine the slice widget that corresponds to the orientation of the
+    provided image. (i.e. the slice widget that would display the image)
+    :param layoutManager: node representing the MRML layout manager
+    :param imageNode: node representing the 2D image
+    """
+    # Determine the orientation of the image
+    tmpMatrix = vtk.vtkMatrix4x4()
+    imageNode.GetIJKToRASMatrix(tmpMatrix)
+    scanOrder = imageNode.ComputeScanOrderFromIJKToRAS(tmpMatrix)
+
+    if scanOrder == "LR" or scanOrder == "RL":
+      imageOrientation = "Sagittal"
+    elif scanOrder == "AP" or scanOrder == "PA":
+      imageOrientation = "Coronal"
+    else:
+      print(f"Error: Unexpected image scan order {scanOrder}.")
+      exit(1)
+
+    # Find the slice widget that has the same orientation as the image
+    sliceWidget = None
+    for name in layoutManager.sliceViewNames():
+      if layoutManager.sliceWidget(name).sliceOrientation == imageOrientation:
+        sliceWidget = layoutManager.sliceWidget(name)
+
+    if not sliceWidget:
+      print(f"Error: A slice with the {imageOrientation} orientation was not found.")
+      exit(1)
+
+    return sliceWidget
 
 #
 # TrackTest
