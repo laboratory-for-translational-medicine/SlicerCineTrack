@@ -483,6 +483,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Create a folder to hold the transform nodes
     sceneID = shNode.GetSceneItemID()
     transformsVirtualFolderID = shNode.CreateFolderItem(sceneID, "Transforms")
+    progressDialog = qt.QProgressDialog("Creating Transform Nodes From Transformation Data", "Cancel",
+                                        0, numImages)
+    progressDialog.minimumDuration = 0
+    progressCount = 0
 
     for i in range(numImages):
       imageID = imagesIDs[i]
@@ -521,6 +525,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # Add the transform node to the transform nodes virtual folder
       transformNodeID = shNode.GetItemByDataNode(transformNode)
       shNode.SetItemParent(transformNodeID, transformsVirtualFolderID)
+
+      progressCount += 1
+      progressDialog.setValue(progressCount)
+      slicer.util.forceRenderAllViews()
+      slicer.app.processEvents()
 
     print(f"{len(transforms)} transforms were loaded into 3D Slicer as transform nodes")
     return transformsVirtualFolderID
@@ -580,6 +589,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if len(imageFiles) != 0:
       sceneID = shNode.GetSceneItemID()
       folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
+      progressDialog = qt.QProgressDialog("Loading 2D Images Into 3D Slicer", "Cancel",
+                                          0, len(imageFiles))
+      progressDialog.minimumDuration = 0
+      progressCount = 0
 
       print(f"{len(imageFiles)} 2D time-series images will be loaded into 3D Slicer")
 
@@ -589,6 +602,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Place image into the virtual folder
         imageID = shNode.GetItemByDataNode(loadedImageNode)
         shNode.SetItemParent(imageID, folderID)
+        progressCount += 1
+        progressDialog.setValue(progressCount)
+        slicer.util.forceRenderAllViews()
+        slicer.app.processEvents()
 
       # We do the following to clear the view of the slices. I expected {"show": False} to
       # prevent anything from being shown at all, but the first loaded image will appear in the
