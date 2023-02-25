@@ -139,16 +139,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
     self.controlLayout.addWidget(self.stopSequenceButton)
 
-    # Fps label and spinbox
+    # FPS label and spinbox
     fpsLabel = qt.QLabel("FPS:")
     fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
     self.controlLayout.addWidget(fpsLabel)
 
-    self.fps = qt.QSpinBox()
-    self.fps.minimum = 1
-    self.fps.maximum = 24
-    self.fps.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.fps)
+    self.fpsInputBox = qt.QSpinBox()
+    self.fpsInputBox.minimum = 1
+    self.fpsInputBox.maximum = 30
+    self.fpsInputBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
+    self.controlLayout.addWidget(self.fpsInputBox)
 
     # Increment and Decrement frame button
     self.changeFrameWidget = qt.QWidget()
@@ -209,6 +209,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
     self.incrementFrame.connect("clicked(bool)", self.onIncrement)
     self.decrementFrame.connect("clicked(bool)", self.onDecrement)
+    self.fpsInputBox.connect("valueChanged(int)", self.onFPSChange)
     self.sequenceSlider.connect("valueChanged(int)",
                                 lambda: self.sequenceFrameLabel.setText(self.sequenceSlider.value))
 
@@ -757,6 +758,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.stopSequenceButton.enabled = False
       self.incrementFrame.enabled = False
       self.decrementFrame.enabled = False
+
+  def onFPSChange(self):
+    """
+    """
+    self.logic.delay = 1000 / self.fpsInputBox.value
+    print(self.logic.delay)
 
 #
 # TrackLogic
