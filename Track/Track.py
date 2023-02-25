@@ -169,23 +169,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.changeFrameLayout.addWidget(self.incrementFrame)
 
     # Sequence Slider
-    # self.sliderWidget = qt.QWidget()
-    # self.sliderLayout = qt.QHBoxLayout()
-    # self.sliderWidget.setLayout(self.sliderLayout)
-    # self.sequenceFormLayout.addWidget(self.sliderWidget)
-    
-    # 0x1 is horizontal, for some reason qt.Horizontal doesn't work, so we use the literal here
-    self.sequenceSlider = qt.QSlider(0x1)
-    self.sequenceSlider.enabled = True
+    self.sequenceSlider = qt.QSlider(qt.Qt.Horizontal)
+    self.sequenceSlider.enabled = False
     self.sequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
-    # self.sequenceSlider.setSizePolicy(qt.QSizePolicy.setHorizontalStretch(0))
-    # self.sequenceSlider.setSizePolicy(qt.QSizePolicy.setVerticalStretch(0))
+    self.sequenceSlider.setMinimum(1)
+    self.sequenceSlider.setSingleStep(1)
     self.changeFrameLayout.addWidget(self.sequenceSlider)
 
-    self.sequenceFrame = qt.QLabel("0.0s")
-    self.sequenceFrame.enabled = True
-    self.sequenceFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.changeFrameLayout.addWidget(self.sequenceFrame)
+    self.sequenceFrameLabel = qt.QLabel("1")
+    self.sequenceFrameLabel.enabled = True
+    self.sequenceFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.changeFrameLayout.addWidget(self.sequenceFrameLabel)
 
     #
     # End GUI
@@ -215,6 +209,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
     self.incrementFrame.connect("clicked(bool)", self.onIncrement)
     self.decrementFrame.connect("clicked(bool)", self.onDecrement)
+    self.sequenceSlider.connect("valueChanged(int)",
+                                lambda: self.sequenceFrameLabel.setText(self.sequenceSlider.value))
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
@@ -292,6 +288,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
         folderID = int(inputParameterNode.GetParameter("VirtualFolder2DImages"))
         self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
+        self.sequenceSlider.setMaximum(self.logic.totalImages)
 
     # Unobserve previously selected parameter node and add an observer to the newly selected.
     # Changes of parameter node are observed so that whenever parameters are changed by a script or any other module
@@ -367,7 +364,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         folderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
         shNode.RemoveItem(folderID) # this will remove any children nodes as well
         self._parameterNode.UnsetParameter("VirtualFolder2DImages")
+        # Also reset our total images count
         self.logic.totalImages = None
+        self.sequenceSlider.setValue(1)
 
       # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
       # if the path changes, we want to remove any transforms related information. The user should
@@ -390,6 +389,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID))
         # Track the number of total images within the variable totalImages
         self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
+        self.sequenceSlider.setMaximum(self.logic.totalImages)
       else:
         slicer.util.warningDisplay("No image files were found within the folder: "
                                    f"{self.selector2DImagesFolder.currentPath}", "Input Error")
@@ -619,6 +619,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     else:
       self.logic.currentImageIndex += 1
 
+    # Update the sequence slider value to indicate the image number we are at
+    self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
+
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
                          int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
 
@@ -650,6 +653,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     else:
       self.logic.currentImageIndex += 1
 
+    # Update the sequence slider value to indicate the image number we are at
+    self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
+
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
                          int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
     self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
@@ -667,6 +673,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       return
     else:
       self.logic.currentImageIndex -= 1
+
+    # Update the sequence slider value to indicate the image number we are at
+    self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
 
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
                          int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
@@ -698,6 +707,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Begin the next image's visualization, only if we are playing and not at the last image
     if self.logic.playing and not self.logic.atLastImage():
       self.logic.currentImageIndex += 1
+
+      # Update the sequence slider value to indicate the image number we are at
+      self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
+
       self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
                            int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
 
