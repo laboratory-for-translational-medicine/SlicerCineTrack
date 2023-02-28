@@ -699,7 +699,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic.timer.singleShot(self.logic.delay,
                                 lambda: slicer.mrmlScene.InvokeEvent(self.AlignmentEvent))
 
-
   def onAlignmentComplete(self, caller, event):
     """
     Function invoked when the alignment of the 3D segmentation using the transformation data is
@@ -761,9 +760,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def onFPSChange(self):
     """
+    This function updates our delay value according to what is within the FPS input box. A frame
+    is considered as every time the program pauses to show the user the something in the GUI. These
+    pauses occurs in two places during playback: after visualize() and after align().
     """
     self.logic.delay = 1000 / self.fpsInputBox.value
-    print(self.logic.delay)
 
 #
 # TrackLogic
