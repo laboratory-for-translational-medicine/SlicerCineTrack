@@ -483,6 +483,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Create a folder to hold the transform nodes
     sceneID = shNode.GetSceneItemID()
     transformsVirtualFolderID = shNode.CreateFolderItem(sceneID, "Transforms")
+
+    # Create a progress/loading bar to display the progress of the node creation process
     progressDialog = qt.QProgressDialog("Creating Transform Nodes From Transformation Data", "Cancel",
                                         0, numImages)
     progressDialog.minimumDuration = 0
@@ -526,8 +528,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       transformNodeID = shNode.GetItemByDataNode(transformNode)
       shNode.SetItemParent(transformNodeID, transformsVirtualFolderID)
 
+      # Update how far we are in the progress bar
       progressCount += 1
       progressDialog.setValue(progressCount)
+
+      # This render step is needed for the progress bar to visually update in the GUI
       slicer.util.forceRenderAllViews()
       slicer.app.processEvents()
 
@@ -589,6 +594,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if len(imageFiles) != 0:
       sceneID = shNode.GetSceneItemID()
       folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
+
+      # Create a progress/loading bar to display the progress of the images loading process
       progressDialog = qt.QProgressDialog("Loading 2D Images Into 3D Slicer", "Cancel",
                                           0, len(imageFiles))
       progressDialog.minimumDuration = 0
@@ -602,8 +609,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Place image into the virtual folder
         imageID = shNode.GetItemByDataNode(loadedImageNode)
         shNode.SetItemParent(imageID, folderID)
+
+        #  Update how far we are in the progress bar
         progressCount += 1
         progressDialog.setValue(progressCount)
+
+        # This render step is needed for the progress bar to visually update in the GUI
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
 
