@@ -485,6 +485,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     sceneID = shNode.GetSceneItemID()
     transformsVirtualFolderID = shNode.CreateFolderItem(sceneID, "Transforms")
 
+    # Create a progress/loading bar to display the progress of the node creation process
+    progressDialog = qt.QProgressDialog("Creating Transform Nodes From Transformation Data", "Cancel",
+                                        0, numImages)
+    progressDialog.minimumDuration = 0
+    progressCount = 0
+
     for i in range(numImages):
       imageID = imagesIDs[i]
       imageNode = shNode.GetItemDataNode(imageID)
@@ -522,6 +528,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # Add the transform node to the transform nodes virtual folder
       transformNodeID = shNode.GetItemByDataNode(transformNode)
       shNode.SetItemParent(transformNodeID, transformsVirtualFolderID)
+
+      # Update how far we are in the progress bar
+      progressCount += 1
+      progressDialog.setValue(progressCount)
+
+      # This render step is needed for the progress bar to visually update in the GUI
+      slicer.util.forceRenderAllViews()
+      slicer.app.processEvents()
 
     print(f"{len(transforms)} transforms were loaded into 3D Slicer as transform nodes")
     return transformsVirtualFolderID
@@ -582,6 +596,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sceneID = shNode.GetSceneItemID()
       folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
 
+      # Create a progress/loading bar to display the progress of the images loading process
+      progressDialog = qt.QProgressDialog("Loading 2D Images Into 3D Slicer", "Cancel",
+                                          0, len(imageFiles))
+      progressDialog.minimumDuration = 0
+      progressCount = 0
+
       print(f"{len(imageFiles)} 2D time-series images will be loaded into 3D Slicer")
 
       for file in imageFiles:
@@ -590,6 +610,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Place image into the virtual folder
         imageID = shNode.GetItemByDataNode(loadedImageNode)
         shNode.SetItemParent(imageID, folderID)
+
+        #  Update how far we are in the progress bar
+        progressCount += 1
+        progressDialog.setValue(progressCount)
+
+        # This render step is needed for the progress bar to visually update in the GUI
+        slicer.util.forceRenderAllViews()
+        slicer.app.processEvents()
 
       # We do the following to clear the view of the slices. I expected {"show": False} to
       # prevent anything from being shown at all, but the first loaded image will appear in the
