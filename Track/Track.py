@@ -163,6 +163,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceFormLayout.addWidget(self.controlWidget)
     # self.controlWidget.setStyleSheet("color: red")
 
+    iconSize = qt.QSize(14, 14)
+    buttonSize = qt.QSize(60, 30)
     mediaIconsPath = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
                                   'Resources', 'Icons', 'media-control-icons')
 
@@ -170,40 +172,40 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.previousFrameButton = qt.QPushButton()
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'previous.png'))
     self.previousFrameButton.setIcon(icon)
-    self.previousFrameButton.setIconSize(qt.QSize(10, 10))
+    self.previousFrameButton.setIconSize(iconSize)
     self.previousFrameButton.enabled = False
     self.previousFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
-    self.previousFrameButton.setFixedSize(qt.QSize(60, 30))
+    self.previousFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.previousFrameButton)
 
     # Next frame/image button
     self.nextFrameButton = qt.QPushButton()
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'next.png'))
     self.nextFrameButton.setIcon(icon)
-    self.nextFrameButton.setIconSize(qt.QSize(10, 10))
+    self.nextFrameButton.setIconSize(iconSize)
     self.nextFrameButton.enabled = False
     self.nextFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
-    self.nextFrameButton.setFixedSize(qt.QSize(60, 30))
+    self.nextFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.nextFrameButton)
 
     # Play button
     self.playSequenceButton = qt.QPushButton()
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
     self.playSequenceButton.setIcon(icon)
-    self.playSequenceButton.setIconSize(qt.QSize(10, 10))
+    self.playSequenceButton.setIconSize(iconSize)
     self.playSequenceButton.enabled = False
     self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
-    self.playSequenceButton.setFixedSize(qt.QSize(60, 30))
+    self.playSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.playSequenceButton)
     
     # Stop button
     self.stopSequenceButton = qt.QPushButton()
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'stop.png'))
     self.stopSequenceButton.setIcon(icon)
-    self.stopSequenceButton.setIconSize(qt.QSize(10, 10))
+    self.stopSequenceButton.setIconSize(iconSize)
     self.stopSequenceButton.enabled = False
     self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
-    self.stopSequenceButton.setFixedSize(qt.QSize(60, 30))
+    self.stopSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.stopSequenceButton)
 
     # FPS label and spinbox
