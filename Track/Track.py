@@ -120,66 +120,106 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Layout within the dummy collapsible button
     self.sequenceFormLayout = qt.QFormLayout(sequenceCollapsibleButton)
-    
-    # Control layout
-    self.controlWidget = qt.QWidget()
-    self.controlLayout = qt.QHBoxLayout()
-    self.controlWidget.setLayout(self.controlLayout)
-    self.sequenceFormLayout.addWidget(self.controlWidget)
 
-    # Play button
-    self.playSequenceButton = qt.QPushButton("Play")
-    self.playSequenceButton.enabled = False
-    self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.playSequenceButton)
-    
-    # Stop button
-    self.stopSequenceButton = qt.QPushButton("Stop")
-    self.stopSequenceButton.enabled = False
-    self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.stopSequenceButton)
+    # Sequence layout
+    self.sliderWidget = qt.QWidget()
+    self.sliderWidget.setMinimumHeight(50)
+    self.sliderLayout = qt.QHBoxLayout()
+    self.sliderWidget.setLayout(self.sliderLayout)
+    self.sequenceFormLayout.addWidget(self.sliderWidget)
 
-    # FPS label and spinbox
-    fpsLabel = qt.QLabel("FPS:")
-    fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(fpsLabel)
-
-    self.fpsInputBox = qt.QSpinBox()
-    self.fpsInputBox.minimum = 1
-    self.fpsInputBox.maximum = 30
-    self.fpsInputBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Minimum)
-    self.controlLayout.addWidget(self.fpsInputBox)
-
-    # Increment and Decrement frame button
-    self.changeFrameWidget = qt.QWidget()
-    self.changeFrameLayout = qt.QHBoxLayout()
-    self.changeFrameWidget.setLayout(self.changeFrameLayout)
-    self.sequenceFormLayout.addRow(self.changeFrameWidget)
-
-    # Decrease Frame
-    self.decrementFrame = qt.QPushButton("⯇")
-    self.decrementFrame.enabled = False
-    self.decrementFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Minimum)
-    self.changeFrameLayout.addWidget(self.decrementFrame)
-
-    # Increase Frame
-    self.incrementFrame = qt.QPushButton("⯈")
-    self.incrementFrame.enabled = False
-    self.incrementFrame.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
-    self.changeFrameLayout.addWidget(self.incrementFrame)
-
-    # Sequence Slider
+    # Sequence slider
     self.sequenceSlider = qt.QSlider(qt.Qt.Horizontal)
     self.sequenceSlider.enabled = False
     self.sequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     self.sequenceSlider.setMinimum(1)
     self.sequenceSlider.setSingleStep(1)
-    self.changeFrameLayout.addWidget(self.sequenceSlider)
+    self.sliderLayout.addWidget(self.sequenceSlider)
 
-    self.sequenceFrameLabel = qt.QLabel("1")
-    self.sequenceFrameLabel.enabled = True
-    self.sequenceFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.changeFrameLayout.addWidget(self.sequenceFrameLabel)
+    # Current image/frame spinbox
+    self.currentFrameInputBox = qt.QSpinBox()
+    self.currentFrameInputBox.enabled = False
+    self.currentFrameInputBox.minimum = 1
+    self.currentFrameInputBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+    self.sliderLayout.addWidget(self.currentFrameInputBox)
+
+    # The labels should be changed in the future such that we show: Image __ of __
+
+    #self.divisionFrameLabel = qt.QLabel("/")
+    #self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+    #self.sliderLayout.addWidget(self.divisionFrameLabel)
+    # this label will show total number of images
+    #self.totalFrameLabel = qt.QLabel("0")
+    #self.totalFrameLabel.enabled = True
+    #self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    #self.sliderLayout.addWidget(self.totalFrameLabel)
+
+    # Playback control layout
+    self.controlWidget = qt.QWidget()
+    self.controlWidget.setMinimumHeight(30)
+    self.controlLayout = qt.QHBoxLayout()
+    self.controlLayout.setAlignment(qt.Qt.AlignLeft)
+    self.controlWidget.setLayout(self.controlLayout)
+    self.sequenceFormLayout.addWidget(self.controlWidget)
+    # self.controlWidget.setStyleSheet("color: red")
+
+    iconSize = qt.QSize(14, 14)
+    buttonSize = qt.QSize(60, 30)
+    mediaIconsPath = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
+                                  'Resources', 'Icons', 'media-control-icons')
+
+    # Previous frame/image button
+    self.previousFrameButton = qt.QPushButton()
+    icon = qt.QIcon(os.path.join(mediaIconsPath, 'previous.png'))
+    self.previousFrameButton.setIcon(icon)
+    self.previousFrameButton.setIconSize(iconSize)
+    self.previousFrameButton.enabled = False
+    self.previousFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.previousFrameButton.setFixedSize(buttonSize)
+    self.controlLayout.addWidget(self.previousFrameButton)
+
+    # Next frame/image button
+    self.nextFrameButton = qt.QPushButton()
+    icon = qt.QIcon(os.path.join(mediaIconsPath, 'next.png'))
+    self.nextFrameButton.setIcon(icon)
+    self.nextFrameButton.setIconSize(iconSize)
+    self.nextFrameButton.enabled = False
+    self.nextFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.nextFrameButton.setFixedSize(buttonSize)
+    self.controlLayout.addWidget(self.nextFrameButton)
+
+    # Play button
+    self.playSequenceButton = qt.QPushButton()
+    icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
+    self.playSequenceButton.setIcon(icon)
+    self.playSequenceButton.setIconSize(iconSize)
+    self.playSequenceButton.enabled = False
+    self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.playSequenceButton.setFixedSize(buttonSize)
+    self.controlLayout.addWidget(self.playSequenceButton)
+    
+    # Stop button
+    self.stopSequenceButton = qt.QPushButton()
+    icon = qt.QIcon(os.path.join(mediaIconsPath, 'stop.png'))
+    self.stopSequenceButton.setIcon(icon)
+    self.stopSequenceButton.setIconSize(iconSize)
+    self.stopSequenceButton.enabled = False
+    self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.stopSequenceButton.setFixedSize(buttonSize)
+    self.controlLayout.addWidget(self.stopSequenceButton)
+
+    # FPS label and spinbox
+    self.fpsLabel = qt.QLabel("FPS:")
+    self.fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.controlLayout.addWidget(self.fpsLabel)
+
+    self.fpsInputBox = qt.QDoubleSpinBox()
+    self.fpsInputBox.minimum = 0.2
+    self.fpsInputBox.maximum = 20
+    self.fpsInputBox.value = 1
+    self.fpsInputBox.setSingleStep(0.5)
+    self.fpsInputBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.controlLayout.addWidget(self.fpsInputBox)
 
     #
     # End GUI
@@ -207,11 +247,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
-    self.incrementFrame.connect("clicked(bool)", self.onIncrement)
-    self.decrementFrame.connect("clicked(bool)", self.onDecrement)
-    self.fpsInputBox.connect("valueChanged(int)", self.onFPSChange)
+    self.nextFrameButton.connect("clicked(bool)", self.onIncrement)
+    self.previousFrameButton.connect("clicked(bool)", self.onDecrement)
+    self.fpsInputBox.connect("valueChanged(double)", self.onFPSChange)
     self.sequenceSlider.connect("valueChanged(int)",
-                                lambda: self.sequenceFrameLabel.setText(self.sequenceSlider.value))
+                                lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
@@ -761,30 +801,30 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # If we are playing
         self.playSequenceButton.enabled = False
         self.stopSequenceButton.enabled = True
-        self.incrementFrame.enabled = False
-        self.decrementFrame.enabled = False
+        self.nextFrameButton.enabled = False
+        self.previousFrameButton.enabled = False
       else:
         # If we are paused
         if self.logic.atLastImage():
           self.playSequenceButton.enabled = False
-          self.incrementFrame.enabled = False
-          self.decrementFrame.enabled = True
+          self.nextFrameButton.enabled = False
+          self.previousFrameButton.enabled = True
         elif self.logic.atFirstImage():
           self.playSequenceButton.enabled = True
-          self.incrementFrame.enabled = True
-          self.decrementFrame.enabled = False
+          self.nextFrameButton.enabled = True
+          self.previousFrameButton.enabled = False
         else:
           self.playSequenceButton.enabled = True
-          self.incrementFrame.enabled = True
-          self.decrementFrame.enabled = True
+          self.nextFrameButton.enabled = True
+          self.previousFrameButton.enabled = True
 
         self.stopSequenceButton.enabled = False
     else:
       # If inputs are missing
       self.playSequenceButton.enabled = False
       self.stopSequenceButton.enabled = False
-      self.incrementFrame.enabled = False
-      self.decrementFrame.enabled = False
+      self.nextFrameButton.enabled = False
+      self.previousFrameButton.enabled = False
 
   def onFPSChange(self):
     """
