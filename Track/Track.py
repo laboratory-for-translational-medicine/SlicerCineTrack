@@ -197,7 +197,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.playSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.playSequenceButton)
-    
+
     # Stop button
     self.stopSequenceButton = qt.QPushButton()
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'stop.png'))
@@ -423,17 +423,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self._parameterNode.SetParameter("2DImagesFolder", self.selector2DImagesFolder.currentPath)
 
       # Load the images into 3D Slicer
-      folderID = self.loadImagesIntoVirtualFolder(shNode, self.selector2DImagesFolder.currentPath)
-      if folderID:
-        # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
-        # the 2D time-series images
-        self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID))
-        # Track the number of total images within the variable totalImages
-        self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
-        self.sequenceSlider.setMaximum(self.logic.totalImages)
-      else:
-        slicer.util.warningDisplay("No image files were found within the folder: "
-                                   f"{self.selector2DImagesFolder.currentPath}", "Input Error")
+      folderID, cancelled = self.loadImagesIntoVirtualFolder(shNode, self.selector2DImagesFolder.currentPath)
+
+      if not cancelled:
+        if folderID:
+          # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
+          # the 2D time-series images
+          self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID))
+          # Track the number of total images within the variable totalImages
+          self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
+          self.sequenceSlider.setMaximum(self.logic.totalImages)
+        else:
+          slicer.util.warningDisplay("No image files were found within the folder: "
+                                    f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
       # If a 3D segmentation node already exists, delete it before we load the new one
@@ -503,8 +505,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         transformsVirtualFolderID = \
            self.createTransformNodesFromTransformData(shNode, transformsList, imagesIDs, numImages)
 
-        # Set a param to hold the ID of a virtual folder which holds the transform nodes
-        self._parameterNode.SetParameter("VirtualFolderTransforms", str(transformsVirtualFolderID))
+        if transformsVirtualFolderID:
+          # Set a param to hold the ID of a virtual folder which holds the transform nodes
+          self._parameterNode.SetParameter("VirtualFolderTransforms", str(transformsVirtualFolderID))
       else:
         slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
                                    f"{self.selectorTransformsFile.currentPath}",
@@ -532,6 +535,15 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     progressCount = 0
 
     for i in range(numImages):
+      # If the 'Cancel' button was pressed, we want to return to a default state
+      if progressDialog.wasCanceled:
+        # Remove virtual folder and any children transform nodes
+        shNode.RemoveItem(transformsVirtualFolderID) # This will remove any children nodes as well
+        # Remove the provided filepath
+        self._parameterNode.UnsetParameter("TransformsFilePath")
+        self.selectorTransformsFile.currentPath = ""
+        return None
+
       imageID = imagesIDs[i]
       imageNode = shNode.GetItemDataNode(imageID)
       currentTransform = transforms[i]
@@ -642,9 +654,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       progressDialog.minimumDuration = 0
       progressCount = 0
 
-      print(f"{len(imageFiles)} 2D time-series images will be loaded into 3D Slicer")
-
       for file in imageFiles:
+        # If the 'Cancel' button was pressed, we want to return to a default state
+        if progressDialog.wasCanceled:
+          # Remove virtual folder and any children transform nodes
+          shNode.RemoveItem(folderID) # This will remove any children nodes as well
+          # Remove the provided filepath
+          self._parameterNode.UnsetParameter("2DImagesFolder")
+          self.selector2DImagesFolder.currentPath = ""
+          return None, True
+
         filepath = os.path.join(path, file)
         loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
         # Place image into the virtual folder
@@ -659,12 +678,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
 
+      print(f"{len(imageFiles)} 2D time-series images were loaded into 3D Slicer")
+
       # We do the following to clear the view of the slices. I expected {"show": False} to
       # prevent anything from being shown at all, but the first loaded image will appear in the
       # foreground. This seems to be a bug in 3D Slicer.
       self.clearSliceForegrounds()
 
-    return folderID
+    return folderID, False
 
   def clearSliceForegrounds(self):
     """
