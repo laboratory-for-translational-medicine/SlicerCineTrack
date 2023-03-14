@@ -498,13 +498,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                    self.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages)
 
       if transformsList:
-        # Get all the images as a list of their IDs in the subject hierarchy
-        imagesIDs = []
-        shNode.GetItemChildren(imagesVirtualFolderID, imagesIDs)
-
         # Create transform nodes from the transform data and place them into a virtual folder
         transformsVirtualFolderID = \
-           self.createTransformNodesFromTransformData(shNode, transformsList, imagesIDs, numImages)
+           self.createTransformNodesFromTransformData(shNode, transformsList, numImages)
 
         if transformsVirtualFolderID:
           # Set a param to hold the ID of a virtual folder which holds the transform nodes
@@ -516,13 +512,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self._parameterNode.EndModify(wasModified)
 
-  def createTransformNodesFromTransformData(self, shNode, transforms, imagesIDs, numImages):
+  def createTransformNodesFromTransformData(self, shNode, transforms, numImages):
     """
     For every image and it's matching transformation, create a transform node which will hold
     the transformation data for that image wthin 3D Slicer. Place them in a virtual folder.
     :param shNode: node representing the subject hierarchy
     :param transforms: list of transforms extrapolated from the transforms .csv file
-    :param imagesIDs: list of 2D images by their subject hierarchy ID
     :param numImages: number of 2D images loaded into 3D Slicer
     """
     # Create a folder to hold the transform nodes
@@ -548,13 +543,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.selectorTransformsFile.currentPath = ""
         return None
 
-      imageID = imagesIDs[i]
-      imageNode = shNode.GetItemDataNode(imageID)
-      currentTransform = transforms[i]
-
       # 3D Slicer uses the RAS (Right, Anterior, Superior) basis for their coordinate system.
       # However, the transformation data we use was generated outside of 3D Slicer, using DICOM
-      # images, which coresponds to the LPS (Left, Prosterier, Superior) basis. In order to use
+      # images, which corresponds to the LPS (Left, Prosterier, Superior) basis. In order to use
       # this data, we must convert it from LPS to RAS, in order to correctly transform the images
       # we load into 3D Slicer. See the following links for more detail:
       # https://www.slicer.org/wiki/Coordinate_systems#Anatomical_coordinate_system
@@ -571,6 +562,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       LPSToRASMatrix.SetElement(0, 0, -1)
       LPSToRASMatrix.SetElement(1, 1, -1)
 
+      # Convert transform from LPS to RAS
+      currentTransform = transforms[i]
       currentTransform.append(0) # Needs to be 4x1 to multiply with a 4x4
       convertedTransform = [0, 0, 0, 0]
       LPSToRASMatrix.MultiplyPoint(currentTransform, convertedTransform)
@@ -599,6 +592,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       slicer.app.processEvents()
 
     print(f"{numImages} transforms were loaded into 3D Slicer as transform nodes")
+
     return transformsVirtualFolderID
 
   def validateTransformsInput(self, filepath, numImages):
