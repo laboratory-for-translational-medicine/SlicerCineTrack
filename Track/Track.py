@@ -1,3 +1,4 @@
+import csv
 import os
 import re
 
@@ -534,6 +535,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     progressDialog.minimumDuration = 0
     progressCount = 0
 
+    # NOTE: It is very important that we loop using the number of 2D images loaded, versus the size
+    # of the transforms array/list. This is because we may provide a CSV with more transforms than
+    # needed, but we only need to create as many transform nodes as there are 2D images.
     for i in range(numImages):
       # If the 'Cancel' button was pressed, we want to return to a default state
       if progressDialog.wasCanceled:
@@ -589,7 +593,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       slicer.util.forceRenderAllViews()
       slicer.app.processEvents()
 
-    print(f"{len(transforms)} transforms were loaded into 3D Slicer as transform nodes")
+    print(f"{numImages} transforms were loaded into 3D Slicer as transform nodes")
     return transformsVirtualFolderID
 
   def validateTransformsInput(self, filepath, numImages):
@@ -599,30 +603,26 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     :param filepath: path to the transforms file (which should be a .csv file)
     :param numImages: the number of 2D time-series images that have already been loaded
     """
+    # NOTE: The current logic of this function will only ensure that the first {numImages}
+    # transformations found within the CSV file are valid, so playback can occur. The playback will
+    # still occur if later transformations after the first {numImages} transformations are corrupt.
     transformationsList = []
 
     # Check that the transforms file is a .csv type
     if re.match('.*\.csv', filepath):
       with open(filepath, "r") as f:
-        for line in f:
-          # Remove any newlines or spaces
-          line = line.strip().replace(' ', '')
-          # Ignore empty lines and the header
-          if line == '' or line == 'X,Y,Z':
-            continue
-          else:
-            # Extract each floating point value from the line
-            currentTransform = line.split(',')
-            try:
-              transformationsList.append( [float(currentTransform[0]),
-                                           float(currentTransform[1]),
-                                           float(currentTransform[2])] )
-            except:
-              # If there was an error reading the line, break out because we can't/shouldn't
-              # perform the playback if the transformation data is corrupt or missing.
-              break
+        # Using a DictReader allows us to recognize the CSV header
+        reader = csv.DictReader(f)
+        for row in reader:
+          # Extract floating point values from row
+          try:
+            transformationsList.append( [float(row['X']), float(row['Y']), float(row['Z'])] )
+          except:
+            # If there was an error reading the values, break out because we can't/shouldn't
+            # perform the playback if the transformation data is corrupt or missing.
+            break
 
-    if len(transformationsList) != numImages:
+    if len(transformationsList) < numImages:
       return None
     else:
       return transformationsList
