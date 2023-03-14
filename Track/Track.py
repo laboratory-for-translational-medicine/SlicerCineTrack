@@ -552,23 +552,28 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       imageNode = shNode.GetItemDataNode(imageID)
       currentTransform = transforms[i]
 
-      # We use the direction matrix held within the metadata of the image file to understand
-      # how the transformation data needs to be transformed, so that it can correctly translate
-      # the 3D segmentation during playback. This is because the coordinate system used when
-      # generating the transformation data is not necessarily the same as 3D Slicer's own. The
-      # direction matrix helps us to convert between these coordinate systems.
-      # Mathematically:
-      # /ΔLR\   /x x x 0\   /X\
-      # |ΔPA| = |x x x 0| * |Y|
-      # |ΔIS|   |x x x 0|   |Z|
-      # \ 0 /   \0 0 0 0/   \0/
-      # Where x represents the direction matrix and X, Y, and Z represent the data from the
-      # transforms .csv file.
-      directionMatrix = vtk.vtkMatrix4x4() # Create an empty 4x4 matrix
-      imageNode.GetIJKToRASDirectionMatrix(directionMatrix)
-      currentTransform.append(0) # Needs to be 4x1 to multiply with a 4x4 
+      # 3D Slicer uses the RAS (Right, Anterior, Superior) basis for their coordinate system.
+      # However, the transformation data we use was generated outside of 3D Slicer, using DICOM
+      # images, which coresponds to the LPS (Left, Prosterier, Superior) basis. In order to use
+      # this data, we must convert it from LPS to RAS, in order to correctly transform the images
+      # we load into 3D Slicer. See the following links for more detail:
+      # https://www.slicer.org/wiki/Coordinate_systems#Anatomical_coordinate_system
+      # https://github.com/Slicer/Slicer/blob/main/Libs/MRML/Core/vtkITKTransformConverter.h#L246
+      # This is a simple conversion. It can be mathematically represented as:
+      # /ΔLR\   /-1  0  0  0\   /X\
+      # |ΔPA| = | 0 -1  0  0| * |Y|
+      # |ΔIS|   | 0  0  1  0|   |Z|
+      # \ 0 /   \ 0  0  0  1/   \0/
+      # Where X, Y, and Z represent the transformation in LPS.
+
+      # 3D Slicer works with 4x4 transform matrices internally
+      LPSToRASMatrix = vtk.vtkMatrix4x4()
+      LPSToRASMatrix.SetElement(0, 0, -1)
+      LPSToRASMatrix.SetElement(1, 1, -1)
+
+      currentTransform.append(0) # Needs to be 4x1 to multiply with a 4x4
       convertedTransform = [0, 0, 0, 0]
-      directionMatrix.MultiplyPoint(currentTransform, convertedTransform)
+      LPSToRASMatrix.MultiplyPoint(currentTransform, convertedTransform)
 
       # Create a transform matrix from the converted transform
       transformMatrix = vtk.vtkMatrix4x4()
