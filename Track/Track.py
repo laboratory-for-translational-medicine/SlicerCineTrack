@@ -498,13 +498,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                    self.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages)
 
       if transformsList:
-        # Get all the images as a list of their IDs in the subject hierarchy
-        imagesIDs = []
-        shNode.GetItemChildren(imagesVirtualFolderID, imagesIDs)
-
         # Create transform nodes from the transform data and place them into a virtual folder
         transformsVirtualFolderID = \
-           self.createTransformNodesFromTransformData(shNode, transformsList, imagesIDs, numImages)
+           self.createTransformNodesFromTransformData(shNode, transformsList, numImages)
 
         if transformsVirtualFolderID:
           # Set a param to hold the ID of a virtual folder which holds the transform nodes
@@ -516,13 +512,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self._parameterNode.EndModify(wasModified)
 
-  def createTransformNodesFromTransformData(self, shNode, transforms, imagesIDs, numImages):
+  def createTransformNodesFromTransformData(self, shNode, transforms, numImages):
     """
     For every image and it's matching transformation, create a transform node which will hold
     the transformation data for that image wthin 3D Slicer. Place them in a virtual folder.
     :param shNode: node representing the subject hierarchy
     :param transforms: list of transforms extrapolated from the transforms .csv file
-    :param imagesIDs: list of 2D images by their subject hierarchy ID
     :param numImages: number of 2D images loaded into 3D Slicer
     """
     # Create a folder to hold the transform nodes
@@ -548,27 +543,30 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.selectorTransformsFile.currentPath = ""
         return None
 
-      imageID = imagesIDs[i]
-      imageNode = shNode.GetItemDataNode(imageID)
-      currentTransform = transforms[i]
+      # 3D Slicer uses the RAS (Right, Anterior, Superior) basis for their coordinate system.
+      # However, the transformation data we use was generated outside of 3D Slicer, using DICOM
+      # images, which corresponds to the LPS (Left, Prosterier, Superior) basis. In order to use
+      # this data, we must convert it from LPS to RAS, in order to correctly transform the images
+      # we load into 3D Slicer. See the following links for more detail:
+      # https://www.slicer.org/wiki/Coordinate_systems#Anatomical_coordinate_system
+      # https://github.com/Slicer/Slicer/blob/main/Libs/MRML/Core/vtkITKTransformConverter.h#L246
+      # This is a simple conversion. It can be mathematically represented as:
+      # /ΔLR\   /-1  0  0  0\   /X\
+      # |ΔPA| = | 0 -1  0  0| * |Y|
+      # |ΔIS|   | 0  0  1  0|   |Z|
+      # \ 0 /   \ 0  0  0  1/   \0/
+      # Where X, Y, and Z represent the transformation in LPS.
 
-      # We use the direction matrix held within the metadata of the image file to understand
-      # how the transformation data needs to be transformed, so that it can correctly translate
-      # the 3D segmentation during playback. This is because the coordinate system used when
-      # generating the transformation data is not necessarily the same as 3D Slicer's own. The
-      # direction matrix helps us to convert between these coordinate systems.
-      # Mathematically:
-      # /ΔLR\   /x x x 0\   /X\
-      # |ΔPA| = |x x x 0| * |Y|
-      # |ΔIS|   |x x x 0|   |Z|
-      # \ 0 /   \0 0 0 0/   \0/
-      # Where x represents the direction matrix and X, Y, and Z represent the data from the
-      # transforms .csv file.
-      directionMatrix = vtk.vtkMatrix4x4() # Create an empty 4x4 matrix
-      imageNode.GetIJKToRASDirectionMatrix(directionMatrix)
-      currentTransform.append(0) # Needs to be 4x1 to multiply with a 4x4 
+      # 3D Slicer works with 4x4 transform matrices internally
+      LPSToRASMatrix = vtk.vtkMatrix4x4()
+      LPSToRASMatrix.SetElement(0, 0, -1)
+      LPSToRASMatrix.SetElement(1, 1, -1)
+
+      # Convert transform from LPS to RAS
+      currentTransform = transforms[i]
+      currentTransform.append(0) # Needs to be 4x1 to multiply with a 4x4
       convertedTransform = [0, 0, 0, 0]
-      directionMatrix.MultiplyPoint(currentTransform, convertedTransform)
+      LPSToRASMatrix.MultiplyPoint(currentTransform, convertedTransform)
 
       # Create a transform matrix from the converted transform
       transformMatrix = vtk.vtkMatrix4x4()
@@ -594,6 +592,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       slicer.app.processEvents()
 
     print(f"{numImages} transforms were loaded into 3D Slicer as transform nodes")
+
     return transformsVirtualFolderID
 
   def validateTransformsInput(self, filepath, numImages):
