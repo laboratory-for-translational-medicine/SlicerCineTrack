@@ -238,13 +238,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
-    # We create two custom events which will allow us to render/process changes in the GUI
-    # seperately and effectively loop through our image sequence as a chain of events
+    # We create a custom event which will allow us to render/process changes in the GUI
+    # sequentially and effectively loop through our image sequence as a chain of events.
     self.VisualizationEvent = vtk.vtkCommand.UserEvent + 1 # Custom event = UserEvent + offset
-    self.AlignmentEvent = vtk.vtkCommand.UserEvent + 2
 
     self.addObserver(slicer.mrmlScene, self.VisualizationEvent, self.onVisualizationComplete)
-    self.addObserver(slicer.mrmlScene, self.AlignmentEvent, self.onAlignmentComplete)
 
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
@@ -697,7 +695,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def onPlayButton(self):
     """
-    Begin the visualization and alignment playback when a user clicks the "Play" button.
+    Begin the visualization playback when a user clicks the "Play" button.
     """
     self.logic.playing = True
 
@@ -712,7 +710,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
 
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
+                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
+                         int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
 
     # Invoke completion event and use artificial pause to let user recognize the visualization
     self.logic.timer.singleShot(self.logic.delay,
@@ -722,7 +721,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def onStopButton(self):
     """
-    Stop the playback, after the current image's visualization and alignment completes.
+    Stop the playback, after the current image's visualization completes.
     """
     self.logic.playing = False
 
@@ -746,10 +745,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
 
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
-    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")),
-                     int(self._parameterNode.GetParameter("VirtualFolder2DImages")))
+                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
+                         int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
 
     self.updatePlaybackButtons(True)
 
@@ -767,29 +764,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
 
     self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
-    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")),
-                     int(self._parameterNode.GetParameter("VirtualFolder2DImages")))
+                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
+                         int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
 
     self.updatePlaybackButtons(True)
 
   def onVisualizationComplete(self, caller, event):
     """
     Function invoked when the visualization of the image data (2D image + 3D segmentation) is
-    complete.
-    """
-    self.logic.align(int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                     int(self._parameterNode.GetParameter("VirtualFolderTransforms")),
-                     int(self._parameterNode.GetParameter("VirtualFolder2DImages")))
-
-    # Invoke completion event and use artificial pause to let the user recognize the alignment
-    self.logic.timer.singleShot(self.logic.delay,
-                                lambda: slicer.mrmlScene.InvokeEvent(self.AlignmentEvent))
-
-  def onAlignmentComplete(self, caller, event):
-    """
-    Function invoked when the alignment of the 3D segmentation using the transformation data is
     complete.
     """
     # Begin the next image's visualization, only if we are playing and not at the last image
@@ -800,7 +782,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
 
       self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                           int(self._parameterNode.GetParameter("3DSegmentationLabelMap")))
+                           int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
+                           int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
 
       # Invoke completion event and use artificial pause to let user recognize the visualization
       self.logic.timer.singleShot(self.logic.delay,
@@ -849,8 +832,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   def onFPSChange(self):
     """
     This function updates our delay value according to what is within the FPS input box. A frame
-    is considered as every time the program pauses to show the user the something in the GUI. These
-    pauses occurs in two places during playback: after visualize() and after align().
+    is considered as every time the program pauses to show the user something in the GUI. These
+    pauses occurs after the completion of visualize().
     """
     self.logic.delay = 1000 / self.fpsInputBox.value
 
@@ -889,12 +872,14 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     #if not parameterNode.GetParameter("Invert"):
     #  parameterNode.SetParameter("Invert", "false")
 
-  def visualize(self, virtualFolderImagesID, segmentationLabelMapID):
+  def visualize(self, virtualFolderImagesID, segmentationLabelMapID, virtualFolderTransformsID):
     """
     Visualizes the image data (2D image and 3D segmentation) within the 3D Slicer views (slice view
-    and 3D view). No alignment is done at this step.
+    and 3D view) and then aligns/translates the 3D segmentation label map according to the
+    transformation data.
     :param virtualFolderImagesID: subject hierarchy ID of the virtual folder containing the 2D images
     :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
+    :param virtualFolderTransformsID: subject hierarchy ID of the virtual folder containing the transforms
     """
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
     layoutManager = slicer.app.layoutManager()
@@ -902,6 +887,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     imageID = shNode.GetItemByPositionUnderParent(virtualFolderImagesID, self.currentImageIndex)
     imageNode = shNode.GetItemDataNode(imageID)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
+    transformID = shNode.GetItemByPositionUnderParent(virtualFolderTransformsID, self.currentImageIndex)
+    transformNode = shNode.GetItemDataNode(transformID)
 
     # Remove any transformation currently being applied to the 3D segmentation. This allows us to
     # see the default overlay of the 3D segmentation over the current 2D image.
@@ -948,38 +935,13 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     elif sliceWidget.sliceOrientation == "Coronal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Anterior)
 
-    # Place "Pre Alignment" text in slice view corner
-    sliceView = sliceWidget.sliceView()
-    sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Pre Alignment")
-
-    # Render changes
-    slicer.util.forceRenderAllViews()
-    slicer.app.processEvents()
-
-  def align(self, segmentationLabelMapID, virtualFolderTransformsID, virtualFolderImagesID):
-    """
-    Aligns and translates the 3D segmentation label map according to the transformation data.
-    :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
-    :param virtualFolderTransformsID: subject hierarchy ID of the virtual folder containing the transforms
-    :param virtualFolderImagesID: subject hierarchy ID of the virtual folder containing the 2D images
-    """
-    shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-    layoutManager = slicer.app.layoutManager()
-
-    labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
-    transformID = shNode.GetItemByPositionUnderParent(virtualFolderTransformsID, self.currentImageIndex)
-    transformNode = shNode.GetItemDataNode(transformID)
-    imageID = shNode.GetItemByPositionUnderParent(virtualFolderImagesID, self.currentImageIndex)
-    imageNode = shNode.GetItemDataNode(imageID)
-
     # Translate the 3D segmentation label map using the transform data so that the 3D segmentation
     # label map overlays upon the ROI of the 2D image.
     labelMapNode.SetAndObserveTransformNodeID(transformNode.GetID())
 
-    # Place "Post Alignment" text in slice view corner
-    sliceWidget = self.getSliceWidget(layoutManager, imageNode)
+    # Place "Current Alignment" text in slice view corner
     sliceView = sliceWidget.sliceView()
-    sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Post Alignment")
+    sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
 
     # Render changes
     slicer.util.forceRenderAllViews()
