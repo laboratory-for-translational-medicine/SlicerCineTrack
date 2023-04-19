@@ -913,13 +913,15 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     # Make the 3D segmentation label map visible as a label map layer in the slice view
     sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
-    sliceCompositeNode.SetLabelOpacity(0.4)
+
+    # Display the label map overlay as an outline
+    sliceNode = sliceWidget.mrmlSliceNode()
+    sliceNode.SetUseLabelOutline(True)
 
     # Fit the 2D image in the slice view for a neater look
     sliceWidget.fitSliceToBackground()
 
     # Make the 2D image visible in the 3D view
-    sliceNode = sliceWidget.mrmlSliceNode()
     sliceNode.SetSliceVisible(True)
 
     # Display nothing within the axial slice view
