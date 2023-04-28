@@ -261,7 +261,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.opacityPercentageLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
 
-
     #
     # End GUI
     #
