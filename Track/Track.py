@@ -994,18 +994,14 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Make the 2D image visible in the 3D view
     sliceNode.SetSliceVisible(True)
 
-    # Display nothing within the axial slice view
-    for name in layoutManager.sliceViewNames():
-      if layoutManager.sliceWidget(name).sliceOrientation == "Axial":
-        axialCompositeNode = layoutManager.sliceWidget(name).mrmlSliceCompositeNode()
-        axialCompositeNode.SetBackgroundVolumeID("None")
-
     # Move 3D view camera/perspective to have a better view of the current image
     threeDViewController = layoutManager.threeDWidget(threeDViewNode.GetName()).threeDController()
     if sliceWidget.sliceOrientation == "Sagittal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Left)
     elif sliceWidget.sliceOrientation == "Coronal":
       threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Anterior)
+    elif sliceWidget.sliceOrientation == "Axial":
+      threeDViewController.lookFromAxis(ctk.ctkAxesWidget.Inferior)
 
     # Translate the 3D segmentation label map using the transform data so that the 3D segmentation
     # label map overlays upon the ROI of the 2D image.
@@ -1084,6 +1080,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       imageOrientation = "Sagittal"
     elif scanOrder == "AP" or scanOrder == "PA":
       imageOrientation = "Coronal"
+    elif scanOrder == "IS" or scanOrder == "SI":
+      imageOrientation = "Axial"
     else:
       print(f"Error: Unexpected image scan order {scanOrder}.")
       exit(1)
