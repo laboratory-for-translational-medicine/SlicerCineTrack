@@ -209,18 +209,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.stopSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.stopSequenceButton)
 
-    # FPS label and spinbox
-    self.fpsLabel = qt.QLabel("FPS:")
-    self.fpsLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
-    self.controlLayout.addWidget(self.fpsLabel)
+    # Playback speed multiplier label and spinbox
+    self.playbackSpeedLabel = qt.QLabel("Playback Speed:")
+    self.playbackSpeedLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.playbackSpeedLabel.setContentsMargins(20, 0, 10, 0)
+    self.controlLayout.addWidget(self.playbackSpeedLabel)
 
-    self.fpsInputBox = qt.QDoubleSpinBox()
-    self.fpsInputBox.minimum = 0.2
-    self.fpsInputBox.maximum = 20
-    self.fpsInputBox.value = 1
-    self.fpsInputBox.setSingleStep(0.5)
-    self.fpsInputBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
-    self.controlLayout.addWidget(self.fpsInputBox)
+    self.playbackSpeedBox = qt.QDoubleSpinBox()
+    self.playbackSpeedBox.minimum = 0.25
+    self.playbackSpeedBox.maximum = 4.0
+    self.playbackSpeedBox.value = 1.0
+    self.playbackSpeedBox.setSingleStep(0.25)
+    self.playbackSpeedBox.suffix = "x"
+    self.playbackSpeedBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.controlLayout.addWidget(self.playbackSpeedBox)
 
     # Visual controls layout
     self.visualControlsWidget = qt.QWidget()
@@ -231,26 +233,24 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceFormLayout.addWidget(self.visualControlsWidget)
 
     # Overlay outline label and checkbox
-    self.outlineLabel = qt.QLabel("Outlined Overlay")
+    self.outlineLabel = qt.QLabel("Outlined Overlay:")
     self.outlineLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.outlineLabel.setContentsMargins(0, 0, 10, 0)
     self.visualControlsLayout.addWidget(self.outlineLabel)
 
     self.overlayOutlineOnlyBox = qt.QCheckBox()
     self.overlayOutlineOnlyBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.overlayOutlineOnlyBox.setContentsMargins(10, 0, 10, 0)
     self.overlayOutlineOnlyBox.checked = True
     self.visualControlsLayout.addWidget(self.overlayOutlineOnlyBox)
 
     # Opacity labels and slider widget
-    self.opacityLabel = qt.QLabel("Overlay Opacity")
+    self.opacityLabel = qt.QLabel("Overlay Opacity:")
     self.opacityLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.opacityLabel.setContentsMargins(10, 0, 10, 0)
+    self.opacityLabel.setContentsMargins(20, 0, 10, 0)
     self.visualControlsLayout.addWidget(self.opacityLabel)
 
     self.opacitySlider = ctk.ctkDoubleSlider()
     self.opacitySlider.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.opacitySlider.setContentsMargins(10, 0, 10, 0)
     self.opacitySlider.minimum = 0
     self.opacitySlider.maximum = 1.0
     self.opacitySlider.singleStep = 0.01
@@ -259,6 +259,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.opacityPercentageLabel = qt.QLabel("100%")
     self.opacityPercentageLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
 
     #
@@ -287,7 +288,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
     self.nextFrameButton.connect("clicked(bool)", self.onIncrement)
     self.previousFrameButton.connect("clicked(bool)", self.onDecrement)
-    self.fpsInputBox.connect("valueChanged(double)", self.onFPSChange)
+    self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.sequenceSlider.connect("valueChanged(int)",
                                 lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
@@ -870,13 +871,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.nextFrameButton.enabled = False
       self.previousFrameButton.enabled = False
 
-  def onFPSChange(self):
+  def onPlaybackSpeedChange(self):
     """
-    This function updates our delay value according to what is within the FPS input box. A frame
-    is considered as every time the program pauses to show the user something in the GUI. These
-    pauses occurs after the completion of visualize().
+    This function uses the playback speed to update our internal delay: the higher the playback
+    speed, the lower the delay, and vice versa. The internal delay is how long the user will view
+    the current visualized alignment, before moving on. By default this is 1 second (1000 ms).
     """
-    self.logic.delay = 1000 / self.fpsInputBox.value
+    self.logic.delay = 1000 / self.playbackSpeedBox.value
 
   def onOpacityChange(self):
     """
