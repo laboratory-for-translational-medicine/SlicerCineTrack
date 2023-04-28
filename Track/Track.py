@@ -222,6 +222,45 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.fpsInputBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.controlLayout.addWidget(self.fpsInputBox)
 
+    # Visual controls layout
+    self.visualControlsWidget = qt.QWidget()
+    self.visualControlsWidget.setMinimumHeight(30)
+    self.visualControlsLayout = qt.QHBoxLayout()
+    self.visualControlsLayout.setAlignment(qt.Qt.AlignLeft)
+    self.visualControlsWidget.setLayout(self.visualControlsLayout)
+    self.sequenceFormLayout.addWidget(self.visualControlsWidget)
+
+    # Overlay outline label and checkbox
+    self.outlineLabel = qt.QLabel("Outlined Overlay")
+    self.outlineLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.outlineLabel.setContentsMargins(0, 0, 10, 0)
+    self.visualControlsLayout.addWidget(self.outlineLabel)
+
+    self.overlayOutlineOnlyBox = qt.QCheckBox()
+    self.overlayOutlineOnlyBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.overlayOutlineOnlyBox.setContentsMargins(10, 0, 10, 0)
+    self.overlayOutlineOnlyBox.checked = True
+    self.visualControlsLayout.addWidget(self.overlayOutlineOnlyBox)
+
+    # Opacity labels and slider widget
+    self.opacityLabel = qt.QLabel("Overlay Opacity")
+    self.opacityLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.opacityLabel.setContentsMargins(10, 0, 10, 0)
+    self.visualControlsLayout.addWidget(self.opacityLabel)
+
+    self.opacitySlider = ctk.ctkDoubleSlider()
+    self.opacitySlider.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.opacitySlider.setContentsMargins(10, 0, 10, 0)
+    self.opacitySlider.minimum = 0
+    self.opacitySlider.maximum = 1.0
+    self.opacitySlider.singleStep = 0.01
+    self.opacitySlider.value = 1.0
+    self.visualControlsLayout.addWidget(self.opacitySlider)
+
+    self.opacityPercentageLabel = qt.QLabel("100%")
+    self.opacityPercentageLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
+
     #
     # End GUI
     #
@@ -251,6 +290,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.fpsInputBox.connect("valueChanged(double)", self.onFPSChange)
     self.sequenceSlider.connect("valueChanged(int)",
                                 lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
+    self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
+    self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
@@ -837,6 +878,31 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     self.logic.delay = 1000 / self.fpsInputBox.value
 
+  def onOpacityChange(self):
+    """
+    This function updates the opacity of the label map layer in the slice views according to the
+    value in the opacity slider GUI widget.
+    """
+    self.logic.opacity = self.opacitySlider.value
+    self.opacityPercentageLabel.text = str(int(self.opacitySlider.value * 100)) + "%"
+
+    layoutManager = slicer.app.layoutManager()
+    for name in layoutManager.sliceViewNames():
+      sliceCompositeNode = layoutManager.sliceWidget(name).mrmlSliceCompositeNode()
+      sliceCompositeNode.SetLabelOpacity(self.opacitySlider.value)
+
+  def onOverlayOutlineChange(self):
+    """
+    This function updates whether the label map layer overlay is shown as outlined or as a filled
+    region within the slice views, according to the value within the overlay outline checkbox.
+    """
+    self.logic.overlayAsOutline = self.overlayOutlineOnlyBox.checked
+
+    layoutManager = slicer.app.layoutManager()
+    for name in layoutManager.sliceViewNames():
+      sliceNode = layoutManager.sliceWidget(name).mrmlSliceNode()
+      sliceNode.SetUseLabelOutline(self.overlayOutlineOnlyBox.checked)
+
 #
 # TrackLogic
 #
@@ -861,6 +927,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     self.totalImages = None
     self.timer = qt.QTimer()
     self.delay = 1000 # milliseconds
+    self.opacity = 1.0
+    self.overlayAsOutline = True
 
   def setDefaultParameters(self, parameterNode):
     """
@@ -913,10 +981,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     # Make the 3D segmentation label map visible as a label map layer in the slice view
     sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
+    sliceCompositeNode.SetLabelOpacity(self.opacity)
 
     # Display the label map overlay as an outline
     sliceNode = sliceWidget.mrmlSliceNode()
-    sliceNode.SetUseLabelOutline(True)
+    sliceNode.SetUseLabelOutline(self.overlayAsOutline)
 
     # Fit the 2D image in the slice view for a neater look
     sliceWidget.fitSliceToBackground()
