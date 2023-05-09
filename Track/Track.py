@@ -1040,6 +1040,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     if segmentationLabelMapID:
       shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
       shNode.SetItemDisplayVisibility(int(segmentationLabelMapID), 0)
+      # Clear label map layer (the green overlay on the slice)
+      for name in layoutManager.sliceViewNames():
+        sliceWidget = layoutManager.sliceWidget(name)
+        labelMapNode = shNode.GetItemDataNode(int(segmentationLabelMapID))
+        sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+        sliceCompositeNode.SetLabelVolumeID("")
 
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
