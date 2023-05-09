@@ -674,6 +674,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     :param path: path to folder containing the 2D images to be imported
     """
     folderID = None
+    imageNumber = 1
 
     # Find all the image file names within the provided dir
     imageFiles = []
@@ -704,10 +705,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           return None, True
 
         filepath = os.path.join(path, file)
+        # Rename inputted file to a descriptive file name
+        nodeName = (f"Image {imageNumber} ({file})").format(filepath)
         loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
+        loadedImageNode.SetName(nodeName)
         # Place image into the virtual folder
         imageID = shNode.GetItemByDataNode(loadedImageNode)
         shNode.SetItemParent(imageID, folderID)
+        
+        # Increment after each image file rename to ensure a unique number in every filename
+        imageNumber += 1
 
         #  Update how far we are in the progress bar
         progressCount += 1
