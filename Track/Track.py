@@ -1043,7 +1043,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       # Clear label map layer (the green overlay on the slice)
       for name in layoutManager.sliceViewNames():
         sliceWidget = layoutManager.sliceWidget(name)
-        labelMapNode = shNode.GetItemDataNode(int(segmentationLabelMapID))
         sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
         sliceCompositeNode.SetLabelVolumeID("")
 
