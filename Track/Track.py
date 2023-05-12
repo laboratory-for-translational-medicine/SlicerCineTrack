@@ -1031,6 +1031,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
       sliceCompositeNode.SetBackgroundVolumeID("None")
       sliceCompositeNode.SetForegroundVolumeID("None")
+      sliceCompositeNode.SetLabelVolumeID("")
 
     # Clear segmentation label map from 3D view (only if the label map exists)
     if segmentationLabelMapID:
