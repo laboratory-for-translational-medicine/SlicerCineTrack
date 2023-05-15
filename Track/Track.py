@@ -291,6 +291,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.sequenceSlider.connect("valueChanged(int)",
                                 lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
+    self.currentFrameInputBox.connect("valueChanged(int)",
+                                lambda: self.sequenceSlider.setValue(self.currentFrameInputBox.value))
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
 
@@ -739,8 +741,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # The current image index is None if we haven't started playback. When it has any int value, it
     # means that image is currently shown in the slice view, so we start playing with the next one.
-    if self.logic.currentImageIndex is None:
+    # However, if the current frame input box value is different than the current image index value,
+    # the next played frame will be at the current frame input box value.
+    # NOTE: `currentImageIndex` starts at 0, `currentFrameInputBox.value` starts at 1.
+    if self.logic.currentImageIndex is None and self.currentFrameInputBox.value == 1:
       self.logic.currentImageIndex = 0
+    elif self.logic.currentImageIndex != self.currentFrameInputBox.value - 1:
+      self.logic.currentImageIndex = self.currentFrameInputBox.value - 1
     else:
       self.logic.currentImageIndex += 1
 
@@ -844,6 +851,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.stopSequenceButton.enabled = True
         self.nextFrameButton.enabled = False
         self.previousFrameButton.enabled = False
+        self.currentFrameInputBox.enabled = False
       else:
         # If we are paused
         if self.logic.atLastImage():
@@ -860,12 +868,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.previousFrameButton.enabled = True
 
         self.stopSequenceButton.enabled = False
+        self.currentFrameInputBox.enabled = True
     else:
       # If inputs are missing
       self.playSequenceButton.enabled = False
       self.stopSequenceButton.enabled = False
       self.nextFrameButton.enabled = False
       self.previousFrameButton.enabled = False
+      self.currentFrameInputBox.enabled = False
 
   def onPlaybackSpeedChange(self):
     """
