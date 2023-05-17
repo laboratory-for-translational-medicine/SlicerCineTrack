@@ -568,7 +568,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     progressDialog = qt.QProgressDialog("Creating Transform Nodes From Transformation Data", "Cancel",
                                         0, numImages)
     progressDialog.minimumDuration = 0
-    progressCount = 0
 
     # NOTE: It is very important that we loop using the number of 2D images loaded, versus the size
     # of the transforms array/list. This is because we may provide a CSV with more transforms than
@@ -624,8 +623,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       shNode.SetItemParent(transformNodeID, transformsVirtualFolderID)
 
       # Update how far we are in the progress bar
-      progressCount += 1
-      progressDialog.setValue(progressCount)
+      progressDialog.setValue(i + 1)
 
       # This render step is needed for the progress bar to visually update in the GUI
       slicer.util.forceRenderAllViews()
@@ -674,7 +672,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     :param path: path to folder containing the 2D images to be imported
     """
     folderID = None
-    imageNumber = 1
 
     # Find all the image file names within the provided dir
     imageFiles = []
@@ -692,9 +689,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       progressDialog = qt.QProgressDialog("Loading 2D Images Into 3D Slicer", "Cancel",
                                           0, len(imageFiles))
       progressDialog.minimumDuration = 0
-      progressCount = 0
 
-      for file in imageFiles:
+      for fileIndex in range(len(imageFiles)):
         # If the 'Cancel' button was pressed, we want to return to a default state
         if progressDialog.wasCanceled:
           # Remove virtual folder and any children transform nodes
@@ -704,22 +700,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.selector2DImagesFolder.currentPath = ""
           return None, True
 
-        filepath = os.path.join(path, file)
+        filepath = os.path.join(path, imageFiles[fileIndex])
         # Rename inputted file to a descriptive file name
-        nodeName = (f"Image {imageNumber} ({file})").format(filepath)
+        nodeName = (f"Image {fileIndex + 1} ({imageFiles[fileIndex]})").format(filepath)
         loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
         loadedImageNode.SetName(nodeName)
         # Place image into the virtual folder
         imageID = shNode.GetItemByDataNode(loadedImageNode)
         shNode.SetItemParent(imageID, folderID)
-        
-        # Increment after each image file rename to ensure a unique number in every filename
-        imageNumber += 1
 
         #  Update how far we are in the progress bar
-        progressCount += 1
-        progressDialog.setValue(progressCount)
-
+        progressDialog.setValue(fileIndex + 1)
+        
         # This render step is needed for the progress bar to visually update in the GUI
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
@@ -1042,6 +1034,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
       sliceCompositeNode.SetBackgroundVolumeID("None")
       sliceCompositeNode.SetForegroundVolumeID("None")
+      sliceCompositeNode.SetLabelVolumeID("")
 
     # Clear segmentation label map from 3D view (only if the label map exists)
     if segmentationLabelMapID:
