@@ -250,6 +250,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.visualControlsLayout.addWidget(self.opacityLabel)
 
     self.opacitySlider = ctk.ctkDoubleSlider()
+    self.opacitySlider.orientation = qt.Qt.Horizontal
     self.opacitySlider.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.opacitySlider.minimum = 0
     self.opacitySlider.maximum = 1.0
