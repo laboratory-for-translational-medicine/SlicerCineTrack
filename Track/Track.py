@@ -386,20 +386,29 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Set and observe parameter node.
     Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
     """
-    # Unobserve previously selected parameter node and add an observer to the newly selected.
-    # Changes of parameter node are observed so that whenever parameters are changed by a script or any other module
-    # those are reflected immediately in the GUI.
+    # NOTE: In certain situations the parameter node is set to None (ex. briefly on module reload)
+
+    # If a parameter node is provided (i.e. not None), then create a Custom Parameter Node with it
+    if inputParameterNode:
+      # A parameter node is new if it is being used for the first time (no parameters are set)
+      isNewParamNode = inputParameterNode.GetParameterNamesAsCommaSeparatedList() == ""
+
+      inputParameterNode = CustomParameterNode(inputParameterNode)
+
+      # We only want to set the default parameters when the parameter node is new
+      if isNewParamNode:
+        self.logic.setDefaultParameters(inputParameterNode)
+
+    # Unobserve previously selected parameter node
     if self.customParamNode is not None:
       self.removeObserver(self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
-    # Create custom parameter node
-    self.customParamNode = CustomParameterNode(inputParameterNode)
-    
+    self.customParamNode = inputParameterNode
+
+    # Changes of parameter node are observed so that whenever parameters are changed by a script
+    # or any other module those are reflected immediately in the GUI. No observation if None.
     if self.customParamNode is not None:
       self.addObserver(self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
-
-      # Set default parameters within the custom parameter node
-      self.logic.setDefaultParameters(self.customParamNode)
 
     # Initial GUI update
     self.updateGUIFromParameterNode()
@@ -433,13 +442,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.sequenceSlider.setMaximum(self.customParamNode.totalImages)
 
-    self.sequenceSlider.setMaximum(self.customParamNode.totalImages)
-
     self.sequenceSlider.setValue(self.customParamNode.currentImageIndex + 1)
 
     self.currentFrameInputBox.setValue(self.customParamNode.currentImageIndex + 1)
 
+    self.playbackSpeedBox.value = 1000 / self.customParamNode.delay
+
+    self.opacitySlider.value = self.customParamNode.opacity
+
     self.opacityPercentageLabel.text = str(int(self.customParamNode.opacity * 100)) + "%"
+
+    self.overlayOutlineOnlyBox.checked = self.customParamNode.overlayAsOutline
 
     # All the GUI updates are done
     self._updatingGUIFromParameterNode = False
