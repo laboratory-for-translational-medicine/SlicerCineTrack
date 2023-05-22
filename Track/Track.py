@@ -10,6 +10,7 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 from slicer.parameterNodeWrapper import *
+from slicer import vtkMRMLSequenceNode
 
 #
 # Track
@@ -43,12 +44,12 @@ This file was originally developed by James McCafferty.
 @parameterNodeWrapper
 class CustomParameterNode:
   folder2DImages: str
-  virtualFolder2DImages: int  # subject hierarchy id
+  sequenceNode2DImages: vtkMRMLSequenceNode
   path3DSegmentation: str
   node3DSegmentation: int  # subject hierarchy id
   node3DSegmentationLabelMap: int  # subject hierarchy id
   transformsFilePath: str
-  virtualFolderTransforms: int  # subject hierarchy id
+  sequenceNodeTransforms: vtkMRMLSequenceNode
   playing: bool
   currentImageIndex: int
   totalImages: int
@@ -429,14 +430,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector3DSegmentation.currentPath = self.customParamNode.path3DSegmentation
     self.selectorTransformsFile.currentPath = self.customParamNode.transformsFilePath
 
-    if self.customParamNode.virtualFolder2DImages:
+    if self.customParamNode.sequenceNode2DImages:
       self.selectorTransformsFile.enabled = True
     else:
       self.selectorTransformsFile.enabled = False
 
     # True if the 2D images, transforms and 3D segmentation have been provided
-    inputsProvided = self.customParamNode.virtualFolder2DImages and \
-                     self.customParamNode.virtualFolderTransforms and \
+    inputsProvided = self.customParamNode.sequenceNode2DImages and \
+                     self.customParamNode.sequenceNodeTransforms and \
                      self.customParamNode.node3DSegmentation
 
     self.updatePlaybackButtons(inputsProvided)
@@ -472,13 +473,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
     if caller == "selector2DImagesFolder" and event == "currentPathChanged":
-      # If the virtual folder holding the 2D images exists, then delete it (and the data inside)
-      # because the folder path has changed, so we may need to upload new 2D images
-      if self.customParamNode.virtualFolder2DImages:
-        folderID = self.customParamNode.virtualFolder2DImages
-        shNode.RemoveItem(folderID) # this will remove any children nodes as well
+      # If the sequence node holding the 2D images exists, then delete it because the folder path
+      # has changed, so we may need to upload new 2D images
+      if self.customParamNode.sequenceNode2DImages:
+        slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceNode2DImages)
         # Also reset our state/params related to this input
-        self.customParamNode.virtualFolder2DImages = 0
+        self.customParamNode.sequenceNode2DImages = None
         self.customParamNode.totalImages = 0
         self.customParamNode.playing = False
         self.customParamNode.currentImageIndex = -1
@@ -488,28 +488,26 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # reselect the transforms file they wish to use with the 2D images.
       if self.customParamNode.transformsFilePath:
         self.customParamNode.transformsFilePath = ""
-        if self.customParamNode.virtualFolderTransforms:
-          folderID = self.customParamNode.virtualFolderTransforms
-          shNode.RemoveItem(folderID) # removes children nodes as well
-          self.customParamNode.virtualFolderTransforms = 0
+        if self.customParamNode.sequenceNodeTransforms:
+          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceNodeTransforms)
+          self.customParamNode.sequenceNodeTransforms = None
 
       # Set a param to hold the path to the folder containing the 2D time-series images
       self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
 
       # Load the images into 3D Slicer
-      folderID, cancelled = \
-        self.logic.loadImagesIntoVirtualFolder(shNode, self.selector2DImagesFolder.currentPath)
+      imagesSequenceNode, cancelled = \
+        self.logic.loadImagesIntoSequenceNode(shNode, self.selector2DImagesFolder.currentPath)
 
       if cancelled:
         # Unset the param which holds the path to the folder containing the 2D images
         self.customParamNode.folder2DImages = ""
       else:
-        if folderID:
-          # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
-          # the 2D time-series images
-          self.customParamNode.virtualFolder2DImages = folderID
+        if imagesSequenceNode:
+          # Set a param to hold a sequence node which holds the 2D time-series images
+          self.customParamNode.sequenceNode2DImages = imagesSequenceNode
           # Track the number of total images within the parameter totalImages
-          self.customParamNode.totalImages = shNode.GetNumberOfItemChildren(folderID)
+          self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
         else:
           slicer.util.warningDisplay("No image files were found within the folder: "
                                     f"{self.selector2DImagesFolder.currentPath}", "Input Error")
@@ -556,13 +554,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                    "The file was not loaded into 3D Slicer.", "Input Error")
 
     if caller == "selectorTransformsFile" and event == "currentPathChanged":
-      # If a virtual folder holding the transformations exists, delete it, since a new file that
+      # If a sequence node holding the transformations exists, delete it, since a new file that
       # may have new transformations has been provided
-      if self.customParamNode.virtualFolderTransforms:
-        folderID = self.customParamNode.virtualFolderTransforms
-        shNode.RemoveItem(folderID) # This will remove any children nodes as well
+      if self.customParamNode.sequenceNodeTransforms:
+        shNode.RemoveNode(self.customParamNode.sequenceNodeTransforms)
         # Also reset our state/params related to this input
-        self.customParamNode.virtualFolderTransforms = 0
+        self.customParamNode.sequenceNodeTransforms = None
         self.customParamNode.playing = False
         self.customParamNode.currentImageIndex = -1
 
@@ -577,16 +574,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages)
 
       if transformsList:
-        # Create transform nodes from the transform data and place them into a virtual folder
-        transformsVirtualFolderID = \
+        # Create transform nodes from the transform data and place them into a sequence node
+        transformsSequenceNode = \
            self.logic.createTransformNodesFromTransformData(shNode, transformsList, numImages)
 
-        if not transformsVirtualFolderID:
+        if not transformsSequenceNode:
           # If cancelled unset param to hold path to the transformations .csv file
           self.customParamNode.transformsFilePath = ""
         else:
-          # Set a param to hold the ID of a virtual folder which holds the transform nodes
-          self.customParamNode.virtualFolderTransforms = transformsVirtualFolderID
+          # Set a param to hold the sequence node which holds the transform nodes
+          self.customParamNode.sequenceNodeTransforms = transformsSequenceNode
       else:
         slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
                                    f"{self.selectorTransformsFile.currentPath}",
@@ -821,14 +818,15 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     customParameterNode.opacity = 1.0  # 100 %
     customParameterNode.overlayAsOutline = True
 
-  def loadImagesIntoVirtualFolder(self, shNode, path):
+  def loadImagesIntoSequenceNode(self, shNode, path):
     """
-    Loads the 2D time-series images located within the provided path into 3D Slicer. They are then
-    placed within a virtual folder in the subject hierarchy for better organization.
+    Loads the 2D time-series images located within the provided path into 3D Slicer. They are
+    placed within a sequence node and the loaded image nodes are deleted thereafter.
     :param shNode: node representing the subject hierarchy
     :param path: path to folder containing the 2D images to be imported
     """
-    folderID = None
+    # NOTE: This represents a node within the MRML scene, not within the subject hierarchy
+    imagesSequenceNode = None
 
     # Find all the image file names within the provided dir
     imageFiles = []
@@ -837,10 +835,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         imageFiles.append(item)
     imageFiles.sort()
 
-    # We only want to create the virtual folder if image files were found within the provided path
+    # We only want to create a sequence node if image files were found within the provided path
     if len(imageFiles) != 0:
-      sceneID = shNode.GetSceneItemID()
-      folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
+      imagesSequenceNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode",
+                                                              "Image Nodes Sequence")
 
       # Create a progress/loading bar to display the progress of the images loading process
       progressDialog = qt.QProgressDialog("Loading 2D Images Into 3D Slicer", "Cancel",
@@ -850,15 +848,17 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       for fileIndex in range(len(imageFiles)):
         # If the 'Cancel' button was pressed, we want to return to a default state
         if progressDialog.wasCanceled:
-          # Remove virtual folder and any children transform nodes
-          shNode.RemoveItem(folderID) # This will remove any children nodes as well
+          # Remove sequence node
+          slicer.mrmlScene.RemoveNode(imagesSequenceNode)
           return None, True
 
         filepath = os.path.join(path, imageFiles[fileIndex])
         loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
-        # Place image into the virtual folder
+        # Place image node into sequence
+        imagesSequenceNode.SetDataNodeAtValue(loadedImageNode, str(fileIndex))
+        # Remove loaded image node
         imageID = shNode.GetItemByDataNode(loadedImageNode)
-        shNode.SetItemParent(imageID, folderID)
+        shNode.RemoveItem(imageID)
 
         #  Update how far we are in the progress bar
         progressDialog.setValue(fileIndex + 1)
@@ -874,7 +874,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       # foreground. This seems to be a bug in 3D Slicer.
       self.clearSliceForegrounds()
 
-    return folderID, False
+    return imagesSequenceNode, False
 
   def validateTransformsInput(self, filepath, numImages):
     """
@@ -910,14 +910,14 @@ class TrackLogic(ScriptedLoadableModuleLogic):
   def createTransformNodesFromTransformData(self, shNode, transforms, numImages):
     """
     For every image and it's matching transformation, create a transform node which will hold
-    the transformation data for that image wthin 3D Slicer. Place them in a virtual folder.
+    the transformation data for that image wthin 3D Slicer. Place them in a sequence node.
     :param shNode: node representing the subject hierarchy
     :param transforms: list of transforms extrapolated from the transforms .csv file
     :param numImages: number of 2D images loaded into 3D Slicer
     """
-    # Create a folder to hold the transform nodes
-    sceneID = shNode.GetSceneItemID()
-    transformsVirtualFolderID = shNode.CreateFolderItem(sceneID, "Transforms")
+    # NOTE: This represents a node within the MRML scene, not within the subject hierarchy
+    transformsSequenceNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode",
+                                                                "Transform Nodes Sequence")
 
     # Create a progress/loading bar to display the progress of the node creation process
     progressDialog = qt.QProgressDialog("Creating Transform Nodes From Transformation Data", "Cancel",
@@ -930,8 +930,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     for i in range(numImages):
       # If the 'Cancel' button was pressed, we want to return to a default state
       if progressDialog.wasCanceled:
-        # Remove virtual folder and any children transform nodes
-        shNode.RemoveItem(transformsVirtualFolderID) # This will remove any children nodes as well
+        # Remove sequence node
+        shNode.RemoveNode(transformsSequenceNode)
         return None
 
       # 3D Slicer uses the RAS (Right, Anterior, Superior) basis for their coordinate system.
@@ -970,9 +970,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
              slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"Transform {i + 1}")
       transformNode.ApplyTransformMatrix(transformMatrix)
 
-      # Add the transform node to the transform nodes virtual folder
+      # Add the transform node to the transforms sequence node
+      transformsSequenceNode.SetDataNodeAtValue(transformNode, str(i))
+      # Remove the transform node
       transformNodeID = shNode.GetItemByDataNode(transformNode)
-      shNode.SetItemParent(transformNodeID, transformsVirtualFolderID)
+      shNode.RemoveItem(transformNodeID)
 
       # Update how far we are in the progress bar
       progressDialog.setValue(i + 1)
@@ -983,7 +985,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     print(f"{numImages} transforms were loaded into 3D Slicer as transform nodes")
 
-    return transformsVirtualFolderID
+    return transformsSequenceNode
 
   def clearSliceForegrounds(self):
     """
