@@ -9,7 +9,7 @@ import vtk
 import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
-
+from slicer.parameterNodeWrapper import *
 
 #
 # Track
@@ -37,6 +37,26 @@ This file was originally developed by James McCafferty.
 """
 
 #
+# Custom Parameter Node
+#
+
+@parameterNodeWrapper
+class CustomParameterNode:
+  folder2DImages: str
+  virtualFolder2DImages: int  # subject hierarchy id
+  path3DSegmentation: str
+  node3DSegmentation: int  # subject hierarchy id
+  node3DSegmentationLabelMap: int  # subject hierarchy id
+  transformsFilePath: str
+  virtualFolderTransforms: int  # subject hierarchy id
+  playing: bool
+  currentImageIndex: int
+  totalImages: int
+  delay: float
+  opacity: float
+  overlayAsOutline: bool
+
+#
 # TrackWidget
 #
 
@@ -54,9 +74,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     VTKObservationMixin.__init__(self)  # needed for parameter node observation
 
     self.logic = None
-    self._parameterNode = None
+    self.customParamNode = None
     self._updatingGUIFromParameterNode = False
-
 
   def setup(self):
     """
@@ -289,16 +308,22 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.nextFrameButton.connect("clicked(bool)", self.onIncrement)
     self.previousFrameButton.connect("clicked(bool)", self.onDecrement)
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
-    self.sequenceSlider.connect("valueChanged(int)",
-                                lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
-    self.selector2DImagesFolder.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged"))
-    self.selector3DSegmentation.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
-    self.selectorTransformsFile.connect("currentPathChanged(QString)", lambda: self.updateParameterNodeFromGUI("selectorTransformsFile", "currentPathChanged"))
+    self.selector2DImagesFolder.connect("currentPathChanged(QString)", \
+      lambda: self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged"))
+    self.selector3DSegmentation.connect("currentPathChanged(QString)", \
+      lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
+    self.selectorTransformsFile.connect("currentPathChanged(QString)", \
+      lambda: self.updateParameterNodeFromGUI("selectorTransformsFile", "currentPathChanged"))
+
+    # These connections will reset the visuals when one of the main inputs are modified
+    self.selector2DImagesFolder.connect("currentPathChanged(QString)", self.resetVisuals)
+    self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
+    self.selectorTransformsFile.connect("currentPathChanged(QString)", self.resetVisuals)
 
     #
     # End logic
@@ -325,7 +350,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Called each time the user opens a different module.
     """
     # Do not react to parameter node changes (GUI will be updated when the user enters into the module)
-    self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+    self.removeObserver(self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
   def onSceneStartClose(self, caller, event):
     """
@@ -361,26 +386,29 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Set and observe parameter node.
     Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
     """
+    # NOTE: In certain situations the parameter node is set to None (ex. briefly on module reload)
 
+    # If a parameter node is provided (i.e. not None), then create a Custom Parameter Node with it
     if inputParameterNode:
-      self.logic.setDefaultParameters(inputParameterNode)
-      # If the provided parameter node indicates that we had already loaded the 2D images, note the
-      # total images amount within the corresponding variable, as it may have been lost on reload.
-      if inputParameterNode.GetParameter("VirtualFolder2DImages"):
-        shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-        folderID = int(inputParameterNode.GetParameter("VirtualFolder2DImages"))
-        self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
-        self.sequenceSlider.setMaximum(self.logic.totalImages)
+      # A parameter node is new if it is being used for the first time (no parameters are set)
+      isNewParamNode = inputParameterNode.GetParameterNamesAsCommaSeparatedList() == ""
 
-    # Unobserve previously selected parameter node and add an observer to the newly selected.
-    # Changes of parameter node are observed so that whenever parameters are changed by a script or any other module
-    # those are reflected immediately in the GUI.
-    if self._parameterNode is not None:
-      self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
-    
-    self._parameterNode = inputParameterNode
-    if self._parameterNode is not None:
-      self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+      inputParameterNode = CustomParameterNode(inputParameterNode)
+
+      # We only want to set the default parameters when the parameter node is new
+      if isNewParamNode:
+        self.logic.setDefaultParameters(inputParameterNode)
+
+    # Unobserve previously selected parameter node
+    if self.customParamNode is not None:
+      self.removeObserver(self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+
+    self.customParamNode = inputParameterNode
+
+    # Changes of parameter node are observed so that whenever parameters are changed by a script
+    # or any other module those are reflected immediately in the GUI. No observation if None.
+    if self.customParamNode is not None:
+      self.addObserver(self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
     # Initial GUI update
     self.updateGUIFromParameterNode()
@@ -390,38 +418,41 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     This method is called whenever parameter node is changed.
     The module GUI is updated to show the current state of the parameter node.
     """
-    
-    if self._parameterNode is None or self._updatingGUIFromParameterNode:
+    if self.customParamNode is None or self._updatingGUIFromParameterNode:
       return
 
     # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
     self._updatingGUIFromParameterNode = True
 
-    # We strictly only want to reset the visuals/state if the parameter node has been modified.
-    # Whereas updateGUIFromParamterNode() can be called when the module is reloaded or reopened.
-    if event == "ModifiedEvent":
-      self.logic.resetState(self._parameterNode.GetParameter("3DSegmentationLabelMap"))
+    self.selector2DImagesFolder.currentPath = self.customParamNode.folder2DImages
+    self.selector3DSegmentation.currentPath = self.customParamNode.path3DSegmentation
+    self.selectorTransformsFile.currentPath = self.customParamNode.transformsFilePath
 
-    self.selector2DImagesFolder.currentPath = self._parameterNode.GetParameter("2DImagesFolder")
-    self.selector3DSegmentation.currentPath = self._parameterNode.GetParameter("3DSegmentationPath")
-    self.selectorTransformsFile.currentPath = self._parameterNode.GetParameter("TransformsFilePath")
-    #self.ui.inputSelector.setCurrentNode(self._parameterNode.GetNodeReference("InputVolume"))
-    #self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolume"))
-    #self.ui.invertedOutputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputVolumeInverse"))
-    #self.ui.imageThresholdSliderWidget.value = float(self._parameterNode.GetParameter("Threshold"))
-    #self.ui.invertOutputCheckBox.checked = (self._parameterNode.GetParameter("Invert") == "true")
-
-    if self._parameterNode.GetParameter("VirtualFolder2DImages"):
+    if self.customParamNode.virtualFolder2DImages:
       self.selectorTransformsFile.enabled = True
     else:
       self.selectorTransformsFile.enabled = False
 
     # True if the 2D images, transforms and 3D segmentation have been provided
-    inputsProvided = self._parameterNode.GetParameter("VirtualFolder2DImages") and \
-                     self._parameterNode.GetParameter("VirtualFolderTransforms") and \
-                     self._parameterNode.GetParameter("3DSegmentationNode")
+    inputsProvided = self.customParamNode.virtualFolder2DImages and \
+                     self.customParamNode.virtualFolderTransforms and \
+                     self.customParamNode.node3DSegmentation
 
     self.updatePlaybackButtons(inputsProvided)
+
+    self.sequenceSlider.setMaximum(self.customParamNode.totalImages)
+
+    self.sequenceSlider.setValue(self.customParamNode.currentImageIndex + 1)
+
+    self.currentFrameInputBox.setValue(self.customParamNode.currentImageIndex + 1)
+
+    self.playbackSpeedBox.value = 1000 / self.customParamNode.delay
+
+    self.opacitySlider.value = self.customParamNode.opacity
+
+    self.opacityPercentageLabel.text = str(int(self.customParamNode.opacity * 100)) + "%"
+
+    self.overlayOutlineOnlyBox.checked = self.customParamNode.overlayAsOutline
 
     # All the GUI updates are done
     self._updatingGUIFromParameterNode = False
@@ -432,75 +463,82 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     The changes are saved into the parameter node (so that they are restored when the scene is saved and loaded).
     """
 
-    if self._parameterNode is None or self._updatingGUIFromParameterNode:
+    if self.customParamNode is None or self._updatingGUIFromParameterNode:
       return
 
-    wasModified = self._parameterNode.StartModify()  # Modify all properties in a single batch
+    wasModified = self.customParamNode.StartModify()  # Modify all properties in a single batch
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
     if caller == "selector2DImagesFolder" and event == "currentPathChanged":
       # If the virtual folder holding the 2D images exists, then delete it (and the data inside)
       # because the folder path has changed, so we may need to upload new 2D images
-      if self._parameterNode.GetParameter("VirtualFolder2DImages"):
-        folderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
+      if self.customParamNode.virtualFolder2DImages:
+        folderID = self.customParamNode.virtualFolder2DImages
         shNode.RemoveItem(folderID) # this will remove any children nodes as well
-        self._parameterNode.UnsetParameter("VirtualFolder2DImages")
-        # Also reset our total images count
-        self.logic.totalImages = None
-        self.sequenceSlider.setValue(1)
+        # Also reset our state/params related to this input
+        self.customParamNode.virtualFolder2DImages = 0
+        self.customParamNode.totalImages = 0
+        self.customParamNode.playing = False
+        self.customParamNode.currentImageIndex = -1
 
       # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
       # if the path changes, we want to remove any transforms related information. The user should
       # reselect the transforms file they wish to use with the 2D images.
-      if self._parameterNode.GetParameter("TransformsFilePath"):
-        self._parameterNode.UnsetParameter("TransformsFilePath")
-        if self._parameterNode.GetParameter("VirtualFolderTransforms"):
-          folderID = int(self._parameterNode.GetParameter("VirtualFolderTransforms"))
+      if self.customParamNode.transformsFilePath:
+        self.customParamNode.transformsFilePath = ""
+        if self.customParamNode.virtualFolderTransforms:
+          folderID = self.customParamNode.virtualFolderTransforms
           shNode.RemoveItem(folderID) # removes children nodes as well
-          self._parameterNode.UnsetParameter("VirtualFolderTransforms")
+          self.customParamNode.virtualFolderTransforms = 0
 
       # Set a param to hold the path to the folder containing the 2D time-series images
-      self._parameterNode.SetParameter("2DImagesFolder", self.selector2DImagesFolder.currentPath)
+      self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
 
       # Load the images into 3D Slicer
-      folderID, cancelled = self.loadImagesIntoVirtualFolder(shNode, self.selector2DImagesFolder.currentPath)
+      folderID, cancelled = \
+        self.logic.loadImagesIntoVirtualFolder(shNode, self.selector2DImagesFolder.currentPath)
 
-      if not cancelled:
+      if cancelled:
+        # Unset the param which holds the path to the folder containing the 2D images
+        self.customParamNode.folder2DImages = ""
+      else:
         if folderID:
           # Set a param to hold the ID of a virtual folder within the subject hierarchy which holds
           # the 2D time-series images
-          self._parameterNode.SetParameter("VirtualFolder2DImages", str(folderID))
-          # Track the number of total images within the variable totalImages
-          self.logic.totalImages = shNode.GetNumberOfItemChildren(folderID)
-          self.sequenceSlider.setMaximum(self.logic.totalImages)
+          self.customParamNode.virtualFolder2DImages = folderID
+          # Track the number of total images within the parameter totalImages
+          self.customParamNode.totalImages = shNode.GetNumberOfItemChildren(folderID)
         else:
           slicer.util.warningDisplay("No image files were found within the folder: "
                                     f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
       # If a 3D segmentation node already exists, delete it before we load the new one
-      if self._parameterNode.GetParameter("3DSegmentationNode"):
-        nodeID = int(self._parameterNode.GetParameter("3DSegmentationNode"))
+      if self.customParamNode.node3DSegmentation:
+        nodeID = self.customParamNode.node3DSegmentation
         shNode.RemoveItem(nodeID)
-        self._parameterNode.UnsetParameter("3DSegmentationNode")
-        if self._parameterNode.GetParameter("3DSegmentationLabelMap"):
-          labelMapID = int(self._parameterNode.GetParameter("3DSegmentationLabelMap"))
+        # Also reset our state/params related to this input
+        self.customParamNode.node3DSegmentation = 0
+        self.customParamNode.playing = False
+        self.customParamNode.currentImageIndex = -1
+        if self.customParamNode.node3DSegmentationLabelMap:
+          labelMapID = self.customParamNode.node3DSegmentationLabelMap
           shNode.RemoveItem(labelMapID)
-          self._parameterNode.UnsetParameter("3DSegmentationLabelMap")
+          self.customParamNode.node3DSegmentationLabelMap = 0
 
       # Set a param to hold the path to the 3D segmentation file
-      self._parameterNode.SetParameter("3DSegmentationPath", self.selector3DSegmentation.currentPath)
+      self.customParamNode.path3DSegmentation = self.selector3DSegmentation.currentPath
 
       # Segmentation file should end with .mha
       if re.match('.*\.mha', self.selector3DSegmentation.currentPath):
         segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
                                                   {"singleFile": True, "show": False})
-        self.clearSliceForegrounds()
+        self.logic.clearSliceForegrounds()
         segmentationNode.SetName("3D Segmentation")
-        # Set a param to hold the 3D segmentation node ID within the subject hierarchy
+        # Set a param to hold the 3D segmentation node ID
         nodeID = shNode.GetItemByDataNode(segmentationNode)
-        self._parameterNode.SetParameter("3DSegmentationNode", str(nodeID))
+        self.customParamNode.node3DSegmentation = nodeID
 
         # Create a label map of the 3D segmentation that will be used to define the mask overlayed
         # on the 2D images during playback
@@ -511,7 +549,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                                        segmentationNode)
         # Set a param to hold the 3D segmentation label map ID
         labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
-        self._parameterNode.SetParameter("3DSegmentationLabelMap", str(labelMapID))
+        self.customParamNode.node3DSegmentationLabelMap = labelMapID
       else:
         slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
                                    "The file was not loaded into 3D Slicer.", "Input Error")
@@ -519,38 +557,354 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if caller == "selectorTransformsFile" and event == "currentPathChanged":
       # If a virtual folder holding the transformations exists, delete it, since a new file that
       # may have new transformations has been provided
-      if self._parameterNode.GetParameter("VirtualFolderTransforms"):
-        folderID = int(self._parameterNode.GetParameter("VirtualFolderTransforms"))
+      if self.customParamNode.virtualFolderTransforms:
+        folderID = self.customParamNode.virtualFolderTransforms
         shNode.RemoveItem(folderID) # This will remove any children nodes as well
-        self._parameterNode.UnsetParameter("VirtualFolderTransforms")
+        # Also reset our state/params related to this input
+        self.customParamNode.virtualFolderTransforms = 0
+        self.customParamNode.playing = False
+        self.customParamNode.currentImageIndex = -1
 
       # Set a param to hold the path to the transformations .csv file
-      self._parameterNode.SetParameter("TransformsFilePath", self.selectorTransformsFile.currentPath)
+      self.customParamNode.transformsFilePath = self.selectorTransformsFile.currentPath
 
-      # It is implied that a VirtualFolder2DImages exists (since the selector is enabled)
-      imagesVirtualFolderID = int(self._parameterNode.GetParameter("VirtualFolder2DImages"))
-      numImages = shNode.GetNumberOfItemChildren(imagesVirtualFolderID)
-
+      numImages = self.customParamNode.totalImages
       # If even one line cannot be read correctly/is missing our playback cannot be successful. We
       # will validate the tranformations input first. If the input is valid, we get a list
       # containing all of the transformations read from the file.
       transformsList = \
-                   self.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages)
+        self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages)
 
       if transformsList:
         # Create transform nodes from the transform data and place them into a virtual folder
         transformsVirtualFolderID = \
-           self.createTransformNodesFromTransformData(shNode, transformsList, numImages)
+           self.logic.createTransformNodesFromTransformData(shNode, transformsList, numImages)
 
-        if transformsVirtualFolderID:
+        if not transformsVirtualFolderID:
+          # If cancelled unset param to hold path to the transformations .csv file
+          self.customParamNode.transformsFilePath = ""
+        else:
           # Set a param to hold the ID of a virtual folder which holds the transform nodes
-          self._parameterNode.SetParameter("VirtualFolderTransforms", str(transformsVirtualFolderID))
+          self.customParamNode.virtualFolderTransforms = transformsVirtualFolderID
       else:
         slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
                                    f"{self.selectorTransformsFile.currentPath}",
                                    "Validation Error")
 
-    self._parameterNode.EndModify(wasModified)
+    self.customParamNode.EndModify(wasModified)
+
+  def onPlayButton(self):
+    """
+    Begin the visualization playback when a user clicks the "Play" button.
+    """
+    self.customParamNode.currentImageIndex += 1
+    self.customParamNode.playing = True
+
+    self.logic.visualize(self.customParamNode.virtualFolder2DImages,
+                         self.customParamNode.node3DSegmentationLabelMap,
+                         self.customParamNode.virtualFolderTransforms,
+                         self.customParamNode.currentImageIndex, 
+                         self.customParamNode.opacity, 
+                         self.customParamNode.overlayAsOutline)
+
+    # Invoke completion event and use artificial pause to let user recognize the visualization
+    self.logic.timer.singleShot(self.customParamNode.delay,
+                                lambda: slicer.mrmlScene.InvokeEvent(self.VisualizationEvent))
+
+  def onStopButton(self):
+    """
+    Stop the playback, after the current image's visualization completes.
+    """
+    self.customParamNode.playing = False
+
+  def onIncrement(self):
+    """
+    Move forward in the playback one step.
+    """
+    if self.atLastImage():
+      print("Error: Cannot increment beyond the last image")
+      return
+    else:
+      self.customParamNode.currentImageIndex += 1
+
+    self.logic.visualize(self.customParamNode.virtualFolder2DImages,
+                         self.customParamNode.node3DSegmentationLabelMap,
+                         self.customParamNode.virtualFolderTransforms,
+                         self.customParamNode.currentImageIndex, 
+                         self.customParamNode.opacity, 
+                         self.customParamNode.overlayAsOutline)
+
+  def onDecrement(self):
+    """
+    Move backwards in the playback one step.
+    """
+    if self.atFirstImage():
+      print("Error: Cannot decrement beyond the image at index 0")
+      return
+    else:
+      self.customParamNode.currentImageIndex -= 1
+
+    self.logic.visualize(self.customParamNode.virtualFolder2DImages,
+                         self.customParamNode.node3DSegmentationLabelMap,
+                         self.customParamNode.virtualFolderTransforms,
+                         self.customParamNode.currentImageIndex, 
+                         self.customParamNode.opacity, 
+                         self.customParamNode.overlayAsOutline)
+
+  def onVisualizationComplete(self, caller, event):
+    """
+    Function invoked when the visualization of the image data (2D image + 3D segmentation) is
+    complete.
+    """
+    # Begin the next image's visualization, only if we are playing and not at the last image
+    if self.customParamNode.playing and not self.atLastImage():
+      self.customParamNode.currentImageIndex += 1
+
+      self.logic.visualize(self.customParamNode.virtualFolder2DImages,
+                           self.customParamNode.node3DSegmentationLabelMap,
+                           self.customParamNode.virtualFolderTransforms,
+                           self.customParamNode.currentImageIndex,
+                           self.customParamNode.opacity,
+                           self.customParamNode.overlayAsOutline)
+
+      # Invoke completion event and use artificial pause to let user recognize the visualization
+      self.logic.timer.singleShot(self.customParamNode.delay,
+                                  lambda: slicer.mrmlScene.InvokeEvent(self.VisualizationEvent))
+    else:
+      # We update here in case that the end of the playback was reached (last image)
+      self.customParamNode.playing = False
+
+  def updatePlaybackButtons(self, inputsProvided):
+    """
+    Function to update which playback buttons are enabled or disabled according to the state.
+    :param inputsProvided: True if all the 3 inputs have been provided: The 2D images folder,
+                           the 3D segmentation, and the transforms file.
+    """
+    if inputsProvided:
+      if self.customParamNode.playing:
+        # If we are playing
+        self.playSequenceButton.enabled = False
+        self.stopSequenceButton.enabled = True
+        self.nextFrameButton.enabled = False
+        self.previousFrameButton.enabled = False
+      else:
+        # If we are paused
+        if self.atLastImage():
+          self.playSequenceButton.enabled = False
+          self.nextFrameButton.enabled = False
+          self.previousFrameButton.enabled = True
+        elif self.atFirstImage():
+          self.playSequenceButton.enabled = True
+          self.nextFrameButton.enabled = True
+          self.previousFrameButton.enabled = False
+        else:
+          self.playSequenceButton.enabled = True
+          self.nextFrameButton.enabled = True
+          self.previousFrameButton.enabled = True
+
+        self.stopSequenceButton.enabled = False
+    else:
+      # If inputs are missing
+      self.playSequenceButton.enabled = False
+      self.stopSequenceButton.enabled = False
+      self.nextFrameButton.enabled = False
+      self.previousFrameButton.enabled = False
+
+  def onPlaybackSpeedChange(self):
+    """
+    This function uses the playback speed to update our internal delay: the higher the playback
+    speed, the lower the delay, and vice versa. The internal delay is how long the user will view
+    the current visualized alignment, before moving on. By default this is 1 second (1000 ms).
+    """
+    self.customParamNode.delay = 1000 / self.playbackSpeedBox.value
+
+  def onOpacityChange(self):
+    """
+    This function updates the opacity of the label map layer in the slice views according to the
+    value in the opacity slider GUI widget.
+    """
+    self.customParamNode.opacity = self.opacitySlider.value
+
+    layoutManager = slicer.app.layoutManager()
+    for name in layoutManager.sliceViewNames():
+      sliceCompositeNode = layoutManager.sliceWidget(name).mrmlSliceCompositeNode()
+      sliceCompositeNode.SetLabelOpacity(self.opacitySlider.value)
+
+  def onOverlayOutlineChange(self):
+    """
+    This function updates whether the label map layer overlay is shown as outlined or as a filled
+    region within the slice views, according to the value within the overlay outline checkbox.
+    """
+    self.customParamNode.overlayAsOutline = self.overlayOutlineOnlyBox.checked
+
+    layoutManager = slicer.app.layoutManager()
+    for name in layoutManager.sliceViewNames():
+      sliceNode = layoutManager.sliceWidget(name).mrmlSliceNode()
+      sliceNode.SetUseLabelOutline(self.overlayOutlineOnlyBox.checked)
+
+  def atFirstImage(self):
+    """
+    Returns whether we are at the first image of the playback sequence.
+    """
+    # If no image has been shown yet (i.e the index is -1) we default to True
+    if self.customParamNode.currentImageIndex == -1:
+      return True
+    else:
+      return self.customParamNode.currentImageIndex == 0
+
+  def atLastImage(self):
+    """
+    Returns whether we are at the last image of the playback squence.
+    """
+    # If no image has been shown yet (i.e. the index is -1) we default to False
+    if self.customParamNode.currentImageIndex == -1:
+      return False
+    else:
+      return self.customParamNode.currentImageIndex == (self.customParamNode.totalImages - 1)
+
+  def resetVisuals(self):
+    """
+    Resets the visual state of the 3D Slicer views. This function is called when one of the main
+    inputs is changed.
+    """
+    # Clear slice views
+    layoutManager = slicer.app.layoutManager()
+    for name in layoutManager.sliceViewNames():
+      sliceWidget = layoutManager.sliceWidget(name)
+      # Remove 2D slice from being shown in the 3D view
+      sliceNode = sliceWidget.mrmlSliceNode()
+      sliceNode.SetSliceVisible(False)
+      # Remove any data being shown in the slice view
+      sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+      sliceCompositeNode.SetBackgroundVolumeID("None")
+      sliceCompositeNode.SetForegroundVolumeID("None")
+      sliceCompositeNode.SetLabelVolumeID("")
+
+    # Clear segmentation label map from 3D view (only if the label map exists)
+    if self.customParamNode.node3DSegmentationLabelMap:
+      shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+      shNode.SetItemDisplayVisibility(self.customParamNode.node3DSegmentationLabelMap, 0)
+
+    slicer.util.forceRenderAllViews()
+    slicer.app.processEvents()
+
+#
+# TrackLogic
+#
+
+class TrackLogic(ScriptedLoadableModuleLogic):
+  """This class should implement all the actual
+  computation done by your module.  The interface
+  should be such that other python code can import
+  this class and make use of the functionality without
+  requiring an instance of the Widget.
+  Uses ScriptedLoadableModuleLogic base class, available at:
+  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  """
+
+  def __init__(self):
+    """
+    Called when the logic class is instantiated. Can be used for initializing member variables.
+    """
+    ScriptedLoadableModuleLogic.__init__(self)
+    self.timer = qt.QTimer()
+
+  def setDefaultParameters(self, customParameterNode):
+    """
+    Initialize parameter node with default settings.
+    """
+    customParameterNode.playing = False
+    customParameterNode.currentImageIndex = -1  # -1 means playback has not started yet, 0-indexed
+    customParameterNode.totalImages = 0
+    customParameterNode.delay = 1000.0  # milliseconds
+    customParameterNode.opacity = 1.0  # 100 %
+    customParameterNode.overlayAsOutline = True
+
+  def loadImagesIntoVirtualFolder(self, shNode, path):
+    """
+    Loads the 2D time-series images located within the provided path into 3D Slicer. They are then
+    placed within a virtual folder in the subject hierarchy for better organization.
+    :param shNode: node representing the subject hierarchy
+    :param path: path to folder containing the 2D images to be imported
+    """
+    folderID = None
+
+    # Find all the image file names within the provided dir
+    imageFiles = []
+    for item in os.listdir(path):
+      if re.match('[0-9]{5}\.mha', item): # five numbers followed by .mha
+        imageFiles.append(item)
+    imageFiles.sort()
+
+    # We only want to create the virtual folder if image files were found within the provided path
+    if len(imageFiles) != 0:
+      sceneID = shNode.GetSceneItemID()
+      folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
+
+      # Create a progress/loading bar to display the progress of the images loading process
+      progressDialog = qt.QProgressDialog("Loading 2D Images Into 3D Slicer", "Cancel",
+                                          0, len(imageFiles))
+      progressDialog.minimumDuration = 0
+
+      for fileIndex in range(len(imageFiles)):
+        # If the 'Cancel' button was pressed, we want to return to a default state
+        if progressDialog.wasCanceled:
+          # Remove virtual folder and any children transform nodes
+          shNode.RemoveItem(folderID) # This will remove any children nodes as well
+          return None, True
+
+        filepath = os.path.join(path, imageFiles[fileIndex])
+        loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
+        # Place image into the virtual folder
+        imageID = shNode.GetItemByDataNode(loadedImageNode)
+        shNode.SetItemParent(imageID, folderID)
+
+        #  Update how far we are in the progress bar
+        progressDialog.setValue(fileIndex + 1)
+
+        # This render step is needed for the progress bar to visually update in the GUI
+        slicer.util.forceRenderAllViews()
+        slicer.app.processEvents()
+
+      print(f"{len(imageFiles)} 2D time-series images were loaded into 3D Slicer")
+
+      # We do the following to clear the view of the slices. I expected {"show": False} to
+      # prevent anything from being shown at all, but the first loaded image will appear in the
+      # foreground. This seems to be a bug in 3D Slicer.
+      self.clearSliceForegrounds()
+
+    return folderID, False
+
+  def validateTransformsInput(self, filepath, numImages):
+    """
+    Checks to ensure that the data in the provided transformation file is valid and matches the
+    number of 2D images that have been loaded into 3D Slicer.
+    :param filepath: path to the transforms file (which should be a .csv file)
+    :param numImages: the number of 2D time-series images that have already been loaded
+    """
+    # NOTE: The current logic of this function will only ensure that the first {numImages}
+    # transformations found within the CSV file are valid, so playback can occur. The playback will
+    # still occur if later transformations after the first {numImages} transformations are corrupt.
+    transformationsList = []
+
+    # Check that the transforms file is a .csv type
+    if re.match('.*\.csv', filepath):
+      with open(filepath, "r") as f:
+        # Using a DictReader allows us to recognize the CSV header
+        reader = csv.DictReader(f)
+        for row in reader:
+          # Extract floating point values from row
+          try:
+            transformationsList.append( [float(row['X']), float(row['Y']), float(row['Z'])] )
+          except:
+            # If there was an error reading the values, break out because we can't/shouldn't
+            # perform the playback if the transformation data is corrupt or missing.
+            break
+
+    if len(transformationsList) < numImages:
+      return None
+    else:
+      return transformationsList
 
   def createTransformNodesFromTransformData(self, shNode, transforms, numImages):
     """
@@ -577,9 +931,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if progressDialog.wasCanceled:
         # Remove virtual folder and any children transform nodes
         shNode.RemoveItem(transformsVirtualFolderID) # This will remove any children nodes as well
-        # Remove the provided filepath
-        self._parameterNode.UnsetParameter("TransformsFilePath")
-        self.selectorTransformsFile.currentPath = ""
         return None
 
       # 3D Slicer uses the RAS (Right, Anterior, Superior) basis for their coordinate system.
@@ -613,7 +964,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       transformMatrix.SetElement(1, 3, convertedTransform[1]) # PA translation
       transformMatrix.SetElement(2, 3, convertedTransform[2]) # IS translation
 
-      # Create a LinearTransform node to hold our transform matrix 
+      # Create a LinearTransform node to hold our transform matrix
       transformNode = \
              slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"Transform {i + 1}")
       transformNode.ApplyTransformMatrix(transformMatrix)
@@ -633,95 +984,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     return transformsVirtualFolderID
 
-  def validateTransformsInput(self, filepath, numImages):
-    """
-    Checks to ensure that the data in the provided transformation file is valid and matches the
-    number of 2D images that have been loaded into 3D Slicer.
-    :param filepath: path to the transforms file (which should be a .csv file)
-    :param numImages: the number of 2D time-series images that have already been loaded
-    """
-    # NOTE: The current logic of this function will only ensure that the first {numImages}
-    # transformations found within the CSV file are valid, so playback can occur. The playback will
-    # still occur if later transformations after the first {numImages} transformations are corrupt.
-    transformationsList = []
-
-    # Check that the transforms file is a .csv type
-    if re.match('.*\.csv', filepath):
-      with open(filepath, "r") as f:
-        # Using a DictReader allows us to recognize the CSV header
-        reader = csv.DictReader(f)
-        for row in reader:
-          # Extract floating point values from row
-          try:
-            transformationsList.append( [float(row['X']), float(row['Y']), float(row['Z'])] )
-          except:
-            # If there was an error reading the values, break out because we can't/shouldn't
-            # perform the playback if the transformation data is corrupt or missing.
-            break
-
-    if len(transformationsList) < numImages:
-      return None
-    else:
-      return transformationsList
-
-  def loadImagesIntoVirtualFolder(self, shNode, path):
-    """
-    Loads the 2D time-series images located within the provided path into 3D Slicer. They are then
-    placed within a virtual folder in the subject hierarchy for better organization.
-    :param shNode: node representing the subject hierarchy
-    :param path: path to folder containing the 2D images to be imported
-    """
-    folderID = None
-
-    # Find all the image file names within the provided dir
-    imageFiles = []
-    for item in os.listdir(path):
-      if re.match('[0-9]{5}\.mha', item): # five numbers followed by .mha
-        imageFiles.append(item)
-    imageFiles.sort()
-
-    # We only want to create the virtual folder if image files were found within the provided path
-    if len(imageFiles) != 0:
-      sceneID = shNode.GetSceneItemID()
-      folderID = shNode.CreateFolderItem(sceneID, "2D Time-Series Images")
-
-      # Create a progress/loading bar to display the progress of the images loading process
-      progressDialog = qt.QProgressDialog("Loading 2D Images Into 3D Slicer", "Cancel",
-                                          0, len(imageFiles))
-      progressDialog.minimumDuration = 0
-
-      for fileIndex in range(len(imageFiles)):
-        # If the 'Cancel' button was pressed, we want to return to a default state
-        if progressDialog.wasCanceled:
-          # Remove virtual folder and any children transform nodes
-          shNode.RemoveItem(folderID) # This will remove any children nodes as well
-          # Remove the provided filepath
-          self._parameterNode.UnsetParameter("2DImagesFolder")
-          self.selector2DImagesFolder.currentPath = ""
-          return None, True
-
-        filepath = os.path.join(path, imageFiles[fileIndex])
-        loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
-        # Place image into the virtual folder
-        imageID = shNode.GetItemByDataNode(loadedImageNode)
-        shNode.SetItemParent(imageID, folderID)
-
-        #  Update how far we are in the progress bar
-        progressDialog.setValue(fileIndex + 1)
-        
-        # This render step is needed for the progress bar to visually update in the GUI
-        slicer.util.forceRenderAllViews()
-        slicer.app.processEvents()
-
-      print(f"{len(imageFiles)} 2D time-series images were loaded into 3D Slicer")
-
-      # We do the following to clear the view of the slices. I expected {"show": False} to
-      # prevent anything from being shown at all, but the first loaded image will appear in the
-      # foreground. This seems to be a bug in 3D Slicer.
-      self.clearSliceForegrounds()
-
-    return folderID, False
-
   def clearSliceForegrounds(self):
     """
     Clear each slice view from having anything visible in the foreground. This often happens
@@ -731,228 +993,26 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     for viewName in layoutManager.sliceViewNames():
       layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
-  def onPlayButton(self):
+  def visualize(self, virtualFolderImagesID, segmentationLabelMapID, virtualFolderTransformsID, \
+                currentImageIndex, opacity, overlayAsOutline):
     """
-    Begin the visualization playback when a user clicks the "Play" button.
-    """
-    self.logic.playing = True
-
-    # The current image index is None if we haven't started playback. When it has any int value, it
-    # means that image is currently shown in the slice view, so we start playing with the next one.
-    if self.logic.currentImageIndex is None:
-      self.logic.currentImageIndex = 0
-    else:
-      self.logic.currentImageIndex += 1
-
-    # Update the sequence slider value to indicate the image number we are at
-    self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
-
-    self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                         int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
-
-    # Invoke completion event and use artificial pause to let user recognize the visualization
-    self.logic.timer.singleShot(self.logic.delay,
-                                lambda: slicer.mrmlScene.InvokeEvent(self.VisualizationEvent))
-
-    self.updatePlaybackButtons(True)
-
-  def onStopButton(self):
-    """
-    Stop the playback, after the current image's visualization completes.
-    """
-    self.logic.playing = False
-
-    self.updatePlaybackButtons(True)
-
-  def onIncrement(self):
-    """
-    Move forward in the playback one step.
-    """
-    # The current image index is None if we haven't started playback. When it has any int value, it
-    # means that image is currently shown in the slice view, so we start playing with the next one.
-    if self.logic.currentImageIndex is None:
-      self.logic.currentImageIndex = 0
-    elif self.logic.currentImageIndex >= (self.logic.totalImages - 1):
-      print("Error: Cannot increment beyond the last image")
-      return
-    else:
-      self.logic.currentImageIndex += 1
-
-    # Update the sequence slider value to indicate the image number we are at
-    self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
-
-    self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                         int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
-
-    self.updatePlaybackButtons(True)
-
-  def onDecrement(self):
-    """
-    Move backwards in the playback one step.
-    """
-    if self.logic.currentImageIndex <= 0:
-      print("Error: Cannot decrement beyond the image at index 0")
-      return
-    else:
-      self.logic.currentImageIndex -= 1
-
-    # Update the sequence slider value to indicate the image number we are at
-    self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
-
-    self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                         int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                         int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
-
-    self.updatePlaybackButtons(True)
-
-  def onVisualizationComplete(self, caller, event):
-    """
-    Function invoked when the visualization of the image data (2D image + 3D segmentation) is
-    complete.
-    """
-    # Begin the next image's visualization, only if we are playing and not at the last image
-    if self.logic.playing and not self.logic.atLastImage():
-      self.logic.currentImageIndex += 1
-
-      # Update the sequence slider value to indicate the image number we are at
-      self.sequenceSlider.setValue(self.logic.currentImageIndex + 1)
-
-      self.logic.visualize(int(self._parameterNode.GetParameter("VirtualFolder2DImages")),
-                           int(self._parameterNode.GetParameter("3DSegmentationLabelMap")),
-                           int(self._parameterNode.GetParameter("VirtualFolderTransforms")))
-
-      # Invoke completion event and use artificial pause to let user recognize the visualization
-      self.logic.timer.singleShot(self.logic.delay,
-                                  lambda: slicer.mrmlScene.InvokeEvent(self.VisualizationEvent))
-    else:
-      # We update here in case that the end of the playback was reached (last image)
-      self.logic.playing = False
-      self.updatePlaybackButtons(True)
-
-  def updatePlaybackButtons(self, inputsProvided):
-    """
-    Function to update which playback buttons are enabled or disabled according to the state.
-    :param inputsProvided: True if all the 3 inputs have been provided: The 2D images folder,
-                           the 3D segmentation, and the transforms file.
-    """
-    if inputsProvided:
-      if self.logic.playing:
-        # If we are playing
-        self.playSequenceButton.enabled = False
-        self.stopSequenceButton.enabled = True
-        self.nextFrameButton.enabled = False
-        self.previousFrameButton.enabled = False
-      else:
-        # If we are paused
-        if self.logic.atLastImage():
-          self.playSequenceButton.enabled = False
-          self.nextFrameButton.enabled = False
-          self.previousFrameButton.enabled = True
-        elif self.logic.atFirstImage():
-          self.playSequenceButton.enabled = True
-          self.nextFrameButton.enabled = True
-          self.previousFrameButton.enabled = False
-        else:
-          self.playSequenceButton.enabled = True
-          self.nextFrameButton.enabled = True
-          self.previousFrameButton.enabled = True
-
-        self.stopSequenceButton.enabled = False
-    else:
-      # If inputs are missing
-      self.playSequenceButton.enabled = False
-      self.stopSequenceButton.enabled = False
-      self.nextFrameButton.enabled = False
-      self.previousFrameButton.enabled = False
-
-  def onPlaybackSpeedChange(self):
-    """
-    This function uses the playback speed to update our internal delay: the higher the playback
-    speed, the lower the delay, and vice versa. The internal delay is how long the user will view
-    the current visualized alignment, before moving on. By default this is 1 second (1000 ms).
-    """
-    self.logic.delay = 1000 / self.playbackSpeedBox.value
-
-  def onOpacityChange(self):
-    """
-    This function updates the opacity of the label map layer in the slice views according to the
-    value in the opacity slider GUI widget.
-    """
-    self.logic.opacity = self.opacitySlider.value
-    self.opacityPercentageLabel.text = str(int(self.opacitySlider.value * 100)) + "%"
-
-    layoutManager = slicer.app.layoutManager()
-    for name in layoutManager.sliceViewNames():
-      sliceCompositeNode = layoutManager.sliceWidget(name).mrmlSliceCompositeNode()
-      sliceCompositeNode.SetLabelOpacity(self.opacitySlider.value)
-
-  def onOverlayOutlineChange(self):
-    """
-    This function updates whether the label map layer overlay is shown as outlined or as a filled
-    region within the slice views, according to the value within the overlay outline checkbox.
-    """
-    self.logic.overlayAsOutline = self.overlayOutlineOnlyBox.checked
-
-    layoutManager = slicer.app.layoutManager()
-    for name in layoutManager.sliceViewNames():
-      sliceNode = layoutManager.sliceWidget(name).mrmlSliceNode()
-      sliceNode.SetUseLabelOutline(self.overlayOutlineOnlyBox.checked)
-
-#
-# TrackLogic
-#
-
-class TrackLogic(ScriptedLoadableModuleLogic):
-  """This class should implement all the actual
-  computation done by your module.  The interface
-  should be such that other python code can import
-  this class and make use of the functionality without
-  requiring an instance of the Widget.
-  Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
-  """
-
-  def __init__(self):
-    """
-    Called when the logic class is instantiated. Can be used for initializing member variables.
-    """
-    ScriptedLoadableModuleLogic.__init__(self)
-    self.playing = False
-    self.currentImageIndex = None
-    self.totalImages = None
-    self.timer = qt.QTimer()
-    self.delay = 1000 # milliseconds
-    self.opacity = 1.0
-    self.overlayAsOutline = True
-
-  def setDefaultParameters(self, parameterNode):
-    """
-    Initialize parameter node with default settings.
-    """
-    # TODO: change this to our parameters
-    #if not parameterNode.GetParameter("Threshold"):
-    #  parameterNode.SetParameter("Threshold", "100.0")
-    #if not parameterNode.GetParameter("Invert"):
-    #  parameterNode.SetParameter("Invert", "false")
-
-  def visualize(self, virtualFolderImagesID, segmentationLabelMapID, virtualFolderTransformsID):
-    """
-    Visualizes the image data (2D image and 3D segmentation) within the 3D Slicer views (slice view
-    and 3D view) and then aligns/translates the 3D segmentation label map according to the
+    Visualizes the image data (2D image and 3D segmentation) within the 3D Slicer views (slice
+    views and 3D view) and then aligns/translates the 3D segmentation label map according to the
     transformation data.
     :param virtualFolderImagesID: subject hierarchy ID of the virtual folder containing the 2D images
     :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
     :param virtualFolderTransformsID: subject hierarchy ID of the virtual folder containing the transforms
+    :param currentImageIndex: index of the current image being shown
+    :param opacity: opacity value of overlay layer (3D segmentation label map layer)
+    :param overlayAsOutline: whether to show the overlay as an outline or a filled region
     """
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
     layoutManager = slicer.app.layoutManager()
 
-    imageID = shNode.GetItemByPositionUnderParent(virtualFolderImagesID, self.currentImageIndex)
+    imageID = shNode.GetItemByPositionUnderParent(virtualFolderImagesID, currentImageIndex)
     imageNode = shNode.GetItemDataNode(imageID)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
-    transformID = shNode.GetItemByPositionUnderParent(virtualFolderTransformsID, self.currentImageIndex)
+    transformID = shNode.GetItemByPositionUnderParent(virtualFolderTransformsID, currentImageIndex)
     transformNode = shNode.GetItemDataNode(transformID)
 
     # Remove any transformation currently being applied to the 3D segmentation. This allows us to
@@ -978,11 +1038,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     # Make the 3D segmentation label map visible as a label map layer in the slice view
     sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
-    sliceCompositeNode.SetLabelOpacity(self.opacity)
+    sliceCompositeNode.SetLabelOpacity(opacity)
 
     # Display the label map overlay as an outline
     sliceNode = sliceWidget.mrmlSliceNode()
-    sliceNode.SetUseLabelOutline(self.overlayAsOutline)
+    sliceNode.SetUseLabelOutline(overlayAsOutline)
 
     # Fit the 2D image in the slice view for a neater look
     sliceWidget.fitSliceToBackground()
@@ -1010,56 +1070,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Render changes
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
-
-  def resetState(self, segmentationLabelMapID):
-    """
-    Resets the visual state of the 3D Slicer views, as well as the logical state (restarts playback
-    from the beginning). This function is called when a parameter/input is changed.
-    :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
-    """
-    self.playing = False
-    self.currentImageIndex = None
-
-    # Clear slice views
-    layoutManager = slicer.app.layoutManager()
-    for name in layoutManager.sliceViewNames():
-      sliceWidget = layoutManager.sliceWidget(name)
-      # Remove 2D slice from being shown in the 3D view
-      sliceNode = sliceWidget.mrmlSliceNode()
-      sliceNode.SetSliceVisible(False)
-      # Remove any data being shown in the slice view
-      sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
-      sliceCompositeNode.SetBackgroundVolumeID("None")
-      sliceCompositeNode.SetForegroundVolumeID("None")
-      sliceCompositeNode.SetLabelVolumeID("")
-
-    # Clear segmentation label map from 3D view (only if the label map exists)
-    if segmentationLabelMapID:
-      shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-      shNode.SetItemDisplayVisibility(int(segmentationLabelMapID), 0)
-
-    slicer.util.forceRenderAllViews()
-    slicer.app.processEvents()
-
-  def atFirstImage(self):
-    """
-    Returns whether we are at the first image of the playback sequence.
-    """
-    # If no image has been shown yet (i.e the index is None) we default to True
-    if self.currentImageIndex is None:
-      return True
-    else:
-      return self.currentImageIndex == 0
-
-  def atLastImage(self):
-    """
-    Returns whether we are at the last image of the playback squence.
-    """
-    # If no image has been shown yet (i.e. the index is None) we default to False
-    if self.currentImageIndex is None:
-      return False
-    else:
-      return self.currentImageIndex == (self.totalImages - 1)
 
   def getSliceWidget(self, layoutManager, imageNode):
     """
