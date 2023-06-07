@@ -683,7 +683,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.playSequenceButton.enabled = True
           self.nextFrameButton.enabled = True
           self.previousFrameButton.enabled = True
-          self.stopSequenceButton.enabled = False
+          self.stopSequenceButton.enabled = True
     else:
       # If inputs are missing
       self.playSequenceButton.enabled = False
