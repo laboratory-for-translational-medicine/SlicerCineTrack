@@ -176,13 +176,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # The labels should be changed in the future such that we show: Image __ of __
 
-        #self.divisionFrameLabel = qt.QLabel("/")
-        #self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+        # self.divisionFrameLabel = qt.QLabel("/")
+        # self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
         # self.sliderLayout.addWidget(self.divisionFrameLabel)
         # this label will show total number of images
-        #self.totalFrameLabel = qt.QLabel("0")
-        #self.totalFrameLabel.enabled = True
-        #self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+        # self.totalFrameLabel = qt.QLabel("0")
+        # self.totalFrameLabel.enabled = True
+        # self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
         # self.sliderLayout.addWidget(self.totalFrameLabel)
 
         # Playback control layout
@@ -1098,8 +1098,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         # Make the 3D segmentation visible in the 3D view
         # tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
         # tmpIdList.InsertNextId(segmentationLabelMapID)
-        #threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
-        #shNode.ShowItemsInView(tmpIdList, threeDViewNode)
+        # threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
+        # shNode.ShowItemsInView(tmpIdList, threeDViewNode)
 
         # Enable alignment of the 3D segmentation label map according to the transform data so that
         # the 3D segmentation label map overlays upon the ROI of the 2D images
