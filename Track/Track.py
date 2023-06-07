@@ -685,7 +685,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         Function to update which playback buttons are enabled or disabled according to the state.
         :param inputsProvided: True if all the 3 inputs have been provided: The 2D images folder,
-                               the 3D segmentation, and the transforms file.
+                                                     the 3D segmentation, and the transforms file.
         """
         iconSize = qt.QSize(14, 14)
         mediaIconsPath = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
