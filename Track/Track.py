@@ -63,8 +63,8 @@ class CustomParameterNode:
 # TrackWidget
 #
 
-#  this is our module that we will load into 3d slicer
 
+#  this is our module that we will load into 3d slicer
 
 class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
@@ -76,8 +76,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Called when the user opens the module the first time and the widget is initialized.
     """
     ScriptedLoadableModuleWidget.__init__(self, parent)
-    # needed for parameter node observation
-    VTKObservationMixin.__init__(self)
+    VTKObservationMixin.__init__(self)  # needed for parameter node observation
 
     self.logic = None
     self.customParamNode = None
@@ -104,7 +103,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Begin GUI
     #
 
-    # Inputs Area
+    ## Inputs Area
 
     inputsCollapsibleButton = ctk.ctkCollapsibleButton()
     inputsCollapsibleButton.text = "Inputs"
@@ -121,16 +120,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector2DImagesFolder.options = ctk.ctkPathLineEdit.ShowDirsOnly
     self.selector2DImagesFolder.settingKey = '2DImagesFolder'
 
-    self.inputsFormLayout.addRow(
-        "2D Time-Series Images Folder:", self.selector2DImagesFolder)
+    self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.selector2DImagesFolder)
 
     # 3D segmentation file selector
     self.selector3DSegmentation = ctk.ctkPathLineEdit()
     self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selector3DSegmentation.settingKey = '3DSegmentation'
 
-    self.inputsFormLayout.addRow(
-        "3D Segmentation File:", self.selector3DSegmentation)
+    self.inputsFormLayout.addRow("3D Segmentation File:", self.selector3DSegmentation)
 
     # Transforms file selector
     self.selectorTransformsFile = ctk.ctkPathLineEdit()
@@ -138,10 +135,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsFile.settingKey = 'TransformsFile'
     self.selectorTransformsFile.enabled = False
 
-    self.inputsFormLayout.addRow(
-        "Transforms File (.csv):", self.selectorTransformsFile)
+    self.inputsFormLayout.addRow("Transforms File (.csv):", self.selectorTransformsFile)
 
-    # Sequence Area
+    ## Sequence Area
 
     sequenceCollapsibleButton = ctk.ctkCollapsibleButton()
     sequenceCollapsibleButton.text = "Sequence"
@@ -160,8 +156,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Sequence slider
     self.sequenceSlider = qt.QSlider(qt.Qt.Horizontal)
     self.sequenceSlider.enabled = False
-    self.sequenceSlider.setSizePolicy(
-        qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
+    self.sequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     self.sequenceSlider.setMinimum(1)
     self.sequenceSlider.setSingleStep(1)
     self.sliderLayout.addWidget(self.sequenceSlider)
@@ -170,8 +165,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.currentFrameInputBox = qt.QSpinBox()
     self.currentFrameInputBox.enabled = False
     self.currentFrameInputBox.minimum = 1
-    self.currentFrameInputBox.setSizePolicy(
-        qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+    self.currentFrameInputBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
     self.sliderLayout.addWidget(self.currentFrameInputBox)
 
     # The labels should be changed in the future such that we show: Image __ of __
@@ -205,8 +199,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.previousFrameButton.setIcon(icon)
     self.previousFrameButton.setIconSize(iconSize)
     self.previousFrameButton.enabled = False
-    self.previousFrameButton.setSizePolicy(
-        qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.previousFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.previousFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.previousFrameButton)
 
@@ -216,8 +209,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.nextFrameButton.setIcon(icon)
     self.nextFrameButton.setIconSize(iconSize)
     self.nextFrameButton.enabled = False
-    self.nextFrameButton.setSizePolicy(
-        qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.nextFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.nextFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.nextFrameButton)
 
@@ -227,8 +219,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playSequenceButton.setIcon(icon)
     self.playSequenceButton.setIconSize(iconSize)
     self.playSequenceButton.enabled = False
-    self.playSequenceButton.setSizePolicy(
-        qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.playSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.playSequenceButton)
 
@@ -238,15 +229,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.stopSequenceButton.setIcon(icon)
     self.stopSequenceButton.setIconSize(iconSize)
     self.stopSequenceButton.enabled = False
-    self.stopSequenceButton.setSizePolicy(
-        qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.stopSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.stopSequenceButton)
 
     # Playback speed label and spinbox
     self.playbackSpeedLabel = qt.QLabel("Playback Speed:")
-    self.playbackSpeedLabel.setSizePolicy(
-        qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.playbackSpeedLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.playbackSpeedLabel.setContentsMargins(20, 0, 10, 0)
     self.controlLayout.addWidget(self.playbackSpeedLabel)
 
@@ -256,8 +245,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedBox.value = 1.0
     self.playbackSpeedBox.setSingleStep(0.5)
     self.playbackSpeedBox.suffix = " fps"
-    self.playbackSpeedBox.setSizePolicy(
-        qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.playbackSpeedBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.controlLayout.addWidget(self.playbackSpeedBox)
 
     # Visual controls layout
@@ -270,28 +258,24 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Overlay outline label and checkbox
     self.outlineLabel = qt.QLabel("Outlined Overlay:")
-    self.outlineLabel.setSizePolicy(
-        qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.outlineLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.outlineLabel.setContentsMargins(0, 0, 10, 0)
     self.visualControlsLayout.addWidget(self.outlineLabel)
 
     self.overlayOutlineOnlyBox = qt.QCheckBox()
-    self.overlayOutlineOnlyBox.setSizePolicy(
-        qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.overlayOutlineOnlyBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.overlayOutlineOnlyBox.checked = True
     self.visualControlsLayout.addWidget(self.overlayOutlineOnlyBox)
 
     # Opacity labels and slider widget
     self.opacityLabel = qt.QLabel("Overlay Opacity:")
-    self.opacityLabel.setSizePolicy(
-        qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.opacityLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.opacityLabel.setContentsMargins(20, 0, 10, 0)
     self.visualControlsLayout.addWidget(self.opacityLabel)
 
     self.opacitySlider = ctk.ctkDoubleSlider()
     self.opacitySlider.orientation = qt.Qt.Horizontal
-    self.opacitySlider.setSizePolicy(
-        qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.opacitySlider.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.opacitySlider.minimum = 0
     self.opacitySlider.maximum = 1.0
     self.opacitySlider.singleStep = 0.01
@@ -299,8 +283,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.visualControlsLayout.addWidget(self.opacitySlider)
 
     self.opacityPercentageLabel = qt.QLabel("100%")
-    self.opacityPercentageLabel.setSizePolicy(
-        qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.opacityPercentageLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
 
@@ -317,38 +300,30 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic = TrackLogic()
 
     # These connections ensure that we update parameter node when scene is closed
-    self.addObserver(
-        slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
-    self.addObserver(slicer.mrmlScene,
-                     slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
+    self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
+    self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
     self.nextFrameButton.connect("clicked(bool)", self.onIncrement)
     self.previousFrameButton.connect("clicked(bool)", self.onDecrement)
-    self.playbackSpeedBox.connect(
-        "valueChanged(double)", self.onPlaybackSpeedChange)
-    self.opacitySlider.connect(
-        "valueChanged(double)", self.onOpacityChange)
-    self.overlayOutlineOnlyBox.connect(
-        "toggled(bool)", self.onOverlayOutlineChange)
+    self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
+    self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
+    self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
-    self.selector2DImagesFolder.connect("currentPathChanged(QString)",
-                                        lambda: self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged"))
-    self.selector3DSegmentation.connect("currentPathChanged(QString)",
-                                        lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
-    self.selectorTransformsFile.connect("currentPathChanged(QString)",
-                                        lambda: self.updateParameterNodeFromGUI("selectorTransformsFile", "currentPathChanged"))
+    self.selector2DImagesFolder.connect("currentPathChanged(QString)", \
+      lambda: self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged"))
+    self.selector3DSegmentation.connect("currentPathChanged(QString)", \
+      lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
+    self.selectorTransformsFile.connect("currentPathChanged(QString)", \
+      lambda: self.updateParameterNodeFromGUI("selectorTransformsFile", "currentPathChanged"))
 
     # These connections will reset the visuals when one of the main inputs are modified
-    self.selector2DImagesFolder.connect(
-        "currentPathChanged(QString)", self.resetVisuals)
-    self.selector3DSegmentation.connect(
-        "currentPathChanged(QString)", self.resetVisuals)
-    self.selectorTransformsFile.connect(
-        "currentPathChanged(QString)", self.resetVisuals)
+    self.selector2DImagesFolder.connect("currentPathChanged(QString)", self.resetVisuals)
+    self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
+    self.selectorTransformsFile.connect("currentPathChanged(QString)", self.resetVisuals)
 
     #
     # End logic
@@ -375,8 +350,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Called each time the user opens a different module.
     """
     # Do not react to parameter node changes (GUI will be updated when the user enters into the module)
-    self.removeObserver(
-        self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+    self.removeObserver(self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
   def onSceneStartClose(self, caller, event):
     """
@@ -427,16 +401,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Unobserve previously selected parameter node
     if self.customParamNode is not None:
-      self.removeObserver(
-          self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+      self.removeObserver(self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
     self.customParamNode = inputParameterNode
 
     # Changes of parameter node are observed so that whenever parameters are changed by a script
     # or any other module those are reflected immediately in the GUI. No observation if None.
     if self.customParamNode is not None:
-      self.addObserver(
-          self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+      self.addObserver(self.customParamNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
 
     # Initial GUI update
     self.updateGUIFromParameterNode()
@@ -463,8 +435,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
-        self.customParamNode.sequenceNodeTransforms and \
-        self.customParamNode.node3DSegmentation
+                     self.customParamNode.sequenceNodeTransforms and \
+                     self.customParamNode.node3DSegmentation
 
     self.updatePlaybackButtons(inputsProvided)
 
@@ -482,8 +454,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.opacitySlider.value = self.customParamNode.opacity
 
-    self.opacityPercentageLabel.text = str(
-        int(self.customParamNode.opacity * 100)) + "%"
+    self.opacityPercentageLabel.text = str(int(self.customParamNode.opacity * 100)) + "%"
 
     self.overlayOutlineOnlyBox.checked = self.customParamNode.overlayAsOutline
 
@@ -508,15 +479,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # If the sequence node holding the 2D images exists, then delete it because the folder path
       # has changed, so we may need to upload new 2D images
       if self.customParamNode.sequenceNode2DImages:
-        slicer.mrmlScene.RemoveNode(
-            self.customParamNode.sequenceNode2DImages)
+        slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceNode2DImages)
         self.customParamNode.sequenceNode2DImages = None
         # Reset our total images
         self.customParamNode.totalImages = 0
         # Also remove the sequence browser node
         if self.customParamNode.sequenceBrowserNode:
-          slicer.mrmlScene.RemoveNode(
-              self.customParamNode.sequenceBrowserNode)
+          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceBrowserNode)
           self.customParamNode.sequenceBrowserNode = None
 
       # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
@@ -525,8 +494,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       if self.customParamNode.transformsFilePath:
         self.customParamNode.transformsFilePath = ""
         if self.customParamNode.sequenceNodeTransforms:
-          slicer.mrmlScene.RemoveNode(
-              self.customParamNode.sequenceNodeTransforms)
+          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceNodeTransforms)
           self.customParamNode.sequenceNodeTransforms = None
 
       # Set a param to hold the path to the folder containing the 2D time-series images
@@ -534,8 +502,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
       # Load the images into 3D Slicer
       imagesSequenceNode, cancelled = \
-          self.logic.loadImagesIntoSequenceNode(
-              shNode, self.selector2DImagesFolder.currentPath)
+        self.logic.loadImagesIntoSequenceNode(shNode, self.selector2DImagesFolder.currentPath)
 
       if cancelled:
         # Unset the param which holds the path to the folder containing the 2D images
@@ -548,7 +515,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
         else:
           slicer.util.warningDisplay("No image files were found within the folder: "
-                                     f"{self.selector2DImagesFolder.currentPath}", "Input Error")
+                                    f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
       # If a 3D segmentation node already exists, delete it before we load the new one
@@ -563,8 +530,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.customParamNode.node3DSegmentationLabelMap = 0
         # Also remove the sequence browser node
         if self.customParamNode.sequenceBrowserNode:
-          slicer.mrmlScene.RemoveNode(
-              self.customParamNode.sequenceBrowserNode)
+          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceBrowserNode)
           self.customParamNode.sequenceBrowserNode = None
 
       # Set a param to hold the path to the 3D segmentation file
@@ -602,8 +568,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.customParamNode.sequenceNodeTransforms = None
         # Also remove the sequence browser node
         if self.customParamNode.sequenceBrowserNode:
-          slicer.mrmlScene.RemoveNode(
-              self.customParamNode.sequenceBrowserNode)
+          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceBrowserNode)
           self.customParamNode.sequenceBrowserNode = None
 
       # Set a param to hold the path to the transformations .csv file
@@ -614,14 +579,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # will validate the tranformations input first. If the input is valid, we get a list
       # containing all of the transformations read from the file.
       transformsList = \
-          self.logic.validateTransformsInput(
-              self.selectorTransformsFile.currentPath, numImages)
+        self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages)
 
       if transformsList:
         # Create transform nodes from the transform data and place them into a sequence node
         transformsSequenceNode = \
-            self.logic.createTransformNodesFromTransformData(
-                shNode, transformsList, numImages)
+           self.logic.createTransformNodesFromTransformData(shNode, transformsList, numImages)
 
         if not transformsSequenceNode:
           # If cancelled unset param to hold path to the transformations .csv file
@@ -630,15 +593,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           # Set a param to hold the sequence node which holds the transform nodes
           self.customParamNode.sequenceNodeTransforms = transformsSequenceNode
           # Create a sequence browser node
-          sequenceBrowserNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode",
+          sequenceBrowserNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode", \
                                                                    "Sequence Browser")
-          sequenceBrowserNode.AddSynchronizedSequenceNode(
-              self.customParamNode.sequenceNode2DImages)
-          sequenceBrowserNode.AddSynchronizedSequenceNode(
-              self.customParamNode.sequenceNodeTransforms)
+          sequenceBrowserNode.AddSynchronizedSequenceNode(self.customParamNode.sequenceNode2DImages)
+          sequenceBrowserNode.AddSynchronizedSequenceNode(self.customParamNode.sequenceNodeTransforms)
           # We need to observe the changes to the sequence browser so that our GUI will update as
           # the sequence progresses
-          self.addObserver(sequenceBrowserNode, vtk.vtkCommand.ModifiedEvent,
+          self.addObserver(sequenceBrowserNode, vtk.vtkCommand.ModifiedEvent, \
                            self.updateGUIFromParameterNode)
           # Set a param to hold the sequence browser node
           self.customParamNode.sequenceBrowserNode = sequenceBrowserNode
@@ -651,15 +612,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def onPlayButton(self):
     """
-    Begin the playback when a user clicks the "Play" button and pause when user clicks the "Pause"
+    Begin the playback when a user clicks the "Play" button and pause when user clicks the "Pause" button.
     """
     if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
       # if we are playing, click this button will pause the playback
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
     else:
       # if we are not playing, click this button will start the playback
-      self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(
-          self.customParamNode.fps)
+      self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(True)
 
   def onStopButton(self):
@@ -685,7 +645,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Function to update which playback buttons are enabled or disabled according to the state.
     :param inputsProvided: True if all the 3 inputs have been provided: The 2D images folder,
-       the 3D segmentation, and the transforms file.
+    the 3D segmentation, and the transforms file.
     """
     iconSize = qt.QSize(14, 14)
     mediaIconsPath = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
@@ -696,10 +656,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if inputsProvided:
       if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
         # If we are playing
-
+        
         # Set the play button to be a pause button
         self.playSequenceButton.enabled = True
         self.playSequenceButton.setIcon(pause_icon)
+        self.playSequenceButton.enabled = True
 
         self.stopSequenceButton.enabled = True
         self.nextFrameButton.enabled = False
@@ -723,7 +684,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.nextFrameButton.enabled = True
           self.previousFrameButton.enabled = True
           self.stopSequenceButton.enabled = False
-
     else:
       # If inputs are missing
       self.playSequenceButton.enabled = False
@@ -736,8 +696,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     This function uses the playback speed input to update the fps of the sequence browser
     """
     self.customParamNode.fps = self.playbackSpeedBox.value
-    self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(
-        self.customParamNode.fps)
+    self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
 
   def onOpacityChange(self):
     """
@@ -748,8 +707,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     layoutManager = slicer.app.layoutManager()
     for name in layoutManager.sliceViewNames():
-      sliceCompositeNode = layoutManager.sliceWidget(
-          name).mrmlSliceCompositeNode()
+      sliceCompositeNode = layoutManager.sliceWidget(name).mrmlSliceCompositeNode()
       sliceCompositeNode.SetLabelOpacity(self.opacitySlider.value)
 
   def onOverlayOutlineChange(self):
@@ -797,14 +755,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Clear segmentation label map from 3D view (only if the label map exists)
     if self.customParamNode.node3DSegmentationLabelMap:
       shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-      shNode.SetItemDisplayVisibility(
-          self.customParamNode.node3DSegmentationLabelMap, 0)
+      shNode.SetItemDisplayVisibility(self.customParamNode.node3DSegmentationLabelMap, 0)
 
     # After the visual reset we also want to setup our slice views for playback if all three
     # inputs have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
-        self.customParamNode.sequenceNodeTransforms and \
-        self.customParamNode.node3DSegmentation
+                     self.customParamNode.sequenceNodeTransforms and \
+                     self.customParamNode.node3DSegmentation
     if inputsProvided:
       self.logic.setupSliceViews(self.customParamNode.sequenceBrowserNode,
                                  self.customParamNode.sequenceNode2DImages,
@@ -882,11 +839,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           return None, True
 
         filepath = os.path.join(path, imageFiles[fileIndex])
-        loadedImageNode = slicer.util.loadVolume(
-            filepath, {"singleFile": True, "show": False})
+        loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
         # Place image node into sequence
-        imagesSequenceNode.SetDataNodeAtValue(
-            loadedImageNode, str(fileIndex))
+        imagesSequenceNode.SetDataNodeAtValue(loadedImageNode, str(fileIndex))
         # Remove loaded image node
         imageID = shNode.GetItemByDataNode(loadedImageNode)
         shNode.RemoveItem(imageID)
@@ -898,8 +853,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
 
-      print(
-          f"{len(imageFiles)} 2D time-series images were loaded into 3D Slicer")
+      print(f"{len(imageFiles)} 2D time-series images were loaded into 3D Slicer")
 
       # We do the following to clear the view of the slices. I expected {"show": False} to
       # prevent anything from being shown at all, but the first loaded image will appear in the
@@ -928,8 +882,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         for row in reader:
           # Extract floating point values from row
           try:
-            transformationsList.append(
-                [float(row['X']), float(row['Y']), float(row['Z'])])
+            transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
           except:
             # If there was an error reading the values, break out because we can't/shouldn't
             # perform the playback if the transformation data is corrupt or missing.
@@ -988,24 +941,19 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
       # Convert transform from LPS to RAS
       currentTransform = transforms[i]
-      # Needs to be 4x1 to multiply with a 4x4
-      currentTransform.append(0)
+      currentTransform.append(0) # Needs to be 4x1 to multiply with a 4x4
       convertedTransform = [0, 0, 0, 0]
       LPSToRASMatrix.MultiplyPoint(currentTransform, convertedTransform)
 
       # Create a transform matrix from the converted transform
       transformMatrix = vtk.vtkMatrix4x4()
-      transformMatrix.SetElement(
-          0, 3, convertedTransform[0])  # LR translation
-      transformMatrix.SetElement(
-          1, 3, convertedTransform[1])  # PA translation
-      transformMatrix.SetElement(
-          2, 3, convertedTransform[2])  # IS translation
+      transformMatrix.SetElement(0, 3, convertedTransform[0])  # LR translation
+      transformMatrix.SetElement(1, 3, convertedTransform[1])  # PA translation
+      transformMatrix.SetElement(2, 3, convertedTransform[2])  # IS translation
 
       # Create a LinearTransform node to hold our transform matrix
       transformNode = \
-          slicer.mrmlScene.AddNewNodeByClass(
-              "vtkMRMLLinearTransformNode", f"Transform {i + 1}")
+             slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode", f"Transform {i + 1}")
       transformNode.ApplyTransformMatrix(transformMatrix)
 
       # Add the transform node to the transforms sequence node
@@ -1032,10 +980,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """
     layoutManager = slicer.app.layoutManager()
     for viewName in layoutManager.sliceViewNames():
-      layoutManager.sliceWidget(
-          viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
+      layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
-  def setupSliceViews(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID,
+  def setupSliceViews(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID, \
                       sequenceNodeTransforms, opacity, overlayAsOutline):
     """
     Visualizes the image data (2D images and 3D segmentation overlay) within the slice views and
@@ -1053,8 +1000,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # The proxy image node represents the current selected image within the sequence
     proxy2DImageNode = sequenceBrowser.GetProxyNode(sequenceNode2DImages)
     # The proxy transform node represents the current selected transform within the sequence
-    proxyTransformNode = sequenceBrowser.GetProxyNode(
-        sequenceNodeTransforms)
+    proxyTransformNode = sequenceBrowser.GetProxyNode(sequenceNodeTransforms)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
 
     # We loop through the first images that have unique orientations so that we can appropriately
@@ -1069,8 +1015,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
         # Make the 2D image visible in the slice view
         sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
-        sliceCompositeNode.SetBackgroundVolumeID(
-            proxy2DImageNode.GetID())
+        sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
         # Make the 3D segmentation label map visible as a label map layer in the slice view
         sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
@@ -1085,7 +1030,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
         # NOTE: We have currently disabled visibility within in the 3D view due to slowness
         # Make the 2D image visible in the 3D view
-        # sliceNode.SetSliceVisible(True)
+        #sliceNode.SetSliceVisible(True)
 
         # Go to the next image in the sequence (this changes proxy2DImageNode to the next image)
         sequenceBrowser.SelectNextItem()
@@ -1096,10 +1041,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     # NOTE: We have currently disabled visibility within in the 3D view due to slowness
     # Make the 3D segmentation visible in the 3D view
-    # tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
-    # tmpIdList.InsertNextId(segmentationLabelMapID)
-    # threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
-    # shNode.ShowItemsInView(tmpIdList, threeDViewNode)
+    #tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
+    #tmpIdList.InsertNextId(segmentationLabelMapID)
+    #threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
+    #shNode.ShowItemsInView(tmpIdList, threeDViewNode)
 
     # Enable alignment of the 3D segmentation label map according to the transform data so that
     # the 3D segmentation label map overlays upon the ROI of the 2D images
@@ -1138,8 +1083,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         sliceWidget = layoutManager.sliceWidget(name)
 
     if not sliceWidget:
-      print(
-          f"Error: A slice with the {imageOrientation} orientation was not found.")
+      print(f"Error: A slice with the {imageOrientation} orientation was not found.")
       exit(1)
 
     return sliceWidget
