@@ -17,6 +17,7 @@ from slicer import vtkMRMLSequenceBrowserNode
 # Track
 #
 
+
 class Track(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
@@ -42,6 +43,7 @@ This file was originally developed by James McCafferty.
 # Custom Parameter Node
 #
 
+
 @parameterNodeWrapper
 class CustomParameterNode:
   folder2DImages: str
@@ -61,7 +63,9 @@ class CustomParameterNode:
 # TrackWidget
 #
 
+
 #  this is our module that we will load into 3d slicer
+
 class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
@@ -120,14 +124,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # 3D segmentation file selector
     self.selector3DSegmentation = ctk.ctkPathLineEdit()
-    self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selector3DSegmentation.settingKey = '3DSegmentation'
 
     self.inputsFormLayout.addRow("3D Segmentation File:", self.selector3DSegmentation)
 
     # Transforms file selector
     self.selectorTransformsFile = ctk.ctkPathLineEdit()
-    self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot |  ctk.ctkPathLineEdit.Readable
+    self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selectorTransformsFile.settingKey = 'TransformsFile'
     self.selectorTransformsFile.enabled = False
 
@@ -166,14 +170,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # The labels should be changed in the future such that we show: Image __ of __
 
-    #self.divisionFrameLabel = qt.QLabel("/")
-    #self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
-    #self.sliderLayout.addWidget(self.divisionFrameLabel)
+    # self.divisionFrameLabel = qt.QLabel("/")
+    # self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+    # self.sliderLayout.addWidget(self.divisionFrameLabel)
     # this label will show total number of images
-    #self.totalFrameLabel = qt.QLabel("0")
-    #self.totalFrameLabel.enabled = True
-    #self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    #self.sliderLayout.addWidget(self.totalFrameLabel)
+    # self.totalFrameLabel = qt.QLabel("0")
+    # self.totalFrameLabel.enabled = True
+    # self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    # self.sliderLayout.addWidget(self.totalFrameLabel)
 
     # Playback control layout
     self.controlWidget = qt.QWidget()
@@ -325,7 +329,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # End logic
     #
 
-    #Make sure parameter node is initialized (needed for module reload)
+    # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
 
   def cleanup(self):
@@ -466,7 +470,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.customParamNode is None or self._updatingGUIFromParameterNode:
       return
 
-    wasModified = self.customParamNode.StartModify()  # Modify all properties in a single batch
+    # Modify all properties in a single batch
+    wasModified = self.customParamNode.StartModify()
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
 
@@ -607,16 +612,22 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def onPlayButton(self):
     """
-    Begin the playback when a user clicks the "Play" button.
+    Begin the playback when a user clicks the "Play" button and pause when user clicks the "Pause" button.
     """
-    self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
-    self.customParamNode.sequenceBrowserNode.SetPlaybackActive(True)
+    if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
+      # if we are playing, click this button will pause the playback
+      self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+    else:
+      # if we are not playing, click this button will start the playback
+      self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
+      self.customParamNode.sequenceBrowserNode.SetPlaybackActive(True)
 
   def onStopButton(self):
     """
     Stop the playback, after the current image's visualization completes.
     """
     self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+    self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
 
   def onIncrement(self):
     """
@@ -634,31 +645,45 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Function to update which playback buttons are enabled or disabled according to the state.
     :param inputsProvided: True if all the 3 inputs have been provided: The 2D images folder,
-                           the 3D segmentation, and the transforms file.
+    the 3D segmentation, and the transforms file.
     """
+    iconSize = qt.QSize(14, 14)
+    mediaIconsPath = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
+                                  'Resources', 'Icons', 'media-control-icons')
+    pause_icon = qt.QIcon(os.path.join(mediaIconsPath, 'pause.png'))
+    play_icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
+    self.playSequenceButton.setIconSize(iconSize)
     if inputsProvided:
       if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
         # If we are playing
-        self.playSequenceButton.enabled = False
+        
+        # Set the play button to be a pause button
+        self.playSequenceButton.enabled = True
+        self.playSequenceButton.setIcon(pause_icon)
+        self.playSequenceButton.enabled = True
+
         self.stopSequenceButton.enabled = True
         self.nextFrameButton.enabled = False
         self.previousFrameButton.enabled = False
       else:
         # If we are paused
+        self.playSequenceButton.setIcon(play_icon)
+
         if self.atLastImage():
           self.playSequenceButton.enabled = False
+          self.stopSequenceButton.enabled = True
           self.nextFrameButton.enabled = False
           self.previousFrameButton.enabled = True
         elif self.atFirstImage():
           self.playSequenceButton.enabled = True
           self.nextFrameButton.enabled = True
           self.previousFrameButton.enabled = False
+          self.stopSequenceButton.enabled = False
         else:
           self.playSequenceButton.enabled = True
           self.nextFrameButton.enabled = True
           self.previousFrameButton.enabled = True
-
-        self.stopSequenceButton.enabled = False
+          self.stopSequenceButton.enabled = True
     else:
       # If inputs are missing
       self.playSequenceButton.enabled = False
@@ -752,6 +777,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 # TrackLogic
 #
 
+
 class TrackLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
   computation done by your module.  The interface
@@ -791,7 +817,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Find all the image file names within the provided dir
     imageFiles = []
     for item in os.listdir(path):
-      if re.match('[0-9]{5}\.mha', item): # five numbers followed by .mha
+      if re.match('[0-9]{5}\.mha', item):  # five numbers followed by .mha
         imageFiles.append(item)
     imageFiles.sort()
 
@@ -856,7 +882,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         for row in reader:
           # Extract floating point values from row
           try:
-            transformationsList.append( [float(row['X']), float(row['Y']), float(row['Z'])] )
+            transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
           except:
             # If there was an error reading the values, break out because we can't/shouldn't
             # perform the playback if the transformation data is corrupt or missing.
@@ -921,9 +947,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
       # Create a transform matrix from the converted transform
       transformMatrix = vtk.vtkMatrix4x4()
-      transformMatrix.SetElement(0, 3, convertedTransform[0]) # LR translation
-      transformMatrix.SetElement(1, 3, convertedTransform[1]) # PA translation
-      transformMatrix.SetElement(2, 3, convertedTransform[2]) # IS translation
+      transformMatrix.SetElement(0, 3, convertedTransform[0])  # LR translation
+      transformMatrix.SetElement(1, 3, convertedTransform[1])  # PA translation
+      transformMatrix.SetElement(2, 3, convertedTransform[2])  # IS translation
 
       # Create a LinearTransform node to hold our transform matrix
       transformNode = \
@@ -1065,6 +1091,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 #
 # TrackTest
 #
+
 
 class TrackTest(ScriptedLoadableModuleTest):
   """
