@@ -625,7 +625,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.sequenceSlider.setValue(self.currentFrameInputBox.value)
       self.currentFrameInputBox.setValue(self.sequenceSlider.value)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
-      print(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber())
     else:
       # If the image to be played is changed when paused, start the playback at that image number
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
