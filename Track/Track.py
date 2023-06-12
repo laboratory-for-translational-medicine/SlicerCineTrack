@@ -161,23 +161,24 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setSingleStep(1)
     self.sliderLayout.addWidget(self.sequenceSlider)
 
+    # The next three labels collectively will show Image __ of __
+    self.divisionFrameLabel = qt.QLabel("Image ")
+    self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+    self.sliderLayout.addWidget(self.divisionFrameLabel)
+    
     # Current image/frame spinbox
     self.currentFrameInputBox = qt.QSpinBox()
-    self.currentFrameInputBox.enabled = False
     self.currentFrameInputBox.minimum = 1
+    self.currentFrameInputBox.setSpecialValueText(' ')
     self.currentFrameInputBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
     self.sliderLayout.addWidget(self.currentFrameInputBox)
 
-    # The labels should be changed in the future such that we show: Image __ of __
-
-    # self.divisionFrameLabel = qt.QLabel("/")
-    # self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
-    # self.sliderLayout.addWidget(self.divisionFrameLabel)
     # this label will show total number of images
-    # self.totalFrameLabel = qt.QLabel("0")
-    # self.totalFrameLabel.enabled = True
-    # self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    # self.sliderLayout.addWidget(self.totalFrameLabel)
+    self.totalFrameLabel = qt.QLabel("of 0")
+    self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.sliderLayout.addWidget(self.totalFrameLabel)
+
+
 
     # Playback control layout
     self.controlWidget = qt.QWidget()
@@ -451,8 +452,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.sequenceSlider.setValue(imageNum)
       self.currentFrameInputBox.setValue(imageNum)
     elif not self.customParamNode.sequenceBrowserNode:
-      self.sequenceSlider.setValue(0)
-      self.currentFrameInputBox.setValue(0)
+      self.sequenceSlider.setValue(1)
+      self.currentFrameInputBox.setValue(1)
+
 
     self.playbackSpeedBox.value = self.customParamNode.fps
 
@@ -517,7 +519,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.customParamNode.sequenceNode2DImages = imagesSequenceNode
           # Track the number of total images within the parameter totalImages
           self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
+          self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
         else:
+          self.totalFrameLabel.setText(f"of 0")
           slicer.util.warningDisplay("No image files were found within the folder: "
                                     f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
@@ -664,6 +668,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     play_icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
     self.playSequenceButton.setIconSize(iconSize)
     if inputsProvided:
+      self.divisionFrameLabel.enabled = True
+      self.totalFrameLabel.enabled = True
       if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
         # If we are playing
         
@@ -706,6 +712,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.previousFrameButton.enabled = False
       self.currentFrameInputBox.enabled = False
       self.sequenceSlider.enabled = False
+      self.divisionFrameLabel.enabled = False
+      self.totalFrameLabel.enabled = False
+      # Add empty frame input box value
+      self.currentFrameInputBox.setSpecialValueText(' ')
 
   def onPlaybackSpeedChange(self):
     """
@@ -779,6 +789,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                      self.customParamNode.sequenceNodeTransforms and \
                      self.customParamNode.node3DSegmentation
     if inputsProvided:
+      # remove empty currentFrameInputBox value
+      self.currentFrameInputBox.setSpecialValueText('')
       self.logic.setupSliceViews(self.customParamNode.sequenceBrowserNode,
                                  self.customParamNode.sequenceNode2DImages,
                                  self.customParamNode.node3DSegmentationLabelMap,
