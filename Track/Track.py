@@ -178,8 +178,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.sliderLayout.addWidget(self.totalFrameLabel)
 
-
-
     # Playback control layout
     self.controlWidget = qt.QWidget()
     self.controlWidget.setMinimumHeight(30)
@@ -454,7 +452,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     elif not self.customParamNode.sequenceBrowserNode:
       self.sequenceSlider.setValue(1)
       self.currentFrameInputBox.setValue(1)
-
 
     self.playbackSpeedBox.value = self.customParamNode.fps
 
