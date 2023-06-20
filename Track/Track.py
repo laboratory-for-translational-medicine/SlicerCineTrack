@@ -671,8 +671,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.totalFrameLabel.enabled = True
       if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
         # If we are playing
-        #volume_node = self.customParamNode.sequenceBrowserNode.GetNodeReference('dataNodeRef0')
-        #print(volume_node.GetAttribute('Sequences.BaseName'))
         proxy2DImageNode = self.customParamNode.sequenceBrowserNode.GetProxyNode(self.customParamNode.sequenceNode2DImages)
         sequenceNodeName = proxy2DImageNode.GetName()
         proxy2DImageNode.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
