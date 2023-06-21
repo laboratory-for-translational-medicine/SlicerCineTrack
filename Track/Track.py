@@ -910,6 +910,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
                                         0, numImages)
     progressDialog.minimumDuration = 0
 
+    # 3D Slicer works with 4x4 transform matrices internally
+    LPSToRASMatrix = vtk.vtkMatrix4x4()
+    LPSToRASMatrix.SetElement(0, 0, -1)
+    LPSToRASMatrix.SetElement(1, 1, -1)
+
     # NOTE: It is very important that we loop using the number of 2D images loaded, versus the size
     # of the transforms array/list. This is because we may provide a CSV with more transforms than
     # needed, but we only need to create as many transform nodes as there are 2D images.
@@ -933,11 +938,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       # |ΔIS|   | 0  0  1  0|   |Z|
       # \ 0 /   \ 0  0  0  1/   \0/
       # Where X, Y, and Z represent the transformation in LPS.
-
-      # 3D Slicer works with 4x4 transform matrices internally
-      LPSToRASMatrix = vtk.vtkMatrix4x4()
-      LPSToRASMatrix.SetElement(0, 0, -1)
-      LPSToRASMatrix.SetElement(1, 1, -1)
 
       # Convert transform from LPS to RAS
       currentTransform = transforms[i]
