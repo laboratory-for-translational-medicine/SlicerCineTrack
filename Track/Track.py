@@ -161,23 +161,22 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setSingleStep(1)
     self.sliderLayout.addWidget(self.sequenceSlider)
 
+    # The next three labels collectively will show Image __ of __
+    self.divisionFrameLabel = qt.QLabel("Image ")
+    self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
+    self.sliderLayout.addWidget(self.divisionFrameLabel)
+    
     # Current image/frame spinbox
     self.currentFrameInputBox = qt.QSpinBox()
-    self.currentFrameInputBox.enabled = False
     self.currentFrameInputBox.minimum = 1
+    self.currentFrameInputBox.setSpecialValueText(' ')
     self.currentFrameInputBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
     self.sliderLayout.addWidget(self.currentFrameInputBox)
 
-    # The labels should be changed in the future such that we show: Image __ of __
-
-    # self.divisionFrameLabel = qt.QLabel("/")
-    # self.divisionFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
-    # self.sliderLayout.addWidget(self.divisionFrameLabel)
     # this label will show total number of images
-    # self.totalFrameLabel = qt.QLabel("0")
-    # self.totalFrameLabel.enabled = True
-    # self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    # self.sliderLayout.addWidget(self.totalFrameLabel)
+    self.totalFrameLabel = qt.QLabel("of 0")
+    self.totalFrameLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.sliderLayout.addWidget(self.totalFrameLabel)
 
     # Playback control layout
     self.controlWidget = qt.QWidget()
@@ -307,6 +306,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
     self.nextFrameButton.connect("clicked(bool)", self.onIncrement)
     self.previousFrameButton.connect("clicked(bool)", self.onDecrement)
+    self.sequenceSlider.connect("valueChanged(int)",
+                                lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
+    self.currentFrameInputBox.connect("valueChanged(int)",
+                                lambda: self.sequenceSlider.setValue(self.currentFrameInputBox.value))
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
@@ -442,13 +445,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.sequenceSlider.setMaximum(self.customParamNode.totalImages)
 
-    if self.customParamNode.sequenceBrowserNode:
+    if self.customParamNode.sequenceBrowserNode and self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
       imageNum = self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1
       self.sequenceSlider.setValue(imageNum)
       self.currentFrameInputBox.setValue(imageNum)
-    else:
-      self.sequenceSlider.setValue(0)
-      self.currentFrameInputBox.setValue(0)
+    elif not self.customParamNode.sequenceBrowserNode:
+      self.sequenceSlider.setValue(1)
+      self.currentFrameInputBox.setValue(1)
 
     self.playbackSpeedBox.value = self.customParamNode.fps
 
@@ -474,7 +477,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     wasModified = self.customParamNode.StartModify()
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-
     if caller == "selector2DImagesFolder" and event == "currentPathChanged":
       # If the sequence node holding the 2D images exists, then delete it because the folder path
       # has changed, so we may need to upload new 2D images
@@ -513,7 +515,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.customParamNode.sequenceNode2DImages = imagesSequenceNode
           # Track the number of total images within the parameter totalImages
           self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
+          self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
         else:
+          self.totalFrameLabel.setText(f"of 0")
           slicer.util.warningDisplay("No image files were found within the folder: "
                                     f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
@@ -617,7 +621,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
       # if we are playing, click this button will pause the playback
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+      # Synchronize `sequenceSlider` and `currentFrameInputBox` if either is modified by the user
+      self.sequenceSlider.setValue(self.currentFrameInputBox.value)
+      self.currentFrameInputBox.setValue(self.sequenceSlider.value)
+      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
     else:
+      # If the image to be played is changed when paused, start the playback at that image number
+      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
       # if we are not playing, click this button will start the playback
       self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(True)
@@ -654,8 +664,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     play_icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
     self.playSequenceButton.setIconSize(iconSize)
     if inputsProvided:
+      self.divisionFrameLabel.enabled = True
+      self.totalFrameLabel.enabled = True
       if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
         # If we are playing
+        proxy2DImageNode = self.customParamNode.sequenceBrowserNode.GetProxyNode(self.customParamNode.sequenceNode2DImages)
+        sequenceNodeName = proxy2DImageNode.GetName()
+        proxy2DImageNode.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
         
         # Set the play button to be a pause button
         self.playSequenceButton.enabled = True
@@ -665,10 +680,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.stopSequenceButton.enabled = True
         self.nextFrameButton.enabled = False
         self.previousFrameButton.enabled = False
+        self.currentFrameInputBox.enabled = False
+        self.sequenceSlider.enabled = False
       else:
         # If we are paused
         self.playSequenceButton.setIcon(play_icon)
-
+        self.currentFrameInputBox.enabled = True
+        self.sequenceSlider.enabled = True
+        
         if self.atLastImage():
           self.playSequenceButton.enabled = False
           self.stopSequenceButton.enabled = True
@@ -690,6 +709,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.stopSequenceButton.enabled = False
       self.nextFrameButton.enabled = False
       self.previousFrameButton.enabled = False
+      self.currentFrameInputBox.enabled = False
+      self.sequenceSlider.enabled = False
+      self.divisionFrameLabel.enabled = False
+      self.totalFrameLabel.enabled = False
+      # Add empty frame input box value
+      self.currentFrameInputBox.setSpecialValueText(' ')
 
   def onPlaybackSpeedChange(self):
     """
@@ -763,6 +788,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                      self.customParamNode.sequenceNodeTransforms and \
                      self.customParamNode.node3DSegmentation
     if inputsProvided:
+      # remove empty currentFrameInputBox value
+      self.currentFrameInputBox.setSpecialValueText('')
       self.logic.setupSliceViews(self.customParamNode.sequenceBrowserNode,
                                  self.customParamNode.sequenceNode2DImages,
                                  self.customParamNode.node3DSegmentationLabelMap,
@@ -839,7 +866,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           return None, True
 
         filepath = os.path.join(path, imageFiles[fileIndex])
+        nodeName = (f"Image {fileIndex + 1} ({imageFiles[fileIndex]})").format(filepath)
+
         loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
+        loadedImageNode.SetName(nodeName)
         # Place image node into sequence
         imagesSequenceNode.SetDataNodeAtValue(loadedImageNode, str(fileIndex))
         # Remove loaded image node
@@ -887,7 +917,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             # If there was an error reading the values, break out because we can't/shouldn't
             # perform the playback if the transformation data is corrupt or missing.
             break
-
+            
     if len(transformationsList) < numImages:
       return None
     else:
@@ -970,7 +1000,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       slicer.app.processEvents()
 
     print(f"{numImages} transforms were loaded into 3D Slicer as transform nodes")
-
     return transformsSequenceNode
 
   def clearSliceForegrounds(self):
@@ -1007,12 +1036,15 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # view them within each slice view. We do this specifically so that fitSliceToBackground() can
     # work correctly (by setting the correct slice offset for the images of each orientation).
     orientations = []
+    sequenceNodeName = proxy2DImageNode.GetName()
+
     while len(orientations) < 3:
       sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
       if sliceWidget.sliceOrientation not in orientations:
         orientations.append(sliceWidget.sliceOrientation)
-
+        proxy2DImageNode.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+        
         # Make the 2D image visible in the slice view
         sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
         sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
