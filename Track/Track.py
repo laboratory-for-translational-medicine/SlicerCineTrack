@@ -1,4 +1,5 @@
 import csv
+import pandas as pd
 import os
 import re
 
@@ -135,7 +136,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsFile.settingKey = 'TransformsFile'
     self.selectorTransformsFile.enabled = False
 
-    self.inputsFormLayout.addRow("Transforms File (.csv):", self.selectorTransformsFile)
+    self.inputsFormLayout.addRow("Transforms File:", self.selectorTransformsFile)
 
     ## Sequence Area
 
@@ -917,7 +918,45 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             # If there was an error reading the values, break out because we can't/shouldn't
             # perform the playback if the transformation data is corrupt or missing.
             break
-            
+
+    if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
+    
+      if filepath.endswith('.csv'):
+        with open(filepath, "r") as f:
+          # Using a DictReader allows us to recognize the CSV header
+          reader = csv.DictReader(f)
+          for row in reader:
+            # Extract floating point values from row
+            try:
+              transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
+            except:
+              # If there was an error reading the values, break out because we can't/shouldn't
+              # perform the playback if the transformation data is corrupt or missing.
+              break
+              
+      elif filepath.endswith('.xls') or filepath.endswith('.xlsx'):
+        df = pd.read_excel(filepath)
+        try:
+          transformationsList = df[['X', 'Y', 'Z']].astype(float).values.tolist()
+        except:
+          # If there was an error reading the values, break out because we can't/shouldn't
+          # perform the playback if the transformation data is corrupt or missing.
+          pass
+          
+      elif filepath.endswith('.txt'):
+        with open(filepath, "r") as f:
+          next(f)
+          for line in f:
+            values = line.strip().split(',')
+            print(values)
+            try:
+              x, y, z = map(float, values)
+              transformationsList.append([x, y, z])
+            except:
+              # If there was an error reading the values, break out because we can't/shouldn't
+              # perform the playback if the transformation data is corrupt or missing.
+              break
+
     if len(transformationsList) < numImages:
       return None
     else:
