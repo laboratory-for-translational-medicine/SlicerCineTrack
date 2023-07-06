@@ -119,26 +119,38 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector2DImagesFolder.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selector2DImagesFolder.options = ctk.ctkPathLineEdit.ShowDirsOnly
     self.selector2DImagesFolder.settingKey = '2DImagesFolder'
+    self.inputsFormLayout.addRow("2D Cine Images Folder:", self.selector2DImagesFolder)
+    
+    tooltipText = "Insert 2D images in .mha format."
+    self.selector2DImagesFolder.setToolTip(tooltipText)
+    browseButton = self.selector2DImagesFolder.findChildren(qt.QToolButton)[0]
+    browseButton.setToolTip(tooltipText)
 
-    self.inputsFormLayout.addRow("2D Time-Series Images Folder:", self.selector2DImagesFolder)
-    self.selector2DImagesFolder.setToolTip("Insert 2D images in .mha format.")
 
     # 3D segmentation file selector
     self.selector3DSegmentation = ctk.ctkPathLineEdit()
     self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selector3DSegmentation.settingKey = '3DSegmentation'
-
     self.inputsFormLayout.addRow("3D Segmentation File:", self.selector3DSegmentation)
-    self.selector3DSegmentation.setToolTip("Insert 2D images in .mha format.")
+    
+    tooltipText = "Insert a 3D segmentation file in .mha format."
+    self.selector3DSegmentation.setToolTip(tooltipText)
+    browseButton = self.selector3DSegmentation.findChildren(qt.QToolButton)[0]
+    browseButton.setToolTip(tooltipText)
+    
 
     # Transforms file selector
     self.selectorTransformsFile = ctk.ctkPathLineEdit()
     self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selectorTransformsFile.settingKey = 'TransformsFile'
     self.selectorTransformsFile.enabled = False
-
     self.inputsFormLayout.addRow("Transforms File (.csv):", self.selectorTransformsFile)
-    self.selectorTransformsFile.setToolTip("Load a valid 2D Time-Series Images Folder to enable loading a Transforms file.")
+
+    tooltipText = "Insert a Transforms file. Valid filetypes: .csv, .xls, .xlsx, .txt."
+    self.selectorTransformsFile.setToolTip(tooltipText)
+    browseButton = self.selectorTransformsFile.findChildren(qt.QToolButton)[0]
+    browseButton.setToolTip(tooltipText)
+
 
     ## Sequence Area
 
@@ -247,7 +259,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.playbackSpeedLabel.setContentsMargins(20, 0, 10, 0)
     self.controlLayout.addWidget(self.playbackSpeedLabel)
-    self.playbackSpeedLabel.setToolTip("Playback Speed can be modified by increments of 0.5.")
+    self.playbackSpeedLabel.setToolTip("Modify playback speed in increments of 0.5.")
 
     self.playbackSpeedBox = qt.QDoubleSpinBox()
     self.playbackSpeedBox.minimum = 0.1
@@ -257,7 +269,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedBox.suffix = " fps"
     self.playbackSpeedBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.controlLayout.addWidget(self.playbackSpeedBox)
-    self.playbackSpeedBox.setToolTip("Playback Speed can be modified only by the arrows on the right.")
+    self.playbackSpeedBox.setToolTip("Modify playback speed using the arrows on the right.")
 
     # Visual controls layout
     self.visualControlsWidget = qt.QWidget()
@@ -441,10 +453,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     if self.customParamNode.sequenceNode2DImages:
       self.selectorTransformsFile.enabled = True
-      self.selectorTransformsFile.setToolTip("Load a Transforms file that corresponds with the coordinate changes of the Point of Interest.")
+      self.selectorTransformsFile.setToolTip("Load a Transforms file corresponding to the Region of Interest's coordinate changes.")
     else:
       self.selectorTransformsFile.enabled = False
-      self.selectorTransformsFile.setToolTip("Load a valid 2D Time-Series Images Folder to enable loading a Transforms file.")
+      self.selectorTransformsFile.setToolTip("Load a valid 2D Cine Images Folder to enable loading a Transforms file.")
 
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
@@ -510,7 +522,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceNodeTransforms)
           self.customParamNode.sequenceNodeTransforms = None
 
-      # Set a param to hold the path to the folder containing the 2D time-series images
+      # Set a param to hold the path to the folder containing the 2D cine images
       self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
 
       # Load the images into 3D Slicer
@@ -522,7 +534,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.customParamNode.folder2DImages = ""
       else:
         if imagesSequenceNode:
-          # Set a param to hold a sequence node which holds the 2D time-series images
+          # Set a param to hold a sequence node which holds the 2D cine images
           self.customParamNode.sequenceNode2DImages = imagesSequenceNode
           # Track the number of total images within the parameter totalImages
           self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
@@ -674,7 +686,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.previousFrameButton.setToolTip("Move to the previous frame.")
         self.nextFrameButton.setToolTip("Move to the next frame.")
         self.playSequenceButton.setToolTip("Play the current frame.")
-        self.playSequenceButton.setToolTip("Stop at the current frame.")
+        self.playSequenceButton.setToolTip("Stop playback at the current frame.")
         # Set the play button to be a pause button
         self.playSequenceButton.enabled = True
         self.playSequenceButton.setIcon(pause_icon)
@@ -686,7 +698,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       else:
         # If we are paused
         self.playSequenceButton.setIcon(play_icon)
-        self.sequenceSlider.setToolTip("Select the next frame to play.")
+        self.sequenceSlider.setToolTip("Select the next frame for playback.")
 
         if self.atLastImage():
           self.playSequenceButton.enabled = False
@@ -826,7 +838,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
   def loadImagesIntoSequenceNode(self, shNode, path):
     """
-    Loads the 2D time-series images located within the provided path into 3D Slicer. They are
+    Loads the 2D cine images located within the provided path into 3D Slicer. They are
     placed within a sequence node and the loaded image nodes are deleted thereafter.
     :param shNode: node representing the subject hierarchy
     :param path: path to folder containing the 2D images to be imported
@@ -873,7 +885,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
 
-      print(f"{len(imageFiles)} 2D time-series images were loaded into 3D Slicer")
+      print(f"{len(imageFiles)} 2D cine images were loaded into 3D Slicer")
 
       # We do the following to clear the view of the slices. I expected {"show": False} to
       # prevent anything from being shown at all, but the first loaded image will appear in the
@@ -887,7 +899,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     Checks to ensure that the data in the provided transformation file is valid and matches the
     number of 2D images that have been loaded into 3D Slicer.
     :param filepath: path to the transforms file (which should be a .csv file)
-    :param numImages: the number of 2D time-series images that have already been loaded
+    :param numImages: the number of 2D cine images that have already been loaded
     """
     # NOTE: The current logic of this function will only ensure that the first {numImages}
     # transformations found within the CSV file are valid, so playback can occur. The playback will
