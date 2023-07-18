@@ -127,7 +127,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     browseButton = self.selector2DImagesFolder.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
 
-
     # 3D segmentation file selector
     self.selector3DSegmentation = ctk.ctkPathLineEdit()
     self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
@@ -462,6 +461,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.selectorTransformsFile.enabled = False
       self.selectorTransformsFile.setToolTip("Load a valid 2D Cine Images Folder to enable loading a Transforms file.")
 
+
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
                      self.customParamNode.sequenceNodeTransforms and \
@@ -475,6 +475,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       imageNum = self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1
       self.sequenceSlider.setValue(imageNum)
       self.currentFrameInputBox.setValue(imageNum)
+      
+      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                           self.customParamNode.sequenceNode2DImages,
+                           self.customParamNode.node3DSegmentationLabelMap,
+                           self.customParamNode.sequenceNodeTransforms,
+                           self.customParamNode.opacity,
+                           self.customParamNode.overlayAsOutline)
+                           
     elif not self.customParamNode.sequenceBrowserNode:
       self.sequenceSlider.setValue(1)
       self.currentFrameInputBox.setValue(1)
@@ -511,6 +519,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.customParamNode.sequenceNode2DImages = None
         # Reset our total images
         self.customParamNode.totalImages = 0
+        # Remove Transforms sequence Nodes
+        self.customParamNode.sequenceNodeTransforms = None
         # Also remove the sequence browser node
         if self.customParamNode.sequenceBrowserNode:
           slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceBrowserNode)
@@ -651,6 +661,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.sequenceSlider.setValue(self.currentFrameInputBox.value)
       self.currentFrameInputBox.setValue(self.sequenceSlider.value)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
+          
+      layoutManager = slicer.app.layoutManager()
+
+      proxy2DImageNode = self.customParamNode.sequenceBrowserNode.GetProxyNode(self.customParamNode.sequenceNode2DImages)
+
+      sliceWidget = TrackLogic().getSliceWidget(layoutManager, proxy2DImageNode)
+
+      # Fit the slice to the current background image
+      sliceWidget.fitSliceToBackground()
+
+      sliceView = sliceWidget.sliceView()
+      sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
+
     else:
       # If the image to be played is changed when paused, start the playback at that image number
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
@@ -664,18 +687,38 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
     self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
+    self.sequenceSlider.setValue(1)
+    self.currentFrameInputBox.setValue(1)
+    self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(1)
 
   def onIncrement(self):
     """
     Move forward in the playback one step.
     """
     self.customParamNode.sequenceBrowserNode.SelectNextItem()
+    self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber())
+    self.currentFrameInputBox.setValue(self.sequenceSlider.value)
+    self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                           self.customParamNode.sequenceNode2DImages,
+                           self.customParamNode.node3DSegmentationLabelMap,
+                           self.customParamNode.sequenceNodeTransforms,
+                           self.customParamNode.opacity,
+                           self.customParamNode.overlayAsOutline)
+
 
   def onDecrement(self):
     """
     Move backwards in the playback one step.
     """
     self.customParamNode.sequenceBrowserNode.SelectNextItem(-1)
+    self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber())
+    self.currentFrameInputBox.setValue(self.sequenceSlider.value)
+    self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                           self.customParamNode.sequenceNode2DImages,
+                           self.customParamNode.node3DSegmentationLabelMap,
+                           self.customParamNode.sequenceNodeTransforms,
+                           self.customParamNode.opacity,
+                           self.customParamNode.overlayAsOutline)
 
   def updatePlaybackButtons(self, inputsProvided):
     """
@@ -700,7 +743,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.nextFrameButton.setToolTip("Move to the next frame.")
         self.playSequenceButton.setToolTip("Play the current frame.")
         self.playSequenceButton.setToolTip("Stop playback at the current frame.")
-        
+
         # Set the play button to be a pause button
         self.playSequenceButton.enabled = True
         self.playSequenceButton.setIcon(pause_icon)
@@ -808,6 +851,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sliceCompositeNode.SetBackgroundVolumeID("None")
       sliceCompositeNode.SetForegroundVolumeID("None")
       sliceCompositeNode.SetLabelVolumeID("")
+      # set `self.redBackground`, `self.greenBackground`, `self.yellowBackground` to None
+      setattr(self, f"{name.lower()}Background", None)
 
     # Clear segmentation label map from 3D view (only if the label map exists)
     if self.customParamNode.node3DSegmentationLabelMap:
@@ -822,7 +867,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if inputsProvided:
       # remove empty currentFrameInputBox value
       self.currentFrameInputBox.setSpecialValueText('')
-      self.logic.setupSliceViews(self.customParamNode.sequenceBrowserNode,
+      
+      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
                                  self.customParamNode.sequenceNode2DImages,
                                  self.customParamNode.node3DSegmentationLabelMap,
                                  self.customParamNode.sequenceNodeTransforms,
@@ -853,6 +899,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """
     ScriptedLoadableModuleLogic.__init__(self)
     self.timer = qt.QTimer()
+    self.redBackground = None
+    self.greenBackground = None
+    self.yellowBackground = None
 
   def setDefaultParameters(self, customParameterNode):
     """
@@ -876,7 +925,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Find all the image file names within the provided dir
     imageFiles = []
     for item in os.listdir(path):
-      if re.match('[0-9]{5}\.mha', item):  # five numbers followed by .mha
+      if re.match('.*\.mha', item): # Only look for .mha files
         imageFiles.append(item)
     imageFiles.sort()
 
@@ -936,22 +985,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # still occur if later transformations after the first {numImages} transformations are corrupt.
     transformationsList = []
 
-    # Check that the transforms file is a .csv type
-    if re.match('.*\.csv', filepath):
-      with open(filepath, "r") as f:
-        # Using a DictReader allows us to recognize the CSV header
-        reader = csv.DictReader(f)
-        for row in reader:
-          # Extract floating point values from row
-          try:
-            transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
-          except:
-            # If there was an error reading the values, break out because we can't/shouldn't
-            # perform the playback if the transformation data is corrupt or missing.
-            break
-
     if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
-    
+      # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
         with open(filepath, "r") as f:
           # Using a DictReader allows us to recognize the CSV header
@@ -964,7 +999,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               # If there was an error reading the values, break out because we can't/shouldn't
               # perform the playback if the transformation data is corrupt or missing.
               break
-              
+      
+      # Check that the transforms file is a .xls or .xlsx type
       elif filepath.endswith('.xls') or filepath.endswith('.xlsx'):
         df = pd.read_excel(filepath)
         try:
@@ -973,7 +1009,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           # If there was an error reading the values, break out because we can't/shouldn't
           # perform the playback if the transformation data is corrupt or missing.
           pass
-          
+      
+      # Check that the transforms file is a .txt type
       elif filepath.endswith('.txt'):
         with open(filepath, "r") as f:
           next(f)
@@ -1081,12 +1118,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     for viewName in layoutManager.sliceViewNames():
       layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
-  def setupSliceViews(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID, \
-                      sequenceNodeTransforms, opacity, overlayAsOutline):
+  def visualize(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID,
+                    sequenceNodeTransforms, opacity, overlayAsOutline):
     """
     Visualizes the image data (2D images and 3D segmentation overlay) within the slice views and
     enables the alignment of the 3D segmentation label map according to the transformation data.
-    :param: sequenceBrowser: sequence browser node used to control the playback operation
+    :param sequenceBrowser: sequence browser node used to control the playback operation
     :param sequenceNode2DImages: sequence node containing the 2D images
     :param segmentationLabelMapID: subject hierarchy ID of the 3D segmentation label map
     :param sequenceNodeTransforms: sequence node containing the transforms
@@ -1101,53 +1138,85 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # The proxy transform node represents the current selected transform within the sequence
     proxyTransformNode = sequenceBrowser.GetProxyNode(sequenceNodeTransforms)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
-
-    # We loop through the first images that have unique orientations so that we can appropriately
-    # view them within each slice view. We do this specifically so that fitSliceToBackground() can
-    # work correctly (by setting the correct slice offset for the images of each orientation).
-    orientations = []
+    
     sequenceNodeName = proxy2DImageNode.GetName()
+    
+    sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
-    while len(orientations) < 3:
-      sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
-
-      if sliceWidget.sliceOrientation not in orientations:
-        orientations.append(sliceWidget.sliceOrientation)
-        proxy2DImageNode.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+    name = sliceWidget.sliceViewName
         
-        # Make the 2D image visible in the slice view
-        sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
-        sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
+    sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
 
-        # Make the 3D segmentation label map visible as a label map layer in the slice view
-        sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
-        sliceCompositeNode.SetLabelOpacity(opacity)
+    volumesLogic = slicer.modules.volumes.logic()
+  
+    sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
+    sliceCompositeNode.SetLabelOpacity(opacity)
+    
+    sliceCompositeNode.SetBackgroundVolumeID(labelMapNode.GetID())
+    
+    # Get the current slice node
+    sliceNode = sliceWidget.mrmlSliceNode()
 
-        # Fit the 2D image in the slice view for a neater look
-        sliceWidget.fitSliceToBackground()
+    # Display the label map overlay as an outline
+    sliceNode.SetUseLabelOutline(overlayAsOutline)
 
-        # Display the label map overlay as an outline
-        sliceNode = sliceWidget.mrmlSliceNode()
-        sliceNode.SetUseLabelOutline(overlayAsOutline)
+    # Set the background volume for the current slice view
+    sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
-        # NOTE: We have currently disabled visibility within in the 3D view due to slowness
-        # Make the 2D image visible in the 3D view
-        #sliceNode.SetSliceVisible(True)
+    # Fit the slice to the current background image
+    sliceWidget.fitSliceToBackground()
 
-        # Go to the next image in the sequence (this changes proxy2DImageNode to the next image)
-        sequenceBrowser.SelectNextItem()
-      else:
-        break
+    # Translate the 3D segmentation label map using the transform data
+    labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+    
+    # Name the Label layer (Shown as "L:" in the Slice view) as the 3D Segmentation file name
+    SegmentationPathName = slicer.util.getNode('vtkMRMLScalarVolumeNode1').GetStorageNode().GetFileName()
+    SegmentationFileName = os.path.basename(SegmentationPathName)
+    labelMapNode.SetName(SegmentationFileName)
+                
+    sliceNode.SetSliceVisible(True)
 
-    sequenceBrowser.SelectFirstItem()
-
-    # NOTE: We have currently disabled visibility within in the 3D view due to slowness
     # Make the 3D segmentation visible in the 3D view
-    #tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
-    #tmpIdList.InsertNextId(segmentationLabelMapID)
-    #threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
-    #shNode.ShowItemsInView(tmpIdList, threeDViewNode)
+    tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
+    tmpIdList.InsertNextId(segmentationLabelMapID)
+    threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
+    shNode.ShowItemsInView(tmpIdList, threeDViewNode)
 
+        
+    backgrounds = {
+      "Red": self.redBackground,
+      "Green": self.greenBackground,
+      "Yellow": self.yellowBackground
+    }
+
+    # Preserve previous slices
+    # If a background node for the specified orientation exists, update it with the current slice
+    # Otherwise, create a new background node and set it as the background for the specified orientation
+    
+    if name in backgrounds:
+      background = backgrounds[name]
+      if background is None:
+        # Create a new background node for the orientation
+        setattr(self, name.lower() + 'Background', volumesLogic.CloneVolume(slicer.mrmlScene,
+                proxy2DImageNode, f"{proxy2DImageNode.GetAttribute('Sequences.BaseName')}"))
+      else:
+        background.SetAndObserveImageData(proxy2DImageNode.GetImageData())
+        background.SetAttribute("Sequences.BaseName", proxy2DImageNode.GetAttribute("Sequences.BaseName"))
+        background.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+
+    # Set the background volumes for each orientation, if they exist
+    if self.yellowBackground is not None:
+      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeYellow").SetBackgroundVolumeID(self.yellowBackground.GetID())
+    if self.greenBackground is not None:
+      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeGreen").SetBackgroundVolumeID(self.greenBackground.GetID())
+    if self.redBackground is not None:
+      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeRed").SetBackgroundVolumeID(self.redBackground.GetID())
+    
+    
+    # Place "Current Alignment" text in slice view corner
+    sliceView = sliceWidget.sliceView()
+    sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
+   
     # Enable alignment of the 3D segmentation label map according to the transform data so that
     # the 3D segmentation label map overlays upon the ROI of the 2D images
     labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
