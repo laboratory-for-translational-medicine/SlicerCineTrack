@@ -520,6 +520,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                     f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
+      # Delete the sliceview image nodes
+      nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+      for node in nodes:
+        if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+          slicer.mrmlScene.RemoveNode(node)
+          
       # If a 3D segmentation node already exists, delete it before we load the new one
       if self.customParamNode.node3DSegmentation:
         nodeID = self.customParamNode.node3DSegmentation
