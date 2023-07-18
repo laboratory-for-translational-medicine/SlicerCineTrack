@@ -1,6 +1,9 @@
-import csv
-import pandas as pd
 import os
+'''
+os.system('PythonSlicer -m pip install pandas')
+import pandas as pd
+'''
+import csv
 import re
 
 import ctk
@@ -436,7 +439,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.selectorTransformsFile.enabled = True
     else:
       self.selectorTransformsFile.enabled = False
-      self.customParamNode.sequenceNodeTransforms = None
 
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
@@ -488,28 +490,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
     if caller == "selector2DImagesFolder" and event == "currentPathChanged":
-      # If the sequence node holding the 2D images exists, then delete it because the folder path
-      # has changed, so we may need to upload new 2D images
-      if self.customParamNode.sequenceNode2DImages:
-        slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceNode2DImages)
-        self.customParamNode.sequenceNode2DImages = None
-        # Reset our total images
-        self.customParamNode.totalImages = 0
-        # Remove Transforms sequence Nodes
-        self.customParamNode.sequenceNodeTransforms = None
-        # Also remove the sequence browser node
-        if self.customParamNode.sequenceBrowserNode:
-          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceBrowserNode)
-          self.customParamNode.sequenceBrowserNode = None
-
       # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
       # if the path changes, we want to remove any transforms related information. The user should
       # reselect the transforms file they wish to use with the 2D images.
       if self.customParamNode.transformsFilePath:
         self.customParamNode.transformsFilePath = ""
-        if self.customParamNode.sequenceNodeTransforms:
-          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceNodeTransforms)
-          self.customParamNode.sequenceNodeTransforms = None
+        self.customParamNode.sequenceNodeTransforms = None
 
       # Set a param to hold the path to the folder containing the 2D cine images
       self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
@@ -544,10 +530,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           labelMapID = self.customParamNode.node3DSegmentationLabelMap
           shNode.RemoveItem(labelMapID)
           self.customParamNode.node3DSegmentationLabelMap = 0
-        # Also remove the sequence browser node
-        if self.customParamNode.sequenceBrowserNode:
-          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceBrowserNode)
-          self.customParamNode.sequenceBrowserNode = None
 
       # Set a param to hold the path to the 3D segmentation file
       self.customParamNode.path3DSegmentation = self.selector3DSegmentation.currentPath
@@ -577,16 +559,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                    "The file was not loaded into 3D Slicer.", "Input Error")
 
     if caller == "selectorTransformsFile" and event == "currentPathChanged":
-      # If a sequence node holding the transformations exists, delete it, since a new file that
-      # may have new transformations has been provided
-      if self.customParamNode.sequenceNodeTransforms:
-        shNode.RemoveNode(self.customParamNode.sequenceNodeTransforms)
-        self.customParamNode.sequenceNodeTransforms = None
-        # Also remove the sequence browser node
-        if self.customParamNode.sequenceBrowserNode:
-          slicer.mrmlScene.RemoveNode(self.customParamNode.sequenceBrowserNode)
-          self.customParamNode.sequenceBrowserNode = None
-
       # Set a param to hold the path to the transformations .csv file
       self.customParamNode.transformsFilePath = self.selectorTransformsFile.currentPath
 
@@ -619,6 +591,38 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.updateGUIFromParameterNode)
           # Set a param to hold the sequence browser node
           self.customParamNode.sequenceBrowserNode = sequenceBrowserNode
+          
+          # Since the code above added another set of image nodes, transforms nodes and
+          # sequence browser nodes, remove the unused sequence browser node, image nodes,
+          # and transforms nodes, if they exist
+          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
+          numberOfSequenceBrowserNodes = 0
+          # Ensure that there is an extra sequence browser node, since we only need
+          # one sequence browser node at a time
+          for node in nodes:
+            numberOfSequenceBrowserNodes += 1
+          if numberOfSequenceBrowserNodes == 2:
+            for node in nodes:
+              sequenceBrowserNodeToDelete = node
+              break
+              
+            # Remove the unused sequence browser node
+            slicer.mrmlScene.RemoveNode(sequenceBrowserNodeToDelete)
+            
+            # Remove the unused Image Nodes Sequence
+            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+            for node in nodes:
+              if node.GetName() == 'Image Nodes Sequence':
+                slicer.mrmlScene.RemoveNode(node)
+                break
+            
+            # Remove the unused Transforms Nodes Sequence
+            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLLinearTransformNode")
+            for node in nodes:
+              if node.GetName() == 'Transform Nodes Sequence':
+                slicer.mrmlScene.RemoveNode(node)
+                break
+
       else:
         slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
                                    f"{self.selectorTransformsFile.currentPath}",
@@ -818,7 +822,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sliceCompositeNode.SetForegroundVolumeID("None")
       sliceCompositeNode.SetLabelVolumeID("")
       # set `self.redBackground`, `self.greenBackground`, `self.yellowBackground` to None
-      setattr(self, f"{name.lower()}Background", None)
+      setattr(self.logic, f"{name.lower()}Background", None)
+      
 
     # Clear segmentation label map from 3D view (only if the label map exists)
     if self.customParamNode.node3DSegmentationLabelMap:
@@ -831,7 +836,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                      self.customParamNode.sequenceNodeTransforms and \
                      self.customParamNode.node3DSegmentation
     if inputsProvided:
-      # remove empty currentFrameInputBox value
+      # Reset the Sequence back to the first image
+      self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
+      self.sequenceSlider.setValue(1)
+      self.currentFrameInputBox.setValue(1)
+      
+      # remove the currentFrameInputBox value
       self.currentFrameInputBox.setSpecialValueText('')
       
       self.logic.visualize(self.customParamNode.sequenceBrowserNode,
@@ -951,7 +962,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # still occur if later transformations after the first {numImages} transformations are corrupt.
     transformationsList = []
 
-    if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
+    #if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
+    if re.match('.*\.(csv|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
         with open(filepath, "r") as f:
@@ -965,7 +977,21 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               # If there was an error reading the values, break out because we can't/shouldn't
               # perform the playback if the transformation data is corrupt or missing.
               break
-      
+              
+      # Check that the transforms file is a .txt type
+      elif filepath.endswith('.txt'):
+        with open(filepath, "r") as f:
+          next(f)
+          for line in f:
+            values = line.strip().split(',')
+            try:
+              x, y, z = map(float, values)
+              transformationsList.append([x, y, z])
+            except:
+              # If there was an error reading the values, break out because we can't/shouldn't
+              # perform the playback if the transformation data is corrupt or missing.
+              break
+      '''
       # Check that the transforms file is a .xls or .xlsx type
       elif filepath.endswith('.xls') or filepath.endswith('.xlsx'):
         df = pd.read_excel(filepath)
@@ -975,21 +1001,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           # If there was an error reading the values, break out because we can't/shouldn't
           # perform the playback if the transformation data is corrupt or missing.
           pass
-      
-      # Check that the transforms file is a .txt type
-      elif filepath.endswith('.txt'):
-        with open(filepath, "r") as f:
-          next(f)
-          for line in f:
-            values = line.strip().split(',')
-            print(values)
-            try:
-              x, y, z = map(float, values)
-              transformationsList.append([x, y, z])
-            except:
-              # If there was an error reading the values, break out because we can't/shouldn't
-              # perform the playback if the transformation data is corrupt or missing.
-              break
+          '''
+
 
     if len(transformationsList) < numImages:
       return None
@@ -1162,22 +1175,40 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     if name in backgrounds:
       background = backgrounds[name]
       if background is None:
+        # Loop through each vtkMRMLScalarVolumeNode, if there are any nodes that are used to display
+        # a slice view that is before the 'Image Nodes Sequence' node, delete it. This is because
+        # those nodes are unused nodes, before adding a new sequence to the scene
+        nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+        for node in nodes:
+          if node.GetName() == 'Image Nodes Sequence':
+            break
+          if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+            slicer.mrmlScene.RemoveNode(node)
+        
         # Create a new background node for the orientation
         setattr(self, name.lower() + 'Background', volumesLogic.CloneVolume(slicer.mrmlScene,
                 proxy2DImageNode, f"{proxy2DImageNode.GetAttribute('Sequences.BaseName')}"))
       else:
+        # Background exists, just replace the data to represent the next image in the sequence
         background.SetAndObserveImageData(proxy2DImageNode.GetImageData())
         background.SetAttribute("Sequences.BaseName", proxy2DImageNode.GetAttribute("Sequences.BaseName"))
-        background.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+    
+    if name == "Red":
+      self.redBackground.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+    if name == "Green":
+      self.greenBackground.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+    if name == "Yellow":
+      self.yellowBackground.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+
 
     # Set the background volumes for each orientation, if they exist
-    if self.yellowBackground is not None:
-      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeYellow").SetBackgroundVolumeID(self.yellowBackground.GetID())
-    if self.greenBackground is not None:
-      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeGreen").SetBackgroundVolumeID(self.greenBackground.GetID())
     if self.redBackground is not None:
       slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeRed").SetBackgroundVolumeID(self.redBackground.GetID())
-    
+    if self.greenBackground is not None:
+      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeGreen").SetBackgroundVolumeID(self.greenBackground.GetID())
+    if self.yellowBackground is not None:
+      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeYellow").SetBackgroundVolumeID(self.yellowBackground.GetID())
+
     
     # Place "Current Alignment" text in slice view corner
     sliceView = sliceWidget.sliceView()
