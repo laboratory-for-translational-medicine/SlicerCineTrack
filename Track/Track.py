@@ -123,23 +123,37 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector2DImagesFolder.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selector2DImagesFolder.options = ctk.ctkPathLineEdit.ShowDirsOnly
     self.selector2DImagesFolder.settingKey = '2DImagesFolder'
-
     self.inputsFormLayout.addRow("2D Cine Images Folder:", self.selector2DImagesFolder)
+    
+    tooltipText = "Insert 2D images in .mha format."
+    self.selector2DImagesFolder.setToolTip(tooltipText)
+    browseButton = self.selector2DImagesFolder.findChildren(qt.QToolButton)[0]
+    browseButton.setToolTip(tooltipText)
 
     # 3D segmentation file selector
     self.selector3DSegmentation = ctk.ctkPathLineEdit()
     self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selector3DSegmentation.settingKey = '3DSegmentation'
-
     self.inputsFormLayout.addRow("3D Segmentation File:", self.selector3DSegmentation)
+    
+    tooltipText = "Insert a 3D segmentation file in .mha format."
+    self.selector3DSegmentation.setToolTip(tooltipText)
+    browseButton = self.selector3DSegmentation.findChildren(qt.QToolButton)[0]
+    browseButton.setToolTip(tooltipText)
+    
 
     # Transforms file selector
     self.selectorTransformsFile = ctk.ctkPathLineEdit()
     self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selectorTransformsFile.settingKey = 'TransformsFile'
     self.selectorTransformsFile.enabled = False
-
     self.inputsFormLayout.addRow("Transforms File:", self.selectorTransformsFile)
+
+    tooltipText = "Insert a Transforms file. Valid filetypes: .csv, .xls, .xlsx, .txt."
+    self.selectorTransformsFile.setToolTip(tooltipText)
+    browseButton = self.selectorTransformsFile.findChildren(qt.QToolButton)[0]
+    browseButton.setToolTip(tooltipText)
+
 
     ## Sequence Area
 
@@ -164,6 +178,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setMinimum(1)
     self.sequenceSlider.setSingleStep(1)
     self.sliderLayout.addWidget(self.sequenceSlider)
+    self.sequenceSlider.setToolTip("To enable this feature, load valid files in the inputs area above.")
 
     # The next three labels collectively will show Image __ of __
     self.divisionFrameLabel = qt.QLabel("Image ")
@@ -176,6 +191,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.currentFrameInputBox.setSpecialValueText(' ')
     self.currentFrameInputBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
     self.sliderLayout.addWidget(self.currentFrameInputBox)
+    self.currentFrameInputBox.setToolTip("To enable this feature, load valid files in the inputs area above.")
 
     # this label will show total number of images
     self.totalFrameLabel = qt.QLabel("of 0")
@@ -205,6 +221,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.previousFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.previousFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.previousFrameButton)
+    self.previousFrameButton.setToolTip("To enable this feature, load valid files in the inputs area above.")
 
     # Next frame/image button
     self.nextFrameButton = qt.QPushButton()
@@ -215,6 +232,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.nextFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.nextFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.nextFrameButton)
+    self.nextFrameButton.setToolTip("To enable this feature, load valid files in the inputs area above.")
 
     # Play button
     self.playSequenceButton = qt.QPushButton()
@@ -225,6 +243,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.playSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.playSequenceButton)
+    self.playSequenceButton.setToolTip("To enable this feature, load valid files in the inputs area above.")
 
     # Stop button
     self.stopSequenceButton = qt.QPushButton()
@@ -235,12 +254,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.stopSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.stopSequenceButton)
+    self.playSequenceButton.setToolTip("To enable this feature, load valid files in the inputs area above.")
 
     # Playback speed label and spinbox
     self.playbackSpeedLabel = qt.QLabel("Playback Speed:")
     self.playbackSpeedLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.playbackSpeedLabel.setContentsMargins(20, 0, 10, 0)
     self.controlLayout.addWidget(self.playbackSpeedLabel)
+    self.playbackSpeedLabel.setToolTip("Modify playback speed in increments of 0.5.")
 
     self.playbackSpeedBox = qt.QDoubleSpinBox()
     self.playbackSpeedBox.minimum = 0.1
@@ -250,6 +271,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedBox.suffix = " fps"
     self.playbackSpeedBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.controlLayout.addWidget(self.playbackSpeedBox)
+    self.playbackSpeedBox.setToolTip("Modify playback speed using the arrows on the right.")
 
     # Visual controls layout
     self.visualControlsWidget = qt.QWidget()
@@ -437,8 +459,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     if self.customParamNode.sequenceNode2DImages:
       self.selectorTransformsFile.enabled = True
+      self.selectorTransformsFile.setToolTip("Load a Transforms file corresponding to the Region of Interest's coordinate changes.")
     else:
       self.selectorTransformsFile.enabled = False
+      self.selectorTransformsFile.setToolTip("Load a valid 2D Cine Images Folder to enable loading a Transforms file.")
+
+
 
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
@@ -719,10 +745,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     play_icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
     self.playSequenceButton.setIconSize(iconSize)
     if inputsProvided:
+
       self.divisionFrameLabel.enabled = True
       self.totalFrameLabel.enabled = True
       if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
         # If we are playing
+        self.sequenceSlider.setToolTip("Pause the player to enable this feature.")
+        self.previousFrameButton.setToolTip("Move to the previous frame.")
+        self.nextFrameButton.setToolTip("Move to the next frame.")
+        self.playSequenceButton.setToolTip("Play the current frame.")
+        self.playSequenceButton.setToolTip("Stop playback at the current frame.")
+
         # Set the play button to be a pause button
         self.playSequenceButton.enabled = True
         self.playSequenceButton.setIcon(pause_icon)
@@ -734,17 +767,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.currentFrameInputBox.enabled = False
         self.sequenceSlider.enabled = False
       else:
+        self.sequenceSlider.setToolTip("Select the next frame for playback.")
+        
         # If we are paused
         self.playSequenceButton.setIcon(play_icon)
         self.currentFrameInputBox.enabled = True
         self.sequenceSlider.enabled = True
-        
+
         if self.atLastImage():
           self.playSequenceButton.enabled = False
           self.stopSequenceButton.enabled = True
           self.nextFrameButton.enabled = False
           self.previousFrameButton.enabled = True
         elif self.atFirstImage():
+          #self.previousFrameButton.setToolTip("Move to the previous frame.") - may add a different tooltip at first image
           self.playSequenceButton.enabled = True
           self.nextFrameButton.enabled = True
           self.previousFrameButton.enabled = False
