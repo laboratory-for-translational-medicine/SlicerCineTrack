@@ -954,7 +954,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
                                                               "Image Nodes Sequence")
 
       # Create a progress/loading bar to display the progress of the images loading process
-      progressDialog = qt.QProgressDialog("Loading 2D Images Into 3D Slicer", "Cancel",
+      progressDialog = qt.QProgressDialog("Loading 2D images into 3D Slicer", "Cancel",
                                           0, len(imageFiles))
       progressDialog.minimumDuration = 0
 
