@@ -540,34 +540,78 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           # Track the number of total images within the parameter totalImages
           self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
           self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
+
+          # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 2:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+            slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+
+          # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 2:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+
+          # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 2:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+           
         else:
           self.totalFrameLabel.setText(f"of 0")
           slicer.util.warningDisplay("No image files were found within the folder: "
                                     f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
-      # Delete the sliceview image nodes
+      # Remove the image nodes of each slice view used to preserve the slice views
       nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+      nodes.UnRegister(None)
       for node in nodes:
         if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+          slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
           slicer.mrmlScene.RemoveNode(node)
           
-      # If a 3D segmentation node already exists, delete it before we load the new one
-      if self.customParamNode.node3DSegmentation:
-        nodeID = self.customParamNode.node3DSegmentation
-        shNode.RemoveItem(nodeID)
-        self.customParamNode.node3DSegmentation = 0
-        # Remove the label map if it exists
-        if self.customParamNode.node3DSegmentationLabelMap:
-          labelMapID = self.customParamNode.node3DSegmentationLabelMap
-          shNode.RemoveItem(labelMapID)
-          self.customParamNode.node3DSegmentationLabelMap = 0
-
-      # Set a param to hold the path to the 3D segmentation file
-      self.customParamNode.path3DSegmentation = self.selector3DSegmentation.currentPath
-
-      # Segmentation file should end with .mha
+      # Remove the label map node and the nodes it referenced, all created by the previous node
+      nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
+      nodes.UnRegister(None)
+      if nodes.GetNumberOfItems() == 1:
+        nodeToRemove = nodes.GetItemAsObject(0)
+        slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+        if nodeToRemove.GetNumberOfDisplayNodes() == 1:
+          slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode().GetNodeReference('volumeProperty'))
+          slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+        slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+        slicer.mrmlScene.RemoveNode(nodeToRemove)
+      
+      # Remove the 3D segmentation node and the nodes it referenced, all created by the previous node
+      nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "3D Segmentation")
+      nodes.UnRegister(None)
+      if nodes.GetNumberOfItems() == 1:
+        nodeToRemove = nodes.GetItemAsObject(0)
+        slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+        slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+        slicer.mrmlScene.RemoveNode(nodeToRemove)
+      
+      # Remove previous node values stored in variables
+      self.customParamNode.node3DSegmentation = 0
+      self.customParamNode.node3DSegmentationLabelMap = 0
+              
       if re.match('.*\.mha', self.selector3DSegmentation.currentPath):
+        # If a 3D segmentation node already exists, delete it before we load the new one
+        if self.customParamNode.node3DSegmentation:
+          nodeID = self.customParamNode.node3DSegmentation
+
+        # Set a param to hold the path to the 3D segmentation file
+        self.customParamNode.path3DSegmentation = self.selector3DSegmentation.currentPath
+
+        # Segmentation file should end with .mha
         segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
                                                   {"singleFile": True, "show": False})
         self.logic.clearSliceForegrounds()
@@ -587,6 +631,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
         self.customParamNode.node3DSegmentationLabelMap = labelMapID
       else:
+        # Remove filepath for the Segmentation File in the `Inputs` section
+        self.customParamNode.path3DSegmentation = ''
+        self.selector3DSegmentation.currentPath = ''
         slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
                                    "The file was not loaded into 3D Slicer.", "Input Error")
 
@@ -628,34 +675,71 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           # sequence browser nodes, remove the unused sequence browser node, image nodes,
           # and transforms nodes, if they exist
           nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
-          numberOfSequenceBrowserNodes = 0
-          # Ensure that there is an extra sequence browser node, since we only need
+          nodes.UnRegister(None)
+          # Ensure that there is an extra sequence browser node, since we need exactly
           # one sequence browser node at a time
-          for node in nodes:
-            numberOfSequenceBrowserNodes += 1
-          if numberOfSequenceBrowserNodes == 2:
-            for node in nodes:
-              sequenceBrowserNodeToDelete = node
-              break
+          if nodes.GetNumberOfItems() == 2:
+            sequenceBrowserNodeToDelete = nodes.GetItemAsObject(0)
               
             # Remove the unused sequence browser node
             slicer.mrmlScene.RemoveNode(sequenceBrowserNodeToDelete)
+
+            # Remove the unused Transforms Nodes Sequence, if it exists
+            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+            nodes.UnRegister(None)
+            if nodes.GetNumberOfItems() == 2:
+              nodeToRemove = nodes.GetItemAsObject(0)
+              slicer.mrmlScene.RemoveNode(nodeToRemove)
             
-            # Remove the unused Image Nodes Sequence
+            # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+            nodes.UnRegister(None)
+            if nodes.GetNumberOfItems() == 2:
+              nodeToRemove = nodes.GetItemAsObject(0)
+              slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+              slicer.mrmlScene.RemoveNode(nodeToRemove)
+          
+            # Remove the unused Image Nodes Sequence, containing each image node, if it exists
+            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+            nodes.UnRegister(None)
+            if nodes.GetNumberOfItems() == 2:
+              nodeToRemove = nodes.GetItemAsObject(0)
+              slicer.mrmlScene.RemoveNode(nodeToRemove)
+              
+            # Remove the image nodes of each slice view used to preserve the slice views
             nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+            nodes.UnRegister(None)
             for node in nodes:
               if node.GetName() == 'Image Nodes Sequence':
+                 break
+              if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+                slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
                 slicer.mrmlScene.RemoveNode(node)
-                break
-            
-            # Remove the unused Transforms Nodes Sequence
-            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLLinearTransformNode")
-            for node in nodes:
-              if node.GetName() == 'Transform Nodes Sequence':
-                slicer.mrmlScene.RemoveNode(node)
-                break
 
       else:
+        # If the user inputted file in the Tranforms File input is not accepted, remove the nodes created
+        # from the previously inputted transforms file, if it exists. Also, remove filepath in Transforms
+        # File in the `Inputs` section since the input is invalid.
+
+        # Remove the unused Transforms Nodes Sequence, if it exists
+        nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+        nodes.UnRegister(None)
+        if nodes.GetNumberOfItems() == 1:
+          nodeToRemove = nodes.GetItemAsObject(0)
+          slicer.mrmlScene.RemoveNode(nodeToRemove)
+        
+        # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+        nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+        nodes.UnRegister(None)
+        if nodes.GetNumberOfItems() == 1:
+          nodeToRemove = nodes.GetItemAsObject(0)
+          slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+          slicer.mrmlScene.RemoveNode(nodeToRemove)
+
+        # Remove filepath for the Transforms File in the `Inputs` section
+        self.customParamNode.transformsFilePath = ''
+        self.selectorTransformsFile.currentPath = ''
+
         slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
                                    f"{self.selectorTransformsFile.currentPath}",
                                    "Validation Error")
@@ -666,6 +750,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Begin the playback when a user clicks the "Play" button and pause when user clicks the "Pause" button.
     """
+    layoutManager = slicer.app.layoutManager()
+    proxy2DImageNode = self.customParamNode.sequenceBrowserNode.GetProxyNode(self.customParamNode.sequenceNode2DImages)
+    sliceWidget = TrackLogic().getSliceWidget(layoutManager, proxy2DImageNode)
+    # Fit the slice to the current background image
+    sliceWidget.fitSliceToBackground()
+    sliceView = sliceWidget.sliceView()
+    
+    ## Pause sequence
     if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
       # if we are playing, click this button will pause the playback
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
@@ -673,20 +765,28 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.sequenceSlider.setValue(self.currentFrameInputBox.value)
       self.currentFrameInputBox.setValue(self.sequenceSlider.value)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
-          
-      layoutManager = slicer.app.layoutManager()
-
-      proxy2DImageNode = self.customParamNode.sequenceBrowserNode.GetProxyNode(self.customParamNode.sequenceNode2DImages)
-
-      sliceWidget = TrackLogic().getSliceWidget(layoutManager, proxy2DImageNode)
-
-      # Fit the slice to the current background image
-      sliceWidget.fitSliceToBackground()
-
-      sliceView = sliceWidget.sliceView()
+      
+      # Add an observer to the 'Current Alignment' Text to preserve the text when the sequence is paused
+      sliceView.cornerAnnotation().AddObserver(vtk.vtkCommand.ModifiedEvent, lambda caller, event: caller.SetText(vtk.vtkCornerAnnotation.UpperLeft, 'Current Alignment'))
       sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
 
+      # Rename the text in the bottom left part of slice view, and preserve the text
+      for color in self.logic.backgrounds:
+        background = getattr(self.logic, f"{color.lower()}Background")
+        if background is not None:
+          imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
+          sliceView = slicer.app.layoutManager().sliceWidget(color).sliceView()
+          sliceView.cornerAnnotation().SetText(0, imageFileNameText)
+          # Add an observer to the Text displaying the image file name to preserve the text when the sequence is paused
+          sliceView.cornerAnnotation().AddObserver(vtk.vtkCommand.ModifiedEvent, lambda caller, event, text=imageFileNameText: caller.SetText(0, text))
+    ## Play sequence
     else:
+      # Remove any observer in each sliceview before playing the sequence
+      for color in self.logic.backgrounds:
+        sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+        if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCommand.ModifiedEvent):
+          sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+
       # If the image to be played is changed when paused, start the playback at that image number
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
       # if we are not playing, click this button will start the playback
@@ -703,12 +803,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.currentFrameInputBox.setValue(1)
     self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(1)
 
+    # Remove all observers
+    for color in self.logic.backgrounds:
+      sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+      if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCommand.ModifiedEvent):
+        sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+    # Reset slice views to what they look when inputs are just loaded
+    self.resetVisuals()
+
   def onIncrement(self):
     """
     Move forward in the playback one step.
     """
     self.customParamNode.sequenceBrowserNode.SelectNextItem()
-    self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber())
+    self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1)
     self.currentFrameInputBox.setValue(self.sequenceSlider.value)
     self.logic.visualize(self.customParamNode.sequenceBrowserNode,
                            self.customParamNode.sequenceNode2DImages,
@@ -723,7 +831,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Move backwards in the playback one step.
     """
     self.customParamNode.sequenceBrowserNode.SelectNextItem(-1)
-    self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber())
+    self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1)
     self.currentFrameInputBox.setValue(self.sequenceSlider.value)
     self.logic.visualize(self.customParamNode.sequenceBrowserNode,
                            self.customParamNode.sequenceNode2DImages,
@@ -775,6 +883,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.sequenceSlider.enabled = True
 
         if self.atLastImage():
+          #self.nextFrameButton.setToolTip("Move to the previous frame.") - may add a different tooltip at last image
           self.playSequenceButton.enabled = False
           self.stopSequenceButton.enabled = True
           self.nextFrameButton.enabled = False
@@ -865,7 +974,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sliceCompositeNode.SetLabelVolumeID("")
       # set `self.redBackground`, `self.greenBackground`, `self.yellowBackground` to None
       setattr(self.logic, f"{name.lower()}Background", None)
-      
+      # Remove all observers to remove text in the slice views
+      view = slicer.app.layoutManager().sliceWidget(name).sliceView()
+      if view.cornerAnnotation().HasObserver(vtk.vtkCommand.ModifiedEvent):
+        view.cornerAnnotation().RemoveAllObservers()
+      # Remove all text annotations in each slice view corner
+      view.cornerAnnotation().ClearAllTexts()
 
     # Clear segmentation label map from 3D view (only if the label map exists)
     if self.customParamNode.node3DSegmentationLabelMap:
@@ -921,6 +1035,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     self.redBackground = None
     self.greenBackground = None
     self.yellowBackground = None
+    self.backgrounds = {
+      "Red": self.redBackground,
+      "Green": self.greenBackground,
+      "Yellow": self.yellowBackground
+    }
 
   def setDefaultParameters(self, customParameterNode):
     """
@@ -1160,8 +1279,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     proxyTransformNode = sequenceBrowser.GetProxyNode(sequenceNodeTransforms)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
     
-    sequenceNodeName = proxy2DImageNode.GetName()
-    
     sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
     name = sliceWidget.sliceViewName
@@ -1190,11 +1307,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Translate the 3D segmentation label map using the transform data
     labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
     
-    # Name the Label layer (Shown as "L:" in the Slice view) as the 3D Segmentation file name
-    SegmentationPathName = slicer.util.getNode('vtkMRMLScalarVolumeNode1').GetStorageNode().GetFileName()
-    SegmentationFileName = os.path.basename(SegmentationPathName)
-    labelMapNode.SetName(SegmentationFileName)
-                
     sliceNode.SetSliceVisible(True)
 
     # Make the 3D segmentation visible in the 3D view
@@ -1204,29 +1316,14 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     shNode.ShowItemsInView(tmpIdList, threeDViewNode)
 
         
-    backgrounds = {
-      "Red": self.redBackground,
-      "Green": self.greenBackground,
-      "Yellow": self.yellowBackground
-    }
 
     # Preserve previous slices
     # If a background node for the specified orientation exists, update it with the current slice
     # Otherwise, create a new background node and set it as the background for the specified orientation
     
-    if name in backgrounds:
-      background = backgrounds[name]
+    if name in self.backgrounds:
+      background = getattr(self, name.lower() + 'Background')
       if background is None:
-        # Loop through each vtkMRMLScalarVolumeNode, if there are any nodes that are used to display
-        # a slice view that is before the 'Image Nodes Sequence' node, delete it. This is because
-        # those nodes are unused nodes, before adding a new sequence to the scene
-        nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
-        for node in nodes:
-          if node.GetName() == 'Image Nodes Sequence':
-            break
-          if node.GetName() == node.GetAttribute('Sequences.BaseName'):
-            slicer.mrmlScene.RemoveNode(node)
-        
         # Create a new background node for the orientation
         setattr(self, name.lower() + 'Background', volumesLogic.CloneVolume(slicer.mrmlScene,
                 proxy2DImageNode, f"{proxy2DImageNode.GetAttribute('Sequences.BaseName')}"))
@@ -1235,27 +1332,32 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         background.SetAndObserveImageData(proxy2DImageNode.GetImageData())
         background.SetAttribute("Sequences.BaseName", proxy2DImageNode.GetAttribute("Sequences.BaseName"))
     
-    if name == "Red":
-      self.redBackground.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
-    if name == "Green":
-      self.greenBackground.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
-    if name == "Yellow":
-      self.yellowBackground.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
-
+    # Add the image name to the slice view background variable
+    currentSlice = getattr(self, name.lower() + 'Background')
+    currentSlice.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
 
     # Set the background volumes for each orientation, if they exist
-    if self.redBackground is not None:
-      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeRed").SetBackgroundVolumeID(self.redBackground.GetID())
-    if self.greenBackground is not None:
-      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeGreen").SetBackgroundVolumeID(self.greenBackground.GetID())
-    if self.yellowBackground is not None:
-      slicer.mrmlScene.GetNodeByID("vtkMRMLSliceCompositeNodeYellow").SetBackgroundVolumeID(self.yellowBackground.GetID())
-
+    for color in self.backgrounds:
+      sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+      sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+      currentSlice = getattr(self, color.lower() + 'Background')
+      sliceViewWindow.cornerAnnotation().ClearAllTexts()
+      # Add desired text to slice views that have a background node
+      if currentSlice is not None:
+        slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").SetBackgroundVolumeID(currentSlice.GetID())
+        imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
+        # Place "Current Alignment" text in the slice view corner
+        sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+        sliceViewWindow.cornerAnnotation().SetText(0, imageFileNameText)
     
-    # Place "Current Alignment" text in slice view corner
+    for color in self.backgrounds:
+      sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+      if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCommand.ModifiedEvent):
+        sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+      if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
+        sliceViewWindow.cornerAnnotation().RemoveAllObservers()
     sliceView = sliceWidget.sliceView()
     sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
-   
     # Enable alignment of the 3D segmentation label map according to the transform data so that
     # the 3D segmentation label map overlays upon the ROI of the 2D images
     labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
