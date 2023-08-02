@@ -9,6 +9,11 @@ set(MODULE_PYTHON_SCRIPTS
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/${MODULE_NAME}.png
   Resources/UI/${MODULE_NAME}.ui
+  Resources/Icons/media-control-icons/next.png
+  Resources/Icons/media-control-icons/pause.png
+  Resources/Icons/media-control-icons/play.png
+  Resources/Icons/media-control-icons/previous.png
+  Resources/Icons/media-control-icons/stop.png
   )
 
 #-----------------------------------------------------------------------------
