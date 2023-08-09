@@ -1,8 +1,10 @@
 import os
+from time import time
 '''
 os.system('PythonSlicer -m pip install pandas')
 import pandas as pd
 '''
+a = time()
 import csv
 import re
 
@@ -16,6 +18,20 @@ from slicer.util import VTKObservationMixin
 from slicer.parameterNodeWrapper import *
 from slicer import vtkMRMLSequenceNode
 from slicer import vtkMRMLSequenceBrowserNode
+
+try:
+  import openpyxl
+except ModuleNotFoundError as e:
+  slicer.util.pip_install('openpyxl')
+  import openpyxl
+
+try:
+  import xlrd
+except ModuleNotFoundError as e:
+  slicer.util.pip_install('xlrd')
+  import xlrd
+
+print(f"Elapsed Time: {round(time()-a, 3)}s")
 
 #
 # Track
@@ -739,11 +755,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Remove filepath for the Transforms File in the `Inputs` section
         self.customParamNode.transformsFilePath = ''
         self.selectorTransformsFile.currentPath = ''
-
-        slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
-                                   f"{self.selectorTransformsFile.currentPath}",
-                                   "Validation Error")
-
+        
     self.customParamNode.EndModify(wasModified)
 
   def onPlayButton(self):
@@ -1122,9 +1134,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # transformations found within the CSV file are valid, so playback can occur. The playback will
     # still occur if later transformations after the first {numImages} transformations are corrupt.
     transformationsList = []
+    fileName = os.path.basename(filepath)
+    fileExtension = os.path.splitext(filepath)[1]
 
-    #if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
-    if re.match('.*\.(csv|txt)', filepath):
+    if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
         with open(filepath, "r") as f:
@@ -1137,6 +1150,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             except:
               # If there was an error reading the values, break out because we can't/shouldn't
               # perform the playback if the transformation data is corrupt or missing.
+              slicer.util.warningDisplay(f"An error was encountered while reading the {fileExtension} file: "
+                                   f"{fileName}",
+                                   "Validation Error")
               break
               
       # Check that the transforms file is a .txt type
@@ -1151,24 +1167,56 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             except:
               # If there was an error reading the values, break out because we can't/shouldn't
               # perform the playback if the transformation data is corrupt or missing.
+              slicer.util.warningDisplay(f"An error was encountered while reading the {fileExtension} file: "
+                                   f"{fileName}",
+                                   "Validation Error")
               break
-      '''
-      # Check that the transforms file is a .xls or .xlsx type
-      elif filepath.endswith('.xls') or filepath.endswith('.xlsx'):
-        df = pd.read_excel(filepath)
-        try:
-          transformationsList = df[['X', 'Y', 'Z']].astype(float).values.tolist()
-        except:
-          # If there was an error reading the values, break out because we can't/shouldn't
-          # perform the playback if the transformation data is corrupt or missing.
-          pass
-          '''
+
+      # Check that the transforms file is a .xlsx type
+      elif filepath.endswith('.xlsx'):
+        wb = openpyxl.load_workbook(filepath)
+        sheet = wb.active
+        rows = iter(sheet.iter_rows(values_only=True))
+        next(rows)  # Start from the second row, assuming first row is header
+        for row in rows:
+          try:
+            [x, y, z] = row
+            transformationsList.append([x,y,z])
+          except:
+            slicer.util.warningDisplay(f"An error was encountered while reading the {fileExtension} file: "
+                                           f"{fileName}",
+                                   "Validation Error")
+            break
+        
+      # Check that the transforms file is a .xls type
+      elif filepath.endswith('.xls'):
+        workbook = xlrd.open_workbook(filepath)
+        sheet = workbook.sheet_by_index(0)
+        for row_idx in range(1, sheet.nrows):  # Start from the second row, assuming first row is header
+          values = sheet.row_values(row_idx)
+          try:
+            x, y, z = map(float, values)
+            transformationsList.append([x, y, z])
+          except:
+            # If there was an error reading the values, break out because we can't/shouldn't
+            # perform the playback if the transformation data is corrupt or missing.
+            slicer.util.warningDisplay(f"An error was encountered while reading the {fileExtension} file: "
+                                     f"{fileName}",
+                                     "Validation Error")
+            break
 
 
-    if len(transformationsList) < numImages:
-      return None
-    else:
-      return transformationsList
+      if len(transformationsList) == numImages:
+        return transformationsList
+      else:
+        # Extension will not create transforms nodes if the number of 2d cine images and
+        # the number of rows in the transforms file are not equal
+        print(os.path.basename(filepath))
+        slicer.util.warningDisplay(f"The Number of rows in the {fileExtension} file does not match with number of 2D Cine Images: "
+                           f"{fileName}",
+                           "Validation Error")
+        
+        return None
 
   def createTransformNodesFromTransformData(self, shNode, transforms, numImages):
     """
