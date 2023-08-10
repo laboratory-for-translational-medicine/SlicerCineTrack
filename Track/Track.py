@@ -1,10 +1,4 @@
 import os
-from time import time
-'''
-os.system('PythonSlicer -m pip install pandas')
-import pandas as pd
-'''
-a = time()
 import csv
 import re
 
@@ -18,20 +12,6 @@ from slicer.util import VTKObservationMixin
 from slicer.parameterNodeWrapper import *
 from slicer import vtkMRMLSequenceNode
 from slicer import vtkMRMLSequenceBrowserNode
-
-try:
-  import openpyxl
-except ModuleNotFoundError as e:
-  slicer.util.pip_install('openpyxl')
-  import openpyxl
-
-try:
-  import xlrd
-except ModuleNotFoundError as e:
-  slicer.util.pip_install('xlrd')
-  import xlrd
-
-print(f"Elapsed Time: {round(time()-a, 3)}s")
 
 #
 # Track
@@ -1174,6 +1154,42 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
       # Check that the transforms file is a .xlsx type
       elif filepath.endswith('.xlsx'):
+        try:
+          import openpyxl
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
+            try:
+              # Create a loading popup
+              messageBox = qt.QMessageBox()
+              messageBox.setIcon(qt.QMessageBox.Information)
+              messageBox.setWindowTitle("Package Installation")
+              messageBox.setText("Installing 'openpyxl' package...")
+              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+              messageBox.show()
+              slicer.app.processEvents()
+              
+              slicer.util.pip_install('openpyxl')
+              import openpyxl
+              
+              messageBox.setText(f"'openpyxl' package installed successfully. {fileName} will now load.")
+              slicer.app.processEvents()  # Process events to allow the dialog to update
+              qt.QTimer.singleShot(3000, messageBox.accept)
+
+              # Wait for user interaction
+              while messageBox.isVisible():
+                slicer.app.processEvents()
+
+              messageBox.hide()  # Hide the message box
+              
+            except:
+              slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                                        "Failed to Load File")
+              return
+          else:
+            slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                                       "Failed to Load File")
+            return
+            
         wb = openpyxl.load_workbook(filepath)
         sheet = wb.active
         rows = iter(sheet.iter_rows(values_only=True))
@@ -1183,13 +1199,48 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             [x, y, z] = row
             transformationsList.append([x,y,z])
           except:
-            slicer.util.warningDisplay(f"An error was encountered while reading the {fileExtension} file: "
-                                           f"{fileName}",
-                                   "Validation Error")
+            slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                                      "Failed to Load File")
+
             break
         
       # Check that the transforms file is a .xls type
       elif filepath.endswith('.xls'):
+        try:
+          import xlrd
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
+            try:
+              # Create a loading popup
+              messageBox = qt.QMessageBox()
+              messageBox.setIcon(qt.QMessageBox.Information)
+              messageBox.setWindowTitle("Package Installation")
+              messageBox.setText("Installing 'xlrd' package...")
+              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+              messageBox.show()
+              slicer.app.processEvents()
+
+              slicer.util.pip_install('xlrd')
+              import xlrd
+              
+              messageBox.setText(f"'xlrd' package installed successfully. {fileName} will now load.")
+              slicer.app.processEvents()  # Process events to allow the dialog to update
+              qt.QTimer.singleShot(3000, messageBox.accept)
+
+              # Wait for user interaction
+              while messageBox.isVisible():
+                slicer.app.processEvents()
+
+              messageBox.hide()  # Hide the message box
+            except:
+              slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                              "Failed to Load File")
+              return
+          else:
+            slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                                      "Failed to Load File")
+            return
+            
         workbook = xlrd.open_workbook(filepath)
         sheet = workbook.sheet_by_index(0)
         for row_idx in range(1, sheet.nrows):  # Start from the second row, assuming first row is header
