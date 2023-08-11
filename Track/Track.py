@@ -1127,7 +1127,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     if re.match('.*\.(csv|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
-        encodings = ["cp1252", "iso-8859-1", "latin1","utf-8-sig"]
+        encodings = ["utf-8-sig","cp1252", "iso-8859-1", "latin1"]
         for encoding in encodings:
           print(f"try encoding {encoding}")
           try:
