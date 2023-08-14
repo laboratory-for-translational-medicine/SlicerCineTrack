@@ -1139,6 +1139,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               break
           except:
             print(f"Encoding {encoding} failed, trying next encoding")
+          
+      if len(transformationsList) == 0:
+        slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load another file instead. ",
+                                  "Failed to Load File")
+        return
               
       # Check that the transforms file is a .txt type
       elif filepath.endswith('.txt'):
