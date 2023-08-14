@@ -1192,11 +1192,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               messageBox.hide()  # Hide the message box
               
             except:
-              slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+              slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
                                         "Failed to Load File")
               return
           else:
-            slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+            slicer.util.warningDisplay(f"{fileName} failed to load.\nPlease load a .csv or .txt file instead. ",
                                        "Failed to Load File")
             return
             
@@ -1209,7 +1209,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             [x, y, z] = row
             transformationsList.append([x,y,z])
           except:
-            slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+            slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
                                       "Failed to Load File")
 
             break
