@@ -1127,17 +1127,20 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     if re.match('.*\.(csv|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
-        with open(filepath, "r") as f:
-          # Using a DictReader allows us to recognize the CSV header
-          reader = csv.DictReader(f)
-          for row in reader:
-            # Extract floating point values from row
-            try:
-              transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
-            except:
-              # If there was an error reading the values, break out because we can't/shouldn't
-              # perform the playback if the transformation data is corrupt or missing.
+        encodings = ["utf-8-sig","cp1252", "iso-8859-1", "latin1"]
+        for encoding in encodings:
+          print(f"try encoding {encoding}")
+          try:
+            with open(filepath, "r", encoding = encoding) as f:
+              # Using a DictReader allows us to recognize the CSV header
+              reader = csv.DictReader(f)
+              for row in reader:
+                # Extract floating point values from row
+                transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
+              # if we can read the file without error, break the encoding loop
               break
+          except:
+            print(f"Encoding {encoding} failed, trying next encoding")
               
       # Check that the transforms file is a .txt type
       elif filepath.endswith('.txt'):
