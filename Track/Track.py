@@ -1129,18 +1129,14 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               reader = csv.DictReader(f)
               for row in reader:
                 # Extract floating point values from row
-                try:
-                  transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
-                except:
-                  # If there was an error reading the values, break out because we can't/shouldn't
-                  # perform the playback if the transformation data is corrupt or missing.
-                  break
-            # if we can read the file without error, break the encoding loop
+                transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
+              
+              # if we can read the file without error, break the encoding loop
               break
           except:
             print(f"Encoding {encoding} failed, trying next encoding")
           
-      if len(transformationsList) == 0:
+      if len(transformationsList) == 0 and filepath.endswith('.csv'):
         slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load another file instead. ",
                                   "Failed to Load File")
         return
