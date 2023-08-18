@@ -1,8 +1,4 @@
 import os
-'''
-os.system('PythonSlicer -m pip install pandas')
-import pandas as pd
-'''
 import csv
 import re
 
@@ -739,11 +735,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Remove filepath for the Transforms File in the `Inputs` section
         self.customParamNode.transformsFilePath = ''
         self.selectorTransformsFile.currentPath = ''
-
-        slicer.util.warningDisplay("An error was encountered while reading the .csv file: "
-                                   f"{self.selectorTransformsFile.currentPath}",
-                                   "Validation Error")
-
+        
     self.customParamNode.EndModify(wasModified)
 
   def onPlayButton(self):
@@ -1122,12 +1114,13 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # transformations found within the CSV file are valid, so playback can occur. The playback will
     # still occur if later transformations after the first {numImages} transformations are corrupt.
     transformationsList = []
+    fileName = os.path.basename(filepath)
+    fileExtension = os.path.splitext(filepath)[1]
 
-    #if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
-    if re.match('.*\.(csv|txt)', filepath):
+    if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
-        encodings = ["utf-8-sig","cp1252", "iso-8859-1", "latin1"]
+        encodings = ["utf-8-sig", "cp1252", "iso-8859-1", "latin1"]
         for encoding in encodings:
           print(f"try encoding {encoding}")
           try:
@@ -1137,10 +1130,16 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               for row in reader:
                 # Extract floating point values from row
                 transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
+              
               # if we can read the file without error, break the encoding loop
               break
           except:
             print(f"Encoding {encoding} failed, trying next encoding")
+          
+      if len(transformationsList) == 0 and filepath.endswith('.csv'):
+        slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load another file instead. ",
+                                  "Failed to Load File")
+        return
               
       # Check that the transforms file is a .txt type
       elif filepath.endswith('.txt'):
@@ -1154,24 +1153,127 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             except:
               # If there was an error reading the values, break out because we can't/shouldn't
               # perform the playback if the transformation data is corrupt or missing.
+              slicer.util.warningDisplay(f"An error was encountered while reading the {fileExtension} file: "
+                                   f"{fileName}",
+                                   "Validation Error")
               break
-      '''
-      # Check that the transforms file is a .xls or .xlsx type
-      elif filepath.endswith('.xls') or filepath.endswith('.xlsx'):
-        df = pd.read_excel(filepath)
+
+      # Check that the transforms file is a .xlsx type
+      elif filepath.endswith('.xlsx'):
         try:
-          transformationsList = df[['X', 'Y', 'Z']].astype(float).values.tolist()
-        except:
-          # If there was an error reading the values, break out because we can't/shouldn't
-          # perform the playback if the transformation data is corrupt or missing.
-          pass
-          '''
+          import openpyxl
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
+            try:
+              # Create a loading popup
+              messageBox = qt.QMessageBox()
+              messageBox.setIcon(qt.QMessageBox.Information)
+              messageBox.setWindowTitle("Package Installation")
+              messageBox.setText("Installing 'openpyxl' package...")
+              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+              messageBox.show()
+              slicer.app.processEvents()
+              
+              slicer.util.pip_install('openpyxl')
+              import openpyxl
+              
+              messageBox.setText(f"'openpyxl' package installed successfully. {fileName} will now load.")
+              slicer.app.processEvents()  # Process events to allow the dialog to update
+              qt.QTimer.singleShot(3000, messageBox.accept)
+
+              # Wait for user interaction
+              while messageBox.isVisible():
+                slicer.app.processEvents()
+
+              messageBox.hide()  # Hide the message box
+              
+            except:
+              slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
+                                        "Failed to Load File")
+              return
+          else:
+            slicer.util.warningDisplay(f"{fileName} failed to load.\nPlease load a .csv or .txt file instead. ",
+                                       "Failed to Load File")
+            return
+            
+        wb = openpyxl.load_workbook(filepath)
+        sheet = wb.active
+        rows = iter(sheet.iter_rows(values_only=True))
+        next(rows)  # Start from the second row, assuming first row is header
+        for row in rows:
+          try:
+            [x, y, z] = row
+            transformationsList.append([x,y,z])
+          except:
+            slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
+                                      "Failed to Load File")
+
+            break
+        
+      # Check that the transforms file is a .xls type
+      elif filepath.endswith('.xls'):
+        try:
+          import xlrd
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
+            try:
+              # Create a loading popup
+              messageBox = qt.QMessageBox()
+              messageBox.setIcon(qt.QMessageBox.Information)
+              messageBox.setWindowTitle("Package Installation")
+              messageBox.setText("Installing 'xlrd' package...")
+              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+              messageBox.show()
+              slicer.app.processEvents()
+
+              slicer.util.pip_install('xlrd')
+              import xlrd
+              
+              messageBox.setText(f"'xlrd' package installed successfully. {fileName} will now load.")
+              slicer.app.processEvents()  # Process events to allow the dialog to update
+              qt.QTimer.singleShot(3000, messageBox.accept)
+
+              # Wait for user interaction
+              while messageBox.isVisible():
+                slicer.app.processEvents()
+
+              messageBox.hide()  # Hide the message box
+            except:
+              slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                              "Failed to Load File")
+              return
+          else:
+            slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                                      "Failed to Load File")
+            return
+            
+        workbook = xlrd.open_workbook(filepath)
+        sheet = workbook.sheet_by_index(0)
+        for row_idx in range(1, sheet.nrows):  # Start from the second row, assuming first row is header
+          values = sheet.row_values(row_idx)
+          try:
+            x, y, z = map(float, values)
+            transformationsList.append([x, y, z])
+          except:
+            # If there was an error reading the values, break out because we can't/shouldn't
+            # perform the playback if the transformation data is corrupt or missing.
+            slicer.util.warningDisplay(f"An error was encountered while reading the {fileExtension} file: "
+                                     f"{fileName}",
+                                     "Validation Error")
+            break
 
 
-    if len(transformationsList) < numImages:
-      return None
-    else:
-      return transformationsList
+      if len(transformationsList) == numImages:
+        return transformationsList
+      else:
+        # Extension will not create transforms nodes if the number of 2d cine images and
+        # the number of rows in the transforms file are not equal
+        print(os.path.basename(filepath))
+        slicer.util.warningDisplay(f"The Number of rows in the {fileExtension} file does not match with number of 2D Cine Images: "
+                           f"{fileName}",
+                           "Validation Error")
+        
+        return None
 
   def createTransformNodesFromTransformData(self, shNode, transforms, numImages):
     """
