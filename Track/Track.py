@@ -535,6 +535,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           self.customParamNode.sequenceNode2DImages = imagesSequenceNode
           # Track the number of total images within the parameter totalImages
           self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
+          self.currentFrameInputBox.setMaximum(self.customParamNode.totalImages) # allows for image counter to go above 99, if there are more than 99 images
           self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
 
           # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
