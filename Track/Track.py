@@ -682,7 +682,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if caller == "selectorTransformsFile" and event == "currentPathChanged":
       # Set a param to hold the path to the transformations .csv file
       self.customParamNode.transformsFilePath = self.selectorTransformsFile.currentPath
-
+      self.columnXSelector.enabled = True
+      self.columnYSelector.enabled = True
+      self.columnZSelector.enabled = True
+    
       numImages = self.customParamNode.totalImages
       # If even one line cannot be read correctly/is missing our playback cannot be successful. We
       # will validate the tranformations input first. If the input is valid, we get a list
