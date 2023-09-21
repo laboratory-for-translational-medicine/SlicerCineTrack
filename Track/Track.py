@@ -158,7 +158,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.columnXSelector.addItem('test3')
     self.columnXSelector.enabled = False
     self.columnXSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
-    self.columnXSelectorLabel = qt.QLabel("Column X:")
+    self.columnXSelectorLabel = qt.QLabel("X_Dicom:")
     self.columnXSelectorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
 
     ## Column Y
@@ -168,7 +168,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.columnYSelector.addItem('test3')
     self.columnYSelector.enabled = False
     self.columnYSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
-    self.columnYSelectorLabel = qt.QLabel("Column Y:")
+    self.columnYSelectorLabel = qt.QLabel("Y_Dicom:")
     self.columnYSelectorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
 
 
@@ -179,7 +179,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.columnZSelector.addItem('test3')
     self.columnZSelector.enabled = False
     self.columnZSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
-    self.columnZSelectorLabel = qt.QLabel("Column Z:")
+    self.columnZSelectorLabel = qt.QLabel("Z_Dicom:")
     self.columnZSelectorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
 
     ## Widget and Layout setup
@@ -194,7 +194,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.columnSelectorsLayout.addWidget(self.columnZSelector)
 
     
-    self.inputsFormLayout.addRow(' ',self.columnSelectorsLayout)
+    self.inputsFormLayout.addRow('Translation: ',self.columnSelectorsLayout)
 
     ## Sequence Area
 
