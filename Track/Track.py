@@ -150,6 +150,51 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     browseButton = self.selectorTransformsFile.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
 
+    # Column headers selectors
+    ## Column X
+    self.columnXSelector = qt.QComboBox()
+    self.columnXSelector.addItem('test')
+    self.columnXSelector.addItem('test2')
+    self.columnXSelector.addItem('test3')
+    self.columnXSelector.enabled = False
+    self.columnXSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
+    self.columnXSelectorLabel = qt.QLabel("Column X:")
+    self.columnXSelectorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+
+    ## Column Y
+    self.columnYSelector = qt.QComboBox()
+    self.columnYSelector.addItem('test')
+    self.columnYSelector.addItem('test2')
+    self.columnYSelector.addItem('test3')
+    self.columnYSelector.enabled = False
+    self.columnYSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
+    self.columnYSelectorLabel = qt.QLabel("Column Y:")
+    self.columnYSelectorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+
+
+    ## Column Z
+    self.columnZSelector = qt.QComboBox()
+    self.columnZSelector.addItem('test')
+    self.columnZSelector.addItem('test2')
+    self.columnZSelector.addItem('test3')
+    self.columnZSelector.enabled = False
+    self.columnZSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
+    self.columnZSelectorLabel = qt.QLabel("Column Z:")
+    self.columnZSelectorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+
+    ## Widget and Layout setup
+    self.columnSelectorWidget = qt.QWidget()
+    self.columnSelectorsLayout = qt.QHBoxLayout()
+    # self.columnSelectorWidget.setLayout(self.columnSelectorsLayout)
+    self.columnSelectorsLayout.addWidget(self.columnXSelectorLabel)
+    self.columnSelectorsLayout.addWidget(self.columnXSelector)
+    self.columnSelectorsLayout.addWidget(self.columnYSelectorLabel)
+    self.columnSelectorsLayout.addWidget(self.columnYSelector)
+    self.columnSelectorsLayout.addWidget(self.columnZSelectorLabel)
+    self.columnSelectorsLayout.addWidget(self.columnZSelector)
+
+    
+    self.inputsFormLayout.addRow(' ',self.columnSelectorsLayout)
 
     ## Sequence Area
 
