@@ -36,7 +36,7 @@ class Track(ScriptedLoadableModule):
     self.parent.helpText = """"""
     # TODO: replace with organization, grant and thanks
     self.parent.acknowledgementText = """
-This file was originally developed by James McCafferty.
+    This file was originally developed by James McCafferty, Fabyan Mikhael, HaPhan Tran, and Mubariz Afzal.
 """
 
 #
@@ -153,9 +153,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Column headers selectors
     ## Column X
     self.columnXSelector = qt.QComboBox()
-    self.columnXSelector.addItem('test')
-    self.columnXSelector.addItem('test2')
-    self.columnXSelector.addItem('test3')
     self.columnXSelector.enabled = False
     self.columnXSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     self.columnXSelectorLabel = qt.QLabel("X_Dicom:")
@@ -163,9 +160,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     ## Column Y
     self.columnYSelector = qt.QComboBox()
-    self.columnYSelector.addItem('test')
-    self.columnYSelector.addItem('test2')
-    self.columnYSelector.addItem('test3')
     self.columnYSelector.enabled = False
     self.columnYSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     self.columnYSelectorLabel = qt.QLabel("Y_Dicom:")
@@ -174,27 +168,35 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     ## Column Z
     self.columnZSelector = qt.QComboBox()
-    self.columnZSelector.addItem('test')
-    self.columnZSelector.addItem('test2')
-    self.columnZSelector.addItem('test3')
     self.columnZSelector.enabled = False
     self.columnZSelector.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     self.columnZSelectorLabel = qt.QLabel("Z_Dicom:")
     self.columnZSelectorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
 
-    ## Widget and Layout setup
-    self.columnSelectorWidget = qt.QWidget()
+    
+    ## Widget and Layout setup for columns selectors
+
     self.columnSelectorsLayout = qt.QHBoxLayout()
-    # self.columnSelectorWidget.setLayout(self.columnSelectorsLayout)
     self.columnSelectorsLayout.addWidget(self.columnXSelectorLabel)
     self.columnSelectorsLayout.addWidget(self.columnXSelector)
     self.columnSelectorsLayout.addWidget(self.columnYSelectorLabel)
     self.columnSelectorsLayout.addWidget(self.columnYSelector)
     self.columnSelectorsLayout.addWidget(self.columnZSelectorLabel)
     self.columnSelectorsLayout.addWidget(self.columnZSelector)
-
     
     self.inputsFormLayout.addRow('Translation: ',self.columnSelectorsLayout)
+    
+    # Layout for apply transformation button
+    self.applyTransformButton = qt.QPushButton("Apply Transformation")
+    self.applyTransformButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.applyTransformButton.enabled = False
+    
+    self.columnTransformsLayout = qt.QHBoxLayout()
+    self.columnTransformsLayout.addWidget(self.applyTransformButton)
+    self.inputsFormLayout.addRow(' ',self.columnTransformsLayout)
+        
+    
+    # self.inputsFormLayout.addRow(' ',self.applyTranformButton)    
 
     ## Sequence Area
 
@@ -246,7 +248,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.controlLayout.setAlignment(qt.Qt.AlignLeft)
     self.controlWidget.setLayout(self.controlLayout)
     self.sequenceFormLayout.addWidget(self.controlWidget)
-    # self.controlWidget.setStyleSheet("color: red")
+
 
     iconSize = qt.QSize(14, 14)
     buttonSize = qt.QSize(60, 30)
@@ -388,12 +390,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector3DSegmentation.connect("currentPathChanged(QString)", \
       lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
     self.selectorTransformsFile.connect("currentPathChanged(QString)", \
-      lambda: self.updateParameterNodeFromGUI("selectorTransformsFile", "currentPathChanged"))
+      self.onTransformsFilePathChange)
+    self.applyTransformButton.connect("clicked(bool)", \
+      lambda: self.updateParameterNodeFromGUI("applyTransformsButton", "clicked"))
 
     # These connections will reset the visuals when one of the main inputs are modified
     self.selector2DImagesFolder.connect("currentPathChanged(QString)", self.resetVisuals)
     self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
-    self.selectorTransformsFile.connect("currentPathChanged(QString)", self.resetVisuals)
+    # comment out this line because we only reset visuals when click apply transform button now
+    # self.selectorTransformsFile.connect("currentPathChanged(QString)", self.resetVisuals)
+    
+    self.applyTransformButton.connect("clicked(book)", self.resetVisuals)
+    
 
     #
     # End logic
@@ -678,20 +686,24 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.selector3DSegmentation.currentPath = ''
         slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
                                    "The file was not loaded into 3D Slicer.", "Input Error")
-
-    if caller == "selectorTransformsFile" and event == "currentPathChanged":
+    
+          
+                           
+    if caller == "applyTransformsButton" and event == "clicked":
       # Set a param to hold the path to the transformations .csv file
       self.customParamNode.transformsFilePath = self.selectorTransformsFile.currentPath
-      self.columnXSelector.enabled = True
-      self.columnYSelector.enabled = True
-      self.columnZSelector.enabled = True
-    
+
       numImages = self.customParamNode.totalImages
       # If even one line cannot be read correctly/is missing our playback cannot be successful. We
       # will validate the tranformations input first. If the input is valid, we get a list
       # containing all of the transformations read from the file.
+      headers = []
+      headers.append(self.columnXSelector.currentText)
+      headers.append(self.columnYSelector.currentText)
+      headers.append(self.columnZSelector.currentText)
+
       transformsList = \
-        self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages)
+        self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages,headers)
 
       if transformsList:
         # Create transform nodes from the transform data and place them into a sequence node
@@ -786,7 +798,29 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.selectorTransformsFile.currentPath = ''
         
     self.customParamNode.EndModify(wasModified)
-
+  def onTransformsFilePathChange(self):
+    
+    #TODO - Move these helper functions to another module
+    def clearColumnSeletors(self):
+      self.columnXSelector.clear()
+      self.columnXSelector.enabled = False
+      self.columnYSelector.clear()
+      self.columnYSelector.enabled = False
+      self.columnZSelector.clear()
+      self.columnZSelector.enabled = False
+    def addItemToColumnSeletors(self,headers):
+      self.columnXSelector.enabled = True
+      self.columnYSelector.enabled = True
+      self.columnZSelector.enabled = True
+      
+      self.columnXSelector.addItems(headers)
+      self.columnYSelector.addItems(headers)
+      self.columnZSelector.addItems(headers)
+      self.applyTransformButton.enabled = True
+    clearColumnSeletors(self)
+      
+    addItemToColumnSeletors(self, self.logic.getColumnNamesFromTransformsInput(self.selectorTransformsFile.currentPath))  
+    
   def onPlayButton(self):
     """
     Begin the playback when a user clicks the "Play" button and pause when user clicks the "Pause" button.
@@ -1152,7 +1186,35 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     return imagesSequenceNode, False
 
-  def validateTransformsInput(self, filepath, numImages):
+  def getColumnNamesFromTransformsInput(self, filepath):
+      
+    fileName = os.path.basename(filepath)
+    fileExtension = os.path.splitext(filepath)[1]
+
+    if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
+      # Check that the transforms file is a .csv type
+      if filepath.endswith('.csv'):
+        encodings = ["utf-8-sig", "cp1252", "iso-8859-1", "latin1"]
+        for encoding in encodings:
+          print(f"try encoding {encoding}")
+          try:
+            with open(filepath, "r", encoding = encoding) as f:
+              reader = csv.reader(f)
+              headers = next(reader)
+              # if we can read without error, break of the encoding loop
+              break
+          except:
+            print(f"Encoding {encoding} failed, trying next encoding")
+
+        return headers
+    # TODO - add support for .txt, xls and .xlsx files       
+    
+    # if we get here, we failed to read the the headers -> print out warning and return a empty list for headers   
+    slicer.util.warningDisplay(f"Cannot read header row from {fileName}.\nPlease load another file instead. ",
+                                  "Failed to Load File")
+    return []
+
+  def validateTransformsInput(self, filepath, numImages,headers):
     """
     Checks to ensure that the data in the provided transformation file is valid and matches the
     number of 2D images that have been loaded into 3D Slicer.
@@ -1165,7 +1227,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     transformationsList = []
     fileName = os.path.basename(filepath)
     fileExtension = os.path.splitext(filepath)[1]
-
+    headerX = headers[0]
+    headerY = headers[1]
+    headerZ = headers[2]
+    print(headers)
     if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
@@ -1178,7 +1243,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               reader = csv.DictReader(f)
               for row in reader:
                 # Extract floating point values from row
-                transformationsList.append([float(row['X']), float(row['Y']), float(row['Z'])])
+                transformationsList.append([float(row[headerX]), float(row[headerY]), float(row[headerZ])])
               
               # if we can read the file without error, break the encoding loop
               break
@@ -1186,10 +1251,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             print(f"Encoding {encoding} failed, trying next encoding")
           
       if len(transformationsList) == 0 and filepath.endswith('.csv'):
-        slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load another file instead. ",
+        slicer.util.warningDisplay(f"{fileName} file failed to load1.\nPlease load another file instead. ",
                                   "Failed to Load File")
         return
-              
+      
+      # TODO - add support for column selectors for .txt, xls and .xlsx files        
       # Check that the transforms file is a .txt type
       elif filepath.endswith('.txt'):
         with open(filepath, "r") as f:
