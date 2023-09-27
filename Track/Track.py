@@ -215,7 +215,28 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceFormLayout.addWidget(self.sliderWidget)
 
     # Sequence slider
-    self.sequenceSlider = qt.QSlider(qt.Qt.Horizontal)
+    class Slider(qt.QSlider):
+      def __init__(self, parent=None):
+        super().__init__(qt.Qt.Horizontal, parent)
+      
+      def mousePressEvent(self, event):
+        sliderThumbRect = self.sliderPosition
+        clickValue = qt.QStyle.sliderValueFromPosition(self.minimum, self.maximum, event.pos().x(), self.width)
+        if abs(clickValue - sliderThumbRect) > 1: # Checks if sliderThumbRect was not pressed by the user
+          self.setValue(clickValue)
+        else:
+          self.mouseMoveEvent(event)
+      
+      def mouseMoveEvent(self, event):
+        # Reimplements the default scrolling functionality of QSlider
+        self.setValue(qt.QStyle.sliderValueFromPosition(self.minimum, self.maximum, event.pos().x(), self.width))
+        event.accept()
+      
+      def mouseReleaseEvent(self, event):
+        # Handle mouse release events (when done dragging)
+        self.sliderReleased.emit()
+        
+    self.sequenceSlider = Slider()  
     self.sequenceSlider.enabled = False
     self.sequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     self.sequenceSlider.setMinimum(1)
@@ -229,7 +250,23 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sliderLayout.addWidget(self.divisionFrameLabel)
     
     # Current image/frame spinbox
-    self.currentFrameInputBox = qt.QSpinBox()
+    class SpinBox(qt.QSpinBox):
+      # Custom signals for up and down button interactions
+      upButtonClicked = qt.Signal()
+      downButtonClicked = qt.Signal()
+      
+      # Inherit everything previously defined in QSpinBox
+      def __init__(self, parent=None):
+        super().__init__(parent)
+      
+      # Overrides the predefined stepBy() method of QSpinBox  
+      def stepBy(self, steps):
+        if steps > 0:
+          self.upButtonClicked.emit() # emit upButtonClicked if value on QSpinBox increased
+        elif steps < 0:
+          self.downButtonClicked.emit() # emit downButtonClicked if value on QSpinBox decreased
+      
+    self.currentFrameInputBox = SpinBox()
     self.currentFrameInputBox.minimum = 1
     self.currentFrameInputBox.setSpecialValueText(' ')
     self.currentFrameInputBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
@@ -377,8 +414,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.previousFrameButton.connect("clicked(bool)", self.onDecrement)
     self.sequenceSlider.connect("valueChanged(int)",
                                 lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
+    self.sequenceSlider.connect("sliderReleased()", self.skipImages)
     self.currentFrameInputBox.connect("valueChanged(int)",
                                 lambda: self.sequenceSlider.setValue(self.currentFrameInputBox.value))
+    self.currentFrameInputBox.connect("upButtonClicked()", self.onIncrement)
+    self.currentFrameInputBox.connect("downButtonClicked()", self.onDecrement)
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
@@ -924,6 +964,39 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline)
 
+  def skipImages(self):
+    # """
+    # Called when the user clicks & drags the slider either forwards or backwards
+    # """
+    # if start < finish: # User wants to move forward in the image sequence
+    #   for _ in range(start, finish):
+    #     self.onIncrement()
+    # elif start > finish: # User wants to move backwards in the image sequence 
+    #   for _ in range(start, finish, -1):
+    #     self.onDecrement()
+    # self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
+    # self.currentFrameInputBox.setValue(self.sequenceSlider.value)
+    if self.currentFrameInputBox.value != 1:
+      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 2)
+      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                           self.customParamNode.sequenceNode2DImages,
+                           self.customParamNode.node3DSegmentationLabelMap,
+                           self.customParamNode.sequenceNodeTransforms,
+                           self.customParamNode.opacity,
+                           self.customParamNode.overlayAsOutline)
+      self.onIncrement()
+    else:
+      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(1)
+      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                           self.customParamNode.sequenceNode2DImages,
+                           self.customParamNode.node3DSegmentationLabelMap,
+                           self.customParamNode.sequenceNodeTransforms,
+                           self.customParamNode.opacity,
+                           self.customParamNode.overlayAsOutline)
+      self.onDecrement()
+    
+    
+  
   def updatePlaybackButtons(self, inputsProvided):
     """
     Function to update which playback buttons are enabled or disabled according to the state.
@@ -1507,7 +1580,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     
     sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
-    name = sliceWidget.sliceViewName
+    name = sliceWidget.sliceViewName # This is important I think, as it grabs the specific slice we wanna update
         
     sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
 
@@ -1572,6 +1645,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       if currentSlice is not None:
         slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").SetBackgroundVolumeID(currentSlice.GetID())
         imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
+        # print(imageFileNameText) # I have found what updates the text of the UI
         # Place "Current Alignment" text in the slice view corner
         sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
         sliceViewWindow.cornerAnnotation().SetText(0, imageFileNameText)
