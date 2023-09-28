@@ -964,18 +964,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline)
 
-  def skipImages(self):
+  def onSkipImages(self):
     # """
     # Called when the user clicks & drags the slider either forwards or backwards
     # """
-    # if start < finish: # User wants to move forward in the image sequence
-    #   for _ in range(start, finish):
-    #     self.onIncrement()
-    # elif start > finish: # User wants to move backwards in the image sequence 
-    #   for _ in range(start, finish, -1):
-    #     self.onDecrement()
-    # self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
-    # self.currentFrameInputBox.setValue(self.sequenceSlider.value)
     if self.currentFrameInputBox.value != 1:
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 2)
       self.logic.visualize(self.customParamNode.sequenceBrowserNode,
@@ -996,7 +988,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.onDecrement()
     
     
-  
   def updatePlaybackButtons(self, inputsProvided):
     """
     Function to update which playback buttons are enabled or disabled according to the state.
@@ -1580,7 +1571,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     
     sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
-    name = sliceWidget.sliceViewName # This is important I think, as it grabs the specific slice we wanna update
+    name = sliceWidget.sliceViewName
         
     sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
 
@@ -1645,7 +1636,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       if currentSlice is not None:
         slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").SetBackgroundVolumeID(currentSlice.GetID())
         imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
-        # print(imageFileNameText) # I have found what updates the text of the UI
         # Place "Current Alignment" text in the slice view corner
         sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
         sliceViewWindow.cornerAnnotation().SetText(0, imageFileNameText)
