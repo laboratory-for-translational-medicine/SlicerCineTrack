@@ -414,7 +414,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.previousFrameButton.connect("clicked(bool)", self.onDecrement)
     self.sequenceSlider.connect("valueChanged(int)",
                                 lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
-    self.sequenceSlider.connect("sliderReleased()", self.skipImages)
+    self.sequenceSlider.connect("sliderReleased()", self.onSkipImages)
     self.currentFrameInputBox.connect("valueChanged(int)",
                                 lambda: self.sequenceSlider.setValue(self.currentFrameInputBox.value))
     self.currentFrameInputBox.connect("upButtonClicked()", self.onIncrement)
