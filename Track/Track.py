@@ -419,6 +419,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                 lambda: self.sequenceSlider.setValue(self.currentFrameInputBox.value))
     self.currentFrameInputBox.connect("upButtonClicked()", self.onIncrement)
     self.currentFrameInputBox.connect("downButtonClicked()", self.onDecrement)
+    self.currentFrameInputBox.connect("editingFinished()", self.onSkipImages)
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
