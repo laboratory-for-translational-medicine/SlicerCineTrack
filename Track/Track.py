@@ -813,13 +813,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.columnYSelector.enabled = True
       self.columnZSelector.enabled = True
       
-      self.columnXSelector.addItems(headers)
+      self.columnXSelector.addItems(headers)     
       self.columnYSelector.addItems(headers)
       self.columnZSelector.addItems(headers)
+      
+      self.columnXSelector.setCurrentIndex(0)
+      self.columnYSelector.setCurrentIndex(1)
+      self.columnZSelector.setCurrentIndex(2)
+      
+      
       self.applyTransformButton.enabled = True
     clearColumnSeletors(self)
       
-    addItemToColumnSeletors(self, self.logic.getColumnNamesFromTransformsInput(self.selectorTransformsFile.currentPath))  
+    addItemToColumnSeletors(self, self.logic.getColumnNamesFromTransformsInput(self.selectorTransformsFile.currentPath))
+    self.currentFrameInputBox.setValue(1)  
     
   def onPlayButton(self):
     """
@@ -1196,7 +1203,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       if filepath.endswith('.csv'):
         encodings = ["utf-8-sig", "cp1252", "iso-8859-1", "latin1"]
         for encoding in encodings:
-          print(f"try encoding {encoding}")
           try:
             with open(filepath, "r", encoding = encoding) as f:
               reader = csv.reader(f)
@@ -1230,13 +1236,11 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     headerX = headers[0]
     headerY = headers[1]
     headerZ = headers[2]
-    print(headers)
     if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
         encodings = ["utf-8-sig", "cp1252", "iso-8859-1", "latin1"]
         for encoding in encodings:
-          print(f"try encoding {encoding}")
           try:
             with open(filepath, "r", encoding = encoding) as f:
               # Using a DictReader allows us to recognize the CSV header
