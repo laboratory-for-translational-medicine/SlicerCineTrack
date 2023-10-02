@@ -773,6 +773,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
                 slicer.mrmlScene.RemoveNode(node)
 
+          # Load first image of the sequence when all required inputs are satisfied
+          self.resetVisuals()
+          
       else:
         # If the user inputted file in the Tranforms File input is not accepted, remove the nodes created
         # from the previously inputted transforms file, if it exists. Also, remove filepath in Transforms
@@ -826,7 +829,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     clearColumnSeletors(self)
       
     addItemToColumnSeletors(self, self.logic.getColumnNamesFromTransformsInput(self.selectorTransformsFile.currentPath))
-    self.currentFrameInputBox.setValue(1)  
     
   def onPlayButton(self):
     """
