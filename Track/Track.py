@@ -215,7 +215,28 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceFormLayout.addWidget(self.sliderWidget)
 
     # Sequence slider
-    self.sequenceSlider = qt.QSlider(qt.Qt.Horizontal)
+    class Slider(qt.QSlider):
+      def __init__(self, parent=None):
+        super().__init__(qt.Qt.Horizontal, parent)
+      
+      def mousePressEvent(self, event):
+        sliderThumbRect = self.sliderPosition
+        clickValue = qt.QStyle.sliderValueFromPosition(self.minimum, self.maximum, event.pos().x(), self.width)
+        if abs(clickValue - sliderThumbRect) > 1: # Checks if sliderThumbRect was not pressed by the user
+          self.setValue(clickValue)
+        else:
+          self.mouseMoveEvent(event)
+      
+      def mouseMoveEvent(self, event):
+        # Reimplements the default scrolling functionality of QSlider
+        self.setValue(qt.QStyle.sliderValueFromPosition(self.minimum, self.maximum, event.pos().x(), self.width))
+        event.accept()
+      
+      def mouseReleaseEvent(self, event):
+        # Handle mouse release events (when done dragging)
+        self.sliderReleased.emit()
+        
+    self.sequenceSlider = Slider()  
     self.sequenceSlider.enabled = False
     self.sequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     self.sequenceSlider.setMinimum(1)
@@ -229,7 +250,23 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sliderLayout.addWidget(self.divisionFrameLabel)
     
     # Current image/frame spinbox
-    self.currentFrameInputBox = qt.QSpinBox()
+    class SpinBox(qt.QSpinBox):
+      # Custom signals for up and down button interactions
+      upButtonClicked = qt.Signal()
+      downButtonClicked = qt.Signal()
+      
+      # Inherit everything previously defined in QSpinBox
+      def __init__(self, parent=None):
+        super().__init__(parent)
+      
+      # Overrides the predefined stepBy() method of QSpinBox  
+      def stepBy(self, steps):
+        if steps > 0:
+          self.upButtonClicked.emit() # emit upButtonClicked if value on QSpinBox increased
+        elif steps < 0:
+          self.downButtonClicked.emit() # emit downButtonClicked if value on QSpinBox decreased
+      
+    self.currentFrameInputBox = SpinBox()
     self.currentFrameInputBox.minimum = 1
     self.currentFrameInputBox.setSpecialValueText(' ')
     self.currentFrameInputBox.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Maximum)
@@ -377,8 +414,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.previousFrameButton.connect("clicked(bool)", self.onDecrement)
     self.sequenceSlider.connect("valueChanged(int)",
                                 lambda: self.currentFrameInputBox.setValue(self.sequenceSlider.value))
+    self.sequenceSlider.connect("sliderReleased()", self.onSkipImages)
     self.currentFrameInputBox.connect("valueChanged(int)",
                                 lambda: self.sequenceSlider.setValue(self.currentFrameInputBox.value))
+    self.currentFrameInputBox.connect("upButtonClicked()", self.onIncrement)
+    self.currentFrameInputBox.connect("downButtonClicked()", self.onDecrement)
+    self.currentFrameInputBox.connect("editingFinished()", self.onSkipImages)
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
@@ -924,6 +965,22 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline)
 
+  def onSkipImages(self):
+    """
+    Called when the user clicks & drags the slider either forwards or backwards, or manually edits the spinBox's value
+    """
+    num = self.currentFrameInputBox.value
+    self.resetVisuals(False)
+    self.sequenceSlider.setValue(num)
+    self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(num - 1)
+    self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                         self.customParamNode.sequenceNode2DImages,
+                         self.customParamNode.node3DSegmentationLabelMap,
+                         self.customParamNode.sequenceNodeTransforms,
+                         self.customParamNode.opacity,
+                         self.customParamNode.overlayAsOutline)
+    
+    
   def updatePlaybackButtons(self, inputsProvided):
     """
     Function to update which playback buttons are enabled or disabled according to the state.
@@ -1039,7 +1096,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     return self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() == (self.customParamNode.totalImages - 1)
 
-  def resetVisuals(self):
+  def resetVisuals(self, reset=True):
     """
     Resets the visual state of the 3D Slicer views. This function is called when one of the main
     inputs is changed.
@@ -1075,7 +1132,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
                      self.customParamNode.sequenceNodeTransforms and \
                      self.customParamNode.node3DSegmentation
-    if inputsProvided:
+    if inputsProvided and reset:
       # Reset the Sequence back to the first image
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
