@@ -966,27 +966,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.overlayAsOutline)
 
   def onSkipImages(self):
-    # """
-    # Called when the user clicks & drags the slider either forwards or backwards
-    # """
-    if self.currentFrameInputBox.value != 1:
-      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 2)
-      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                           self.customParamNode.sequenceNode2DImages,
-                           self.customParamNode.node3DSegmentationLabelMap,
-                           self.customParamNode.sequenceNodeTransforms,
-                           self.customParamNode.opacity,
-                           self.customParamNode.overlayAsOutline)
-      self.onIncrement()
-    else:
-      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(1)
-      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                           self.customParamNode.sequenceNode2DImages,
-                           self.customParamNode.node3DSegmentationLabelMap,
-                           self.customParamNode.sequenceNodeTransforms,
-                           self.customParamNode.opacity,
-                           self.customParamNode.overlayAsOutline)
-      self.onDecrement()
+    """
+    Called when the user clicks & drags the slider either forwards or backwards, or manually edits the spinBox's value
+    """
+    num = self.currentFrameInputBox.value
+    self.resetVisuals(False)
+    self.sequenceSlider.setValue(num)
+    self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(num - 1)
+    self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                         self.customParamNode.sequenceNode2DImages,
+                         self.customParamNode.node3DSegmentationLabelMap,
+                         self.customParamNode.sequenceNodeTransforms,
+                         self.customParamNode.opacity,
+                         self.customParamNode.overlayAsOutline)
     
     
   def updatePlaybackButtons(self, inputsProvided):
@@ -1104,7 +1096,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     return self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() == (self.customParamNode.totalImages - 1)
 
-  def resetVisuals(self):
+  def resetVisuals(self, reset=True):
     """
     Resets the visual state of the 3D Slicer views. This function is called when one of the main
     inputs is changed.
@@ -1140,7 +1132,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
                      self.customParamNode.sequenceNodeTransforms and \
                      self.customParamNode.node3DSegmentation
-    if inputsProvided:
+    if inputsProvided and reset:
       # Reset the Sequence back to the first image
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
