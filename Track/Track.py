@@ -876,6 +876,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Begin the playback when a user clicks the "Play" button and pause when user clicks the "Pause" button.
     """
     layoutManager = slicer.app.layoutManager()
+    self.customParamNode.sequenceBrowserNode.SetPlaybackItemSkippingEnabled(False) # Fixes image skipping bug on slower machines
     proxy2DImageNode = self.customParamNode.sequenceBrowserNode.GetProxyNode(self.customParamNode.sequenceNode2DImages)
     sliceWidget = TrackLogic().getSliceWidget(layoutManager, proxy2DImageNode)
     # Fit the slice to the current background image
