@@ -915,7 +915,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # If the image to be played is changed when paused, start the playback at that image number
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
       # if we are not playing, click this button will start the playback
-      self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
+      self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps/2)
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(True)
 
   def onStopButton(self):
@@ -997,6 +997,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
       self.divisionFrameLabel.enabled = True
       self.totalFrameLabel.enabled = True
+      self.playbackSpeedBox.enabled = True
+      
       if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
         # If we are playing
         self.sequenceSlider.setToolTip("Pause the player to enable this feature.")
@@ -1006,7 +1008,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.playSequenceButton.setToolTip("Stop playback at the current frame.")
 
         # Set the play button to be a pause button
-        self.playSequenceButton.enabled = True
         self.playSequenceButton.setIcon(pause_icon)
         self.playSequenceButton.enabled = True
 
@@ -1050,6 +1051,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.sequenceSlider.enabled = False
       self.divisionFrameLabel.enabled = False
       self.totalFrameLabel.enabled = False
+      self.playbackSpeedBox.enabled = False
       # Add empty frame input box value
       self.currentFrameInputBox.setSpecialValueText(' ')
 
@@ -1057,7 +1059,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     This function uses the playback speed input to update the fps of the sequence browser
     """
-    self.customParamNode.fps = self.playbackSpeedBox.value
+    if self.customParamNode.fps == 0.1:
+      self.customParamNode.fps = self.playbackSpeedBox.value - 0.1
+    else:
+      self.customParamNode.fps = self.playbackSpeedBox.value
     self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
 
   def onOpacityChange(self):
