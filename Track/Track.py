@@ -142,7 +142,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsFile = ctk.ctkPathLineEdit()
     self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selectorTransformsFile.settingKey = 'TransformsFile'
-    self.selectorTransformsFile.enabled = False
     self.inputsFormLayout.addRow("Transforms File:", self.selectorTransformsFile)
 
     tooltipText = "Insert a Transforms file. Valid filetypes: .csv, .xls, .xlsx, .txt."
@@ -189,11 +188,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Layout for apply transformation button
     self.applyTransformButton = qt.QPushButton("Apply Transformation")
     self.applyTransformButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.applyTransformButton.enabled = False
     
     self.columnTransformsLayout = qt.QHBoxLayout()
     self.columnTransformsLayout.addWidget(self.applyTransformButton)
     self.inputsFormLayout.addRow(' ',self.columnTransformsLayout)
+    
+    # Playback speed label and spinbox
+    self.transformationAppliedLabel = qt.QLabel("Transformation Applied")
+    self.transformationAppliedLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+    self.transformationAppliedLabel.setContentsMargins(20, 0, 10, 0)
+    self.columnTransformsLayout.addWidget(self.transformationAppliedLabel)
         
     
     # self.inputsFormLayout.addRow(' ',self.applyTranformButton)    
@@ -236,8 +240,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Handle mouse release events (when done dragging)
         self.sliderReleased.emit()
         
-    self.sequenceSlider = Slider()  
-    self.sequenceSlider.enabled = False
+    self.sequenceSlider = Slider()
     self.sequenceSlider.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
     self.sequenceSlider.setMinimum(1)
     self.sequenceSlider.setSingleStep(1)
@@ -297,7 +300,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'previous.png'))
     self.previousFrameButton.setIcon(icon)
     self.previousFrameButton.setIconSize(iconSize)
-    self.previousFrameButton.enabled = False
     self.previousFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.previousFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.previousFrameButton)
@@ -308,7 +310,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'next.png'))
     self.nextFrameButton.setIcon(icon)
     self.nextFrameButton.setIconSize(iconSize)
-    self.nextFrameButton.enabled = False
     self.nextFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.nextFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.nextFrameButton)
@@ -319,7 +320,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
     self.playSequenceButton.setIcon(icon)
     self.playSequenceButton.setIconSize(iconSize)
-    self.playSequenceButton.enabled = False
     self.playSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.playSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.playSequenceButton)
@@ -330,7 +330,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'stop.png'))
     self.stopSequenceButton.setIcon(icon)
     self.stopSequenceButton.setIconSize(iconSize)
-    self.stopSequenceButton.enabled = False
     self.stopSequenceButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.stopSequenceButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.stopSequenceButton)
@@ -591,6 +590,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # All the GUI updates are done
     self._updatingGUIFromParameterNode = False
+    
+    # Disable the "Apply Transformation" button to assure the user the Transformation is applied
+    self.applyTransformButton.enabled = False
 
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
@@ -865,8 +867,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.columnYSelector.setCurrentIndex(1)
       self.columnZSelector.setCurrentIndex(2)
       
-      
+      self.transformationAppliedLabel.setVisible(False)
       self.applyTransformButton.enabled = True
+      
     clearColumnSeletors(self)
       
     addItemToColumnSeletors(self, self.logic.getColumnNamesFromTransformsInput(self.selectorTransformsFile.currentPath))
@@ -915,7 +918,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # If the image to be played is changed when paused, start the playback at that image number
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(self.currentFrameInputBox.value - 1)
       # if we are not playing, click this button will start the playback
-      self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
+      self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps/2)
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(True)
 
   def onStopButton(self):
@@ -997,6 +1000,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
       self.divisionFrameLabel.enabled = True
       self.totalFrameLabel.enabled = True
+      self.playbackSpeedBox.enabled = True
+      self.transformationAppliedLabel.setVisible(True)
+      
       if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
         # If we are playing
         self.sequenceSlider.setToolTip("Pause the player to enable this feature.")
@@ -1006,7 +1012,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.playSequenceButton.setToolTip("Stop playback at the current frame.")
 
         # Set the play button to be a pause button
-        self.playSequenceButton.enabled = True
         self.playSequenceButton.setIcon(pause_icon)
         self.playSequenceButton.enabled = True
 
@@ -1050,6 +1055,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.sequenceSlider.enabled = False
       self.divisionFrameLabel.enabled = False
       self.totalFrameLabel.enabled = False
+      self.playbackSpeedBox.enabled = False
+      self.transformationAppliedLabel.setVisible(False)
+      self.applyTransformButton.enabled = False
+
       # Add empty frame input box value
       self.currentFrameInputBox.setSpecialValueText(' ')
 
@@ -1057,7 +1066,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     This function uses the playback speed input to update the fps of the sequence browser
     """
-    self.customParamNode.fps = self.playbackSpeedBox.value
+    if self.customParamNode.fps == 0.1:
+      self.customParamNode.fps = self.playbackSpeedBox.value - 0.1
+    else:
+      self.customParamNode.fps = self.playbackSpeedBox.value
     self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
 
   def onOpacityChange(self):
@@ -1148,6 +1160,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                  self.customParamNode.sequenceNodeTransforms,
                                  self.customParamNode.opacity,
                                  self.customParamNode.overlayAsOutline)
+    
+    self.applyTransformButton.enabled = False
 
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
