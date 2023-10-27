@@ -1285,9 +1285,92 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               break
           except:
             print(f"Encoding {encoding} failed, trying next encoding")
-
         return headers
     # TODO - add support for .txt, xls and .xlsx files       
+      if filepath.endswith('.txt'):
+        with open(filepath, "r") as f:
+          headers = next(f).strip().split(',')
+          return headers
+      if filepath.endswith('.xlsx'):
+        try:
+          import openpyxl
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
+            try:
+              # Create a loading popup
+              messageBox = qt.QMessageBox()
+              messageBox.setIcon(qt.QMessageBox.Information)
+              messageBox.setWindowTitle("Package Installation")
+              messageBox.setText("Installing 'openpyxl' package...")
+              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+              messageBox.show()
+              slicer.app.processEvents()
+              
+              slicer.util.pip_install('openpyxl')
+              import openpyxl
+              
+              messageBox.setText(f"'openpyxl' package installed successfully. {fileName} will now load.")
+              slicer.app.processEvents()  # Process events to allow the dialog to update
+              qt.QTimer.singleShot(3000, messageBox.accept)
+
+              # Wait for user interaction
+              while messageBox.isVisible():
+                slicer.app.processEvents()
+
+              messageBox.hide()  # Hide the message box
+              
+            except:
+              slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
+                                        "Failed to Load File")
+              return
+          else:
+            slicer.util.warningDisplay(f"{fileName} failed to load.\nPlease load a .csv or .txt file instead. ",
+                                       "Failed to Load File")
+            return
+        wb = openpyxl.load_workbook(filepath)
+        sheet = wb.active
+        headers = next(sheet.iter_rows(values_only=True))
+        return headers
+      elif filepath.endswith('.xls'):
+        try:
+          import xlrd
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
+            try:
+              # Create a loading popup
+              messageBox = qt.QMessageBox()
+              messageBox.setIcon(qt.QMessageBox.Information)
+              messageBox.setWindowTitle("Package Installation")
+              messageBox.setText("Installing 'xlrd' package...")
+              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+              messageBox.show()
+              slicer.app.processEvents()
+              
+              slicer.util.pip_install('xlrd')
+              import xlrd
+              
+              messageBox.setText(f"'xlrd' package installed successfully. {fileName} will now load.")
+              slicer.app.processEvents()  # Process events to allow the dialog to update
+              qt.QTimer.singleShot(3000, messageBox.accept)
+
+              # Wait for user interaction
+              while messageBox.isVisible():
+                slicer.app.processEvents()
+
+              messageBox.hide()  # Hide the message box
+              
+            except:
+              slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
+                                        "Failed to Load File")
+              return
+          else:
+            slicer.util.warningDisplay(f"{fileName} failed to load.\nPlease load a .csv or .txt file instead. ",
+                                      "Failed to Load File")
+            return
+        wb = xlrd.open_workbook(filepath)
+        sheet = wb.sheet_by_index(0)
+        print(sheet.row(0))
+        return sheet.row_values(0)
     
     # if we get here, we failed to read the the headers -> print out warning and return a empty list for headers   
     slicer.util.warningDisplay(f"Cannot read header row from {fileName}.\nPlease load another file instead. ",
