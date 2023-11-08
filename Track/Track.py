@@ -119,7 +119,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector2DImagesFolder.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selector2DImagesFolder.options = ctk.ctkPathLineEdit.ShowDirsOnly
     self.selector2DImagesFolder.settingKey = '2DImagesFolder'
-    self.inputsFormLayout.addRow("2D Cine Images Folder:", self.selector2DImagesFolder)
+    self.inputsFormLayout.addRow("Cine Images Folder:", self.selector2DImagesFolder)
     
     tooltipText = "Insert 2D images in .mha format."
     self.selector2DImagesFolder.setToolTip(tooltipText)
@@ -551,7 +551,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.selectorTransformsFile.setToolTip("Load a Transforms file corresponding to the Region of Interest's coordinate changes.")
     else:
       self.selectorTransformsFile.enabled = False
-      self.selectorTransformsFile.setToolTip("Load a valid 2D Cine Images Folder to enable loading a Transforms file.")
+      self.selectorTransformsFile.setToolTip("Load a valid Cine Images Folder to enable loading a Transforms file.")
 
 
 
@@ -565,6 +565,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setMaximum(self.customParamNode.totalImages)
 
     if self.customParamNode.sequenceBrowserNode and self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
+      imageDict = self.getSliceDict()
       imageNum = self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1
       self.sequenceSlider.setValue(imageNum)
       self.currentFrameInputBox.setValue(imageNum)
@@ -575,6 +576,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline)
+      self.editSliceView(imageDict)
                            
     elif not self.customParamNode.sequenceBrowserNode:
       self.sequenceSlider.setValue(1)
@@ -615,7 +617,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.customParamNode.transformsFilePath = ""
         self.customParamNode.sequenceNodeTransforms = None
 
-      # Set a param to hold the path to the folder containing the 2D cine images
+      # Set a param to hold the path to the folder containing the cine images
       self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
 
       # Load the images into 3D Slicer
@@ -627,7 +629,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.customParamNode.folder2DImages = ""
       else:
         if imagesSequenceNode:
-          # Set a param to hold a sequence node which holds the 2D cine images
+          # Set a param to hold a sequence node which holds the cine images
           self.customParamNode.sequenceNode2DImages = imagesSequenceNode
           # Track the number of total images within the parameter totalImages
           self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
@@ -882,8 +884,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode.sequenceBrowserNode.SetPlaybackItemSkippingEnabled(False) # Fixes image skipping bug on slower machines
     proxy2DImageNode = self.customParamNode.sequenceBrowserNode.GetProxyNode(self.customParamNode.sequenceNode2DImages)
     sliceWidget = TrackLogic().getSliceWidget(layoutManager, proxy2DImageNode)
-    # Fit the slice to the current background image
-    sliceWidget.fitSliceToBackground()
     sliceView = sliceWidget.sliceView()
     
     ## Pause sequence
@@ -940,10 +940,40 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Reset slice views to what they look when inputs are just loaded
     self.resetVisuals()
 
+  def getSliceDict(self):
+    # This dictionary creates a snapshot in time, before displaying any new images to remember the FOV & XYZ coordinates of all slice views
+    imageDict = {'Yellow': None, 'Red': None, 'Green': None}
+    layoutManager = slicer.app.layoutManager()
+    for name in layoutManager.sliceViewNames(): 
+      sliceWidgetBackground = layoutManager.sliceWidget(name).mrmlSliceCompositeNode().GetBackgroundVolumeID()
+      # Checks if the current slice we're checking is displaying an image
+      if sliceWidgetBackground is not None: 
+        sliceNode = slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{name}')
+        imageDict[name] = [sliceNode.GetFieldOfView(), sliceNode.GetXYZOrigin()]   
+    return imageDict
+  
+  def editSliceView(self, imageDict):
+    # Loop over all the slice views, and find the one that has changed FOV or XYZ coordinates
+    sliceOfNewImage = None
+    layoutManager = slicer.app.layoutManager()
+    for name in layoutManager.sliceViewNames():
+      currentSliceNode =  slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{name}')
+      currentSliceNodeFOV = currentSliceNode.GetFieldOfView()
+      currentSliceNodeXYZ = currentSliceNode.GetXYZOrigin()
+      if imageDict[name] != None and (currentSliceNodeFOV != imageDict[name][0] or currentSliceNodeXYZ != imageDict[name][1]):
+        sliceOfNewImage = name
+        
+    # Apply FOV and XYZ values to the newly loaded image from imageDict
+    if sliceOfNewImage != None:
+      sliceNode = slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{sliceOfNewImage}')
+      sliceNode.SetXYZOrigin(imageDict[sliceOfNewImage][1][0], imageDict[sliceOfNewImage][1][1], imageDict[sliceOfNewImage][1][2])
+      sliceNode.SetFieldOfView(imageDict[sliceOfNewImage][0][0], imageDict[sliceOfNewImage][0][1], imageDict[sliceOfNewImage][0][2])
+  
   def onIncrement(self):
     """
     Move forward in the playback one step.
     """
+    imageDict = self.getSliceDict()   
     self.customParamNode.sequenceBrowserNode.SelectNextItem()
     self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1)
     self.currentFrameInputBox.setValue(self.sequenceSlider.value)
@@ -953,12 +983,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline)
-
+    self.editSliceView(imageDict)
 
   def onDecrement(self):
     """
     Move backwards in the playback one step.
     """
+    imageDict = self.getSliceDict()   
     self.customParamNode.sequenceBrowserNode.SelectNextItem(-1)
     self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1)
     self.currentFrameInputBox.setValue(self.sequenceSlider.value)
@@ -968,11 +999,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline)
+    self.editSliceView(imageDict)
 
   def onSkipImages(self):
     """
     Called when the user clicks & drags the slider either forwards or backwards, or manually edits the spinBox's value
     """
+    imageDict = self.getSliceDict()  
     num = self.currentFrameInputBox.value
     self.resetVisuals(False)
     self.sequenceSlider.setValue(num)
@@ -983,6 +1016,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                          self.customParamNode.sequenceNodeTransforms,
                          self.customParamNode.opacity,
                          self.customParamNode.overlayAsOutline)
+    self.editSliceView(imageDict)
     
     
   def updatePlaybackButtons(self, inputsProvided):
@@ -1208,7 +1242,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
   def loadImagesIntoSequenceNode(self, shNode, path):
     """
-    Loads the 2D cine images located within the provided path into 3D Slicer. They are
+    Loads the cine images located within the provided path into 3D Slicer. They are
     placed within a sequence node and the loaded image nodes are deleted thereafter.
     :param shNode: node representing the subject hierarchy
     :param path: path to folder containing the 2D images to be imported
@@ -1258,7 +1292,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
 
-      print(f"{len(imageFiles)} 2D cine images were loaded into 3D Slicer")
+      print(f"{len(imageFiles)} cine images were loaded into 3D Slicer")
 
       # We do the following to clear the view of the slices. I expected {"show": False} to
       # prevent anything from being shown at all, but the first loaded image will appear in the
@@ -1299,7 +1333,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     Checks to ensure that the data in the provided transformation file is valid and matches the
     number of 2D images that have been loaded into 3D Slicer.
     :param filepath: path to the transforms file (which should be a .csv file)
-    :param numImages: the number of 2D cine images that have already been loaded
+    :param numImages: the number of cine images that have already been loaded
     """
     # NOTE: The current logic of this function will only ensure that the first {numImages}
     # transformations found within the CSV file are valid, so playback can occur. The playback will
@@ -1459,10 +1493,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       if len(transformationsList) == numImages:
         return transformationsList
       else:
-        # Extension will not create transforms nodes if the number of 2d cine images and
+        # Extension will not create transforms nodes if the number of cine images and
         # the number of rows in the transforms file are not equal
         print(os.path.basename(filepath))
-        slicer.util.warningDisplay(f"The Number of rows in the {fileExtension} file does not match with number of 2D Cine Images: "
+        slicer.util.warningDisplay(f"The Number of rows in the {fileExtension} file does not match with number of Cine Images: "
                            f"{fileName}",
                            "Validation Error")
         
@@ -1584,7 +1618,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
 
     volumesLogic = slicer.modules.volumes.logic()
-  
+    
+    # Checks if the current slice node is not showing an image
+    fitSlice = False
+    if sliceCompositeNode.GetLabelVolumeID() is None:
+      fitSlice = True
+    
     sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
     sliceCompositeNode.SetLabelOpacity(opacity)
     
@@ -1599,9 +1638,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Set the background volume for the current slice view
     sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
-    # Fit the slice to the current background image
-    sliceWidget.fitSliceToBackground()
-
     # Translate the 3D segmentation label map using the transform data
     labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
     
@@ -1613,8 +1649,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
     shNode.ShowItemsInView(tmpIdList, threeDViewNode)
 
-        
-
+    # If the sliceNode is now showing an image, fit the slice view to the current background image   
+    if fitSlice:
+      sliceWidget.fitSliceToBackground()
+    
     # Preserve previous slices
     # If a background node for the specified orientation exists, update it with the current slice
     # Otherwise, create a new background node and set it as the background for the specified orientation
