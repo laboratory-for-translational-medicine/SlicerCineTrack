@@ -344,8 +344,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.playbackSpeedBox = qt.QDoubleSpinBox()
     self.playbackSpeedBox.minimum = 0.1
-    self.playbackSpeedBox.maximum = 10.0
-    self.playbackSpeedBox.value = 1.0
+    self.playbackSpeedBox.maximum = 30.0
+    self.playbackSpeedBox.value = 5.0
     self.playbackSpeedBox.setSingleStep(0.5)
     self.playbackSpeedBox.suffix = " fps"
     self.playbackSpeedBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
@@ -1236,7 +1236,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     Initialize parameter node with default settings.
     """
     customParameterNode.totalImages = 0
-    customParameterNode.fps = 1.0  # frames (i.e. images) per second
+    customParameterNode.fps = 5.0  # frames (i.e. images) per second
     customParameterNode.opacity = 1.0  # 100 %
     customParameterNode.overlayAsOutline = True
 
