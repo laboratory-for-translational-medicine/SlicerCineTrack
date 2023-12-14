@@ -2,7 +2,7 @@ import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
 
-class Helper(ScriptedLoadableModule):
+class Helper():
     def __init__(self):
         pass
 
