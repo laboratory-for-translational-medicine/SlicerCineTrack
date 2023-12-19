@@ -391,6 +391,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
 
+    self.resetButton = qt.QPushButton("Reset")
+    self.resetButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.visualControlsLayout.addWidget(self.resetButton)
+
     #
     # End GUI
     #
@@ -422,6 +426,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
+    self.resetButton.connect("clicked(bool)", self.onResetButton)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
@@ -846,16 +851,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.selectorTransformsFile.currentPath = ''
         
     self.customParamNode.EndModify(wasModified)
-  def onTransformsFilePathChange(self):
-    
-    #TODO - Move these helper functions to another module
-    def clearColumnSeletors(self):
+
+  def clearColumnSelectors(self):
       self.columnXSelector.clear()
       self.columnXSelector.enabled = False
       self.columnYSelector.clear()
       self.columnYSelector.enabled = False
       self.columnZSelector.clear()
       self.columnZSelector.enabled = False
+    
+  def onTransformsFilePathChange(self):
+    
+    #TODO - Move these helper functions to another module
     def addItemToColumnSeletors(self,headers):
       self.columnXSelector.enabled = True
       self.columnYSelector.enabled = True
@@ -872,7 +879,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.transformationAppliedLabel.setVisible(False)
       self.applyTransformButton.enabled = True
       
-    clearColumnSeletors(self)
+    self.clearColumnSelectors()
       
     addItemToColumnSeletors(self, self.logic.getColumnNamesFromTransformsInput(self.selectorTransformsFile.currentPath))
     
@@ -1018,6 +1025,23 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                          self.customParamNode.overlayAsOutline)
     self.editSliceView(imageDict)
     
+  def onResetButton(self):
+    """
+    Called when the user clicks the "Reset" button.
+    """
+    # Pause Playback
+    self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+    # Reset file selectors
+    self.customParamNode.folder2DImages = ""
+    self.customParamNode.path3DSegmentation = ""
+    self.customParamNode.transformsFilePath = ""
+    self.customParamNode.sequenceNode2DImages = None
+    
+    # Reset visuals of playback and transformation buttons
+    self.clearColumnSelectors()
+    self.resetVisuals()
+    # Update GUI
+    self.updateGUIFromParameterNode()
     
   def updatePlaybackButtons(self, inputsProvided):
     """
