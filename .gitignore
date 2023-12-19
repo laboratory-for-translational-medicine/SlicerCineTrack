@@ -1,8 +1,5 @@
 **/.env
 **/output
 **/__pycache__
-.DS_Store
+**/.DS_Store
 .vscode/*
-./Track/Resources/.DS_Store
-./Track/Icons/.DS_Store
-./Track/Data/.DS_Store
