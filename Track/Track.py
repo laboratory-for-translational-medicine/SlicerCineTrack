@@ -1033,7 +1033,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
     # Reset file selectors
     self.customParamNode.folder2DImages = ""
+    self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged")
     self.customParamNode.path3DSegmentation = ""
+    self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged")
     self.customParamNode.transformsFilePath = ""
     self.customParamNode.sequenceNode2DImages = None
     
