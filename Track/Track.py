@@ -408,7 +408,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # comment out this line because we only reset visuals when click apply transform button now
     # self.selectorTransformsFile.connect("currentPathChanged(QString)", self.resetVisuals)
     
-    self.applyTransformButton.connect("clicked(book)", self.resetVisuals)
+    self.applyTransformButton.connect("clicked(bool)", self.resetVisuals)
     
 
     #
