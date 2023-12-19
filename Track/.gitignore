@@ -1,7 +1,3 @@
 .env
-.DS_Store
+**/.DS_Store
 .vscode/
-Track/.DS_Store
-Track/Data/.DS_Store
-Track/Resources/.DS_Store
-Track/Resources/Icons/.DS_Store
