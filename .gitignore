@@ -3,5 +3,6 @@
 **/__pycache__
 .DS_Store
 .vscode/*
-./Resources/.DS_Store
-./Icons/.DS_Store
+./Track/Resources/.DS_Store
+./Track/Icons/.DS_Store
+./Track/Data/.DS_Store
