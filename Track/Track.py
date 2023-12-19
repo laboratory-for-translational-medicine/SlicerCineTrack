@@ -622,52 +622,54 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.customParamNode.transformsFilePath = ""
         self.customParamNode.sequenceNodeTransforms = None
 
+
+      
       # Set a param to hold the path to the folder containing the cine images
       self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
-
       # Load the images into 3D Slicer
-      imagesSequenceNode, cancelled = \
-        self.logic.loadImagesIntoSequenceNode(shNode, self.selector2DImagesFolder.currentPath)
+      if self.customParamNode.folder2DImages:
+        imagesSequenceNode, cancelled = \
+          self.logic.loadImagesIntoSequenceNode(shNode, self.selector2DImagesFolder.currentPath)
 
-      if cancelled:
-        # Unset the param which holds the path to the folder containing the 2D images
-        self.customParamNode.folder2DImages = ""
-      else:
-        if imagesSequenceNode:
-          # Set a param to hold a sequence node which holds the cine images
-          self.customParamNode.sequenceNode2DImages = imagesSequenceNode
-          # Track the number of total images within the parameter totalImages
-          self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
-          self.currentFrameInputBox.setMaximum(self.customParamNode.totalImages) # allows for image counter to go above 99, if there are more than 99 images
-          self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
-
-          # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
-          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
-          nodes.UnRegister(None)
-          if nodes.GetNumberOfItems() == 2:
-            nodeToRemove = nodes.GetItemAsObject(0)
-            slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
-            slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
-            slicer.mrmlScene.RemoveNode(nodeToRemove)
-
-          # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
-          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
-          nodes.UnRegister(None)
-          if nodes.GetNumberOfItems() == 2:
-            nodeToRemove = nodes.GetItemAsObject(0)
-            slicer.mrmlScene.RemoveNode(nodeToRemove)
-
-          # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
-          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
-          nodes.UnRegister(None)
-          if nodes.GetNumberOfItems() == 2:
-            nodeToRemove = nodes.GetItemAsObject(0)
-            slicer.mrmlScene.RemoveNode(nodeToRemove)
-           
+        if cancelled:
+          # Unset the param which holds the path to the folder containing the 2D images
+          self.customParamNode.folder2DImages = ""
         else:
-          self.totalFrameLabel.setText(f"of 0")
-          slicer.util.warningDisplay("No image files were found within the folder: "
-                                    f"{self.selector2DImagesFolder.currentPath}", "Input Error")
+          if imagesSequenceNode:
+            # Set a param to hold a sequence node which holds the cine images
+            self.customParamNode.sequenceNode2DImages = imagesSequenceNode
+            # Track the number of total images within the parameter totalImages
+            self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
+            self.currentFrameInputBox.setMaximum(self.customParamNode.totalImages) # allows for image counter to go above 99, if there are more than 99 images
+            self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
+
+            # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
+            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+            nodes.UnRegister(None)
+            if nodes.GetNumberOfItems() == 2:
+              nodeToRemove = nodes.GetItemAsObject(0)
+              slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+              slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+              slicer.mrmlScene.RemoveNode(nodeToRemove)
+
+            # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
+            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
+            nodes.UnRegister(None)
+            if nodes.GetNumberOfItems() == 2:
+              nodeToRemove = nodes.GetItemAsObject(0)
+              slicer.mrmlScene.RemoveNode(nodeToRemove)
+
+            # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+            nodes.UnRegister(None)
+            if nodes.GetNumberOfItems() == 2:
+              nodeToRemove = nodes.GetItemAsObject(0)
+              slicer.mrmlScene.RemoveNode(nodeToRemove)
+            
+          else:
+            self.totalFrameLabel.setText(f"of 0")
+            slicer.util.warningDisplay("No image files were found within the folder: "
+                                      f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
       # Remove the image nodes of each slice view used to preserve the slice views
@@ -702,40 +704,41 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # Remove previous node values stored in variables
       self.customParamNode.node3DSegmentation = 0
       self.customParamNode.node3DSegmentationLabelMap = 0
-              
-      if re.match('.*\.mha', self.selector3DSegmentation.currentPath):
-        # If a 3D segmentation node already exists, delete it before we load the new one
-        if self.customParamNode.node3DSegmentation:
-          nodeID = self.customParamNode.node3DSegmentation
+        
+      if self.selector3DSegmentation.currentPath:
+        if re.match('.*\.mha', self.selector3DSegmentation.currentPath):
+          # If a 3D segmentation node already exists, delete it before we load the new one
+          if self.customParamNode.node3DSegmentation:
+            nodeID = self.customParamNode.node3DSegmentation
 
-        # Set a param to hold the path to the 3D segmentation file
-        self.customParamNode.path3DSegmentation = self.selector3DSegmentation.currentPath
+          # Set a param to hold the path to the 3D segmentation file
+          self.customParamNode.path3DSegmentation = self.selector3DSegmentation.currentPath
 
-        # Segmentation file should end with .mha
-        segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
-                                                  {"singleFile": True, "show": False})
-        self.logic.clearSliceForegrounds()
-        segmentationNode.SetName("3D Segmentation")
-        # Set a param to hold the 3D segmentation node ID
-        nodeID = shNode.GetItemByDataNode(segmentationNode)
-        self.customParamNode.node3DSegmentation = nodeID
+          # Segmentation file should end with .mha
+          segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
+                                                    {"singleFile": True, "show": False})
+          self.logic.clearSliceForegrounds()
+          segmentationNode.SetName("3D Segmentation")
+          # Set a param to hold the 3D segmentation node ID
+          nodeID = shNode.GetItemByDataNode(segmentationNode)
+          self.customParamNode.node3DSegmentation = nodeID
 
-        # Create a label map of the 3D segmentation that will be used to define the mask overlayed
-        # on the 2D images during playback
-        volumesModuleLogic = slicer.modules.volumes.logic()
-        segmentationLabelMap = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode',
-                                                                  "3D Segmentation Label Map")
-        volumesModuleLogic.CreateLabelVolumeFromVolume(slicer.mrmlScene, segmentationLabelMap,
-                                                       segmentationNode)
-        # Set a param to hold the 3D segmentation label map ID
-        labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
-        self.customParamNode.node3DSegmentationLabelMap = labelMapID
-      else:
-        # Remove filepath for the Segmentation File in the `Inputs` section
-        self.customParamNode.path3DSegmentation = ''
-        self.selector3DSegmentation.currentPath = ''
-        slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
-                                   "The file was not loaded into 3D Slicer.", "Input Error")
+          # Create a label map of the 3D segmentation that will be used to define the mask overlayed
+          # on the 2D images during playback
+          volumesModuleLogic = slicer.modules.volumes.logic()
+          segmentationLabelMap = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode',
+                                                                    "3D Segmentation Label Map")
+          volumesModuleLogic.CreateLabelVolumeFromVolume(slicer.mrmlScene, segmentationLabelMap,
+                                                        segmentationNode)
+          # Set a param to hold the 3D segmentation label map ID
+          labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
+          self.customParamNode.node3DSegmentationLabelMap = labelMapID
+        else:
+          # Remove filepath for the Segmentation File in the `Inputs` section
+          self.customParamNode.path3DSegmentation = ''
+          self.selector3DSegmentation.currentPath = ''
+          slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
+                                    "The file was not loaded into 3D Slicer.", "Input Error")
     
           
                            
