@@ -460,8 +460,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
     # comment out this line because we only reset visuals when click apply transform button now
     # self.selectorTransformsFile.connect("currentPathChanged(QString)", self.resetVisuals)
+    
     # self.applyTransformButton.connect("clicked(bool)", self.resetVisuals)
     
+
     #
     # End logic
     #
@@ -1245,6 +1247,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
+
+#
+# TrackLogic
+#
+
+
 
 
 #
