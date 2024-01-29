@@ -365,6 +365,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
 
+    self.resetButton = qt.QPushButton("Reset")
+    self.resetButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.visualControlsLayout.addWidget(self.resetButton)
     #
     # End GUI
     #
@@ -396,6 +399,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
+    self.resetButton.connect("clicked(bool)", self.onResetButton)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
