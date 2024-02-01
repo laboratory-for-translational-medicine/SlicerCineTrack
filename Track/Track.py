@@ -1017,7 +1017,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.sequenceSlider.setToolTip("Pause the player to enable this feature.")
         self.previousFrameButton.setToolTip("Move to the previous frame.")
         self.nextFrameButton.setToolTip("Move to the next frame.")
-        self.playSequenceButton.setToolTip("Play the current frame.")
         self.playSequenceButton.setToolTip("Stop playback at the current frame.")
 
         # Set the play button to be a pause button
@@ -1036,6 +1035,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.playSequenceButton.setIcon(play_icon)
         self.currentFrameInputBox.enabled = True
         self.sequenceSlider.enabled = True
+        self.playSequenceButton.setToolTip("Play the current frame.")
 
         if self.atLastImage():
           #self.nextFrameButton.setToolTip("Move to the previous frame.") - may add a different tooltip at last image
