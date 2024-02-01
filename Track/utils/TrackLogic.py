@@ -309,8 +309,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         # Extension will not create transforms nodes if the number of cine images and
         # the number of rows in the transforms file are not equal
         print(os.path.basename(filepath))
-        slicer.util.warningDisplay(f"The Number of rows in the {fileExtension} file does not match with number of Cine Images: "
-                           f"{fileName}",
+        slicer.util.warningDisplay(f"Error loading transforms file. Ensure proper formatting and matching number of transforms to cine images",
                            "Validation Error")
         
         return None
