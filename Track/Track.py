@@ -651,7 +651,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
         nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
         nodes.UnRegister(None)
-        if nodes.GetNumberOfItems() == 2:
+        if nodes.GetNumberOfItems() == 1:
           nodeToRemove = nodes.GetItemAsObject(0)
           slicer.mrmlScene.RemoveNode(nodeToRemove)
 
@@ -661,6 +661,63 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if nodes.GetNumberOfItems() == 2:
           nodeToRemove = nodes.GetItemAsObject(0)
           slicer.mrmlScene.RemoveNode(nodeToRemove)
+          
+        # Remove everything inside the scene if all inputs were previously provided
+        if self.selector3DSegmentation.currentPath != '':
+          # Remove filepath for the Segmentation File in the `Inputs` section
+          self.selector3DSegmentation.currentPath = ''
+          self.customParamNode.path3DSegmentation = ''
+          
+          # Remove the Image Nodes Sequence node
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+          nodes.UnRegister(None)
+          nodeToRemove = nodes.GetItemAsObject(0)
+          slicer.mrmlScene.RemoveNode(nodeToRemove)
+          
+          # Remove the label map node and the nodes it referenced, all created by the previous node
+          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+            if nodeToRemove.GetNumberOfDisplayNodes() == 1:
+              slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode().GetNodeReference('volumeProperty'))
+              slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+            slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+          
+          # Remove the 3D segmentation node and the nodes it referenced, all created by the previous node
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "3D Segmentation")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+            slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+          
+          print("Time to delete everything")
+
+        # # Loop over remaining nodes that were added to the scene and delete them
+        # Create a list to store nodes to be deleted
+        # nodesToDelete = []
+
+        # try:
+        # First pass: identify the nodes to delete
+        # for i in range(slicer.mrmlScene.GetNumberOfNodes()):
+        #     node = slicer.mrmlScene.GetNthNode(i)
+        #     if node.GetName() == "Image Nodes Sequence":
+        #         slicer.mrmlScene.RemoveNode(node)
+
+        #   print(len(nodesToDelete))
+        #   # Second pass: delete the identified nodes
+        #   for node in nodesToDelete:
+        #       print(node.GetName() + " was deleted")
+        #       # node.UnRegister(None) # This is causing 3D Slicer to crash
+        #       slicer.mrmlScene.RemoveNode(node)
+        # except:
+        #   print("Teo is failed")
+        
+        
       else:
         # Set a param to hold the path to the folder containing the cine images
         self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
