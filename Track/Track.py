@@ -108,6 +108,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     ## Inputs Area
 
     inputsCollapsibleButton = ctk.ctkCollapsibleButton()
+    # print(dir(inputsCollapsibleButton))
     inputsCollapsibleButton.text = "Inputs"
     self.layout.addWidget(inputsCollapsibleButton)
 
@@ -163,13 +164,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorSegmentationLayout.setAlignment(qt.Qt.AlignLeft)
     self.selectorSegmentationLayout.addWidget(self.selector3DSegmentation)
     self.selectorSegmentationLayout.addWidget(self.deleteSegmentationButton)
-    self.inputsFormLayout.addRow("3D Segmentation File: ", self.selectorSegmentationLayout)
+    self.inputsFormLayout.addRow("Segmentation File: ", self.selectorSegmentationLayout)
     
-    tooltipText = "Insert a 3D segmentation file in .mha format."
+    tooltipText = "Insert a Segmentation file in .mha format."
     self.selector3DSegmentation.setToolTip(tooltipText)
     browseButton = self.selector3DSegmentation.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
-    tooltipText = "Remove 3D segmentation file."
+    tooltipText = "Remove Segmentation file."
     self.deleteSegmentationButton.setToolTip(tooltipText)
     
     # Transforms file selector + delete button
@@ -695,29 +696,38 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
             slicer.mrmlScene.RemoveNode(nodeToRemove)
           
-          print("Time to delete everything")
-
-        # # Loop over remaining nodes that were added to the scene and delete them
-        # Create a list to store nodes to be deleted
-        # nodesToDelete = []
-
-        # try:
-        # First pass: identify the nodes to delete
-        # for i in range(slicer.mrmlScene.GetNumberOfNodes()):
-        #     node = slicer.mrmlScene.GetNthNode(i)
-        #     if node.GetName() == "Image Nodes Sequence":
-        #         slicer.mrmlScene.RemoveNode(node)
-
-        #   print(len(nodesToDelete))
-        #   # Second pass: delete the identified nodes
-        #   for node in nodesToDelete:
-        #       print(node.GetName() + " was deleted")
-        #       # node.UnRegister(None) # This is causing 3D Slicer to crash
-        #       slicer.mrmlScene.RemoveNode(node)
-        # except:
-        #   print("Teo is failed")
-        
-        
+          # Remove the unused Sequence Browser if it exists
+          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            sequenceBrowserNodeToDelete = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(sequenceBrowserNodeToDelete)
+          
+          # Remove the unused Transforms Nodes Sequence, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+          
+          # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+            
+          # Remove the image nodes of each slice view used to preserve the slice views
+          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+          nodes.UnRegister(None)
+          for node in nodes:
+            if node.GetName() == 'Image Nodes Sequence':
+                break
+            if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+              slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
+              slicer.mrmlScene.RemoveNode(node)
+                 
       else:
         # Set a param to hold the path to the folder containing the cine images
         self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
