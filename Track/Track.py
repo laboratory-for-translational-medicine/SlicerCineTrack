@@ -33,12 +33,18 @@ class Track(ScriptedLoadableModule):
     self.parent.contributors = ["James McCafferty (laboratory-for-translational-medicine)",
                                 "Fabyan Mikhael (laboratory-for-translational-medicine)",
                                 "HaPhan Tran (laboratory-for-translational-medicine)",
-                                "Mubariz Afzal (laboratory-for-translational-medicine)"]
-    # TODO: update with short description of the module and a link to online module documentation
-    self.parent.helpText = """"""
-    # TODO: replace with organization, grant and thanks
+                                "Mubariz Afzal (laboratory-for-translational-medicine)",
+                                "Teo Mesrkhani (laboratory-for-translational-medicine)",
+                                "Jacqueline Banh (laboratory-for-translational-medicine)",
+                                "Nicholas Caro Lopez (laboratory-for-translational-medicine)",
+                                "Venkat Guru Prasad (laboratory-for-translational-medicine)",
+                                ]
+    self.parent.helpText = """From the input dropdown, select valid 2D cine images in the Cine
+    Images Folder, a target to track in the 3D Segmentation File, and a transforms file containing information
+    about the X,Y,Z coordinates of exactly where the target is. <br> <br>
+    For more information see <a href="https://slicertrack.github.io/">the online documentation</a>"""
     self.parent.acknowledgementText = """
-    This file was originally developed by James McCafferty, Fabyan Mikhael, HaPhan Tran, and Mubariz Afzal.
+This extension was developed by the Laboratory for Translational Medicine.
 """
 
 #
@@ -1156,7 +1162,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.sequenceSlider.setToolTip("Pause the player to enable this feature.")
         self.previousFrameButton.setToolTip("Move to the previous frame.")
         self.nextFrameButton.setToolTip("Move to the next frame.")
-        self.playSequenceButton.setToolTip("Play the current frame.")
         self.playSequenceButton.setToolTip("Stop playback at the current frame.")
         self.stopSequenceButton.setToolTip("Return to the first frame")
 
@@ -1176,6 +1181,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.playSequenceButton.setIcon(play_icon)
         self.currentFrameInputBox.enabled = True
         self.sequenceSlider.enabled = True
+        self.playSequenceButton.setToolTip("Play the current frame.")
 
         if self.atLastImage():
           #self.nextFrameButton.setToolTip("Move to the previous frame.") - may add a different tooltip at last image
