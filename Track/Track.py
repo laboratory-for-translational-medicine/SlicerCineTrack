@@ -1018,6 +1018,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.previousFrameButton.setToolTip("Move to the previous frame.")
         self.nextFrameButton.setToolTip("Move to the next frame.")
         self.playSequenceButton.setToolTip("Stop playback at the current frame.")
+        self.stopSequenceButton.setToolTip("Return to the first frame.")
 
         # Set the play button to be a pause button
         self.playSequenceButton.setIcon(pause_icon)
