@@ -129,7 +129,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector2DImagesFolder.settingKey = '2DImagesFolder'
     self.inputsFormLayout.addRow("Cine Images Folder:", self.selector2DImagesFolder)
     
-    tooltipText = "Insert 2D images in .mha format."
+    tooltipText = "Insert Cine images in .mha format."
     self.selector2DImagesFolder.setToolTip(tooltipText)
     browseButton = self.selector2DImagesFolder.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
@@ -138,9 +138,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector3DSegmentation = ctk.ctkPathLineEdit()
     self.selector3DSegmentation.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
     self.selector3DSegmentation.settingKey = '3DSegmentation'
-    self.inputsFormLayout.addRow("3D Segmentation File:", self.selector3DSegmentation)
+    self.inputsFormLayout.addRow("Segmentation File:", self.selector3DSegmentation)
     
-    tooltipText = "Insert a 3D segmentation file in .mha format."
+    tooltipText = "Insert a Segmentation file in .mha format."
     self.selector3DSegmentation.setToolTip(tooltipText)
     browseButton = self.selector3DSegmentation.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
