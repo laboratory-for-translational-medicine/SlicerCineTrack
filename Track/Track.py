@@ -365,6 +365,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
 
+    self.resetButton = qt.QPushButton("Reset")
+    self.resetButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.visualControlsLayout.addWidget(self.resetButton)
     #
     # End GUI
     #
@@ -396,6 +399,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedBox.connect("valueChanged(double)", self.onPlaybackSpeedChange)
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
+    self.resetButton.connect("clicked(bool)", self.onResetButton)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
@@ -943,6 +947,15 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sliceNode.SetXYZOrigin(imageDict[sliceOfNewImage][1][0], imageDict[sliceOfNewImage][1][1], imageDict[sliceOfNewImage][1][2])
       sliceNode.SetFieldOfView(imageDict[sliceOfNewImage][0][0], imageDict[sliceOfNewImage][0][1], imageDict[sliceOfNewImage][0][2])
   
+  def onResetButton(self):
+    slicer.mrmlScene.Clear()
+    self.playbackSpeedBox.value = 5.1
+    self.overlayOutlineOnlyBox.checked = True
+    self.opacitySlider.value = 1
+
+    self.resetVisuals()
+    self.updateGUIFromParameterNode()
+
   def onIncrement(self):
     """
     Move forward in the playback one step.
@@ -1080,7 +1093,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.customParamNode.fps = self.playbackSpeedBox.value - 0.1
     else:
       self.customParamNode.fps = self.playbackSpeedBox.value
-    self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
+    if self.customParamNode.sequenceBrowserNode:
+      self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps)
 
   def onOpacityChange(self):
     """
