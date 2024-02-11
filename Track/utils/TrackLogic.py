@@ -52,7 +52,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Find all the image file names within the provided dir
     imageFiles = []
     for item in os.listdir(path):
-      if re.match('.*\.mha', item): # Only look for .mha files
+      if re.match('.*\.mha', item) or re.match('.*\.dcm', item): # Only look for .mha and .dcm files
         imageFiles.append(item)
     imageFiles.sort()
 
