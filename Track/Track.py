@@ -206,7 +206,13 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.transformationAppliedLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.transformationAppliedLabel.setContentsMargins(20, 0, 10, 0)
     self.columnTransformsLayout.addWidget(self.transformationAppliedLabel)
-        
+    
+    # Reset Button
+    self.resetButton = qt.QPushButton("Reset All")
+    self.resetButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.resetButtonLayout = qt.QGridLayout()
+    self.resetButtonLayout.addWidget(self.resetButton)
+    self.inputsFormLayout.addRow('',self.resetButtonLayout)
     
     # self.inputsFormLayout.addRow(' ',self.applyTranformButton)    
 
@@ -364,10 +370,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.opacityPercentageLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
-
-    self.resetButton = qt.QPushButton("Reset")
-    self.resetButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.visualControlsLayout.addWidget(self.resetButton)
     #
     # End GUI
     #
