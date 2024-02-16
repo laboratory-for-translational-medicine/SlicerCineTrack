@@ -430,9 +430,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsFile.connect("currentPathChanged(QString)", \
       self.onTransformsFilePathChange)
     
-    self.columnXSelector.connect("currentTextChanged()", lambda: self.updateParameterNodeFromGUI("anyColumnSelector", "currentTextChanged"))
-    self.columnYSelector.connect("currentTextChanged()", lambda: self.updateParameterNodeFromGUI("anyColumnSelector", "currentTextChanged"))
-    self.columnZSelector.connect("currentTextChanged()", lambda: self.updateParameterNodeFromGUI("anyColumnSelector", "currentTextChanged"))
+    self.columnXSelector.connect("currentTextChanged()", lambda: self.updateGUIFromParameterNode("anyColumnSelector", "currentTextChanged"))
+    self.columnYSelector.connect("currentTextChanged()", lambda: self.updateGUIFromParameterNode("anyColumnSelector", "currentTextChanged"))
+    self.columnZSelector.connect("currentTextChanged()", lambda: self.updateGUIFromParameterNode("anyColumnSelector", "currentTextChanged"))
     
     self.applyTransformButton.connect("clicked(bool)", \
       lambda: self.updateParameterNodeFromGUI("applyTransformsButton", "clicked"))
@@ -539,7 +539,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     if self.customParamNode is None or self._updatingGUIFromParameterNode:
       return
-
+    
     # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
     self._updatingGUIFromParameterNode = True
 
@@ -554,7 +554,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.selectorTransformsFile.enabled = False
       self.selectorTransformsFile.setToolTip("Load a valid Cine Images Folder to enable loading a Transforms file.")
 
-
+    # self.columnZSelector.connect("currentTextChanged()", lambda: self.updateGUIFromParameterNode("anyColumnSelector", "currentTextChanged"))
+    if caller == "anyColumnSelector" and event == "currentTextChanged":
+      print("Column Selector Changed")
+      self.applyTransformButton.enabled = True  # Enable the "Apply Transformation" button to assure the user can apply again
 
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
@@ -735,9 +738,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                    "The file was not loaded into 3D Slicer.", "Input Error")
     
 
-    if caller == "anyColumnSelector" and event == "currentTextChanged":
-        print('we get here')
-        self.applyTransformButton.enabled = True
                            
     if caller == "applyTransformsButton" and event == "clicked":
       # Set a param to hold the path to the transformations .csv file
