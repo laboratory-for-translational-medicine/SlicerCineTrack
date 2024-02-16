@@ -592,7 +592,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._updatingGUIFromParameterNode = False
     
     # Disable the "Apply Transformation" button to assure the user the Transformation is applied
-    self.applyTransformButton.enabled = False
+    # self.applyTransformButton.enabled = False
+    # commented out this to allow users to reapply transformation if they want to (after change columns selection)
+    # here is the link to the issue: https://trello.com/c/oQHynsbv/19-cannot-update-columns-once-transformation-is-applied
 
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
