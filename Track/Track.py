@@ -1,3 +1,23 @@
+"""
+==============================================================================
+
+  Copyright (c) 2024, laboratory-for-translational-medicine
+  Toronto Metropolitan University, Toronto, ON, Canada. All Rights Reserved.
+
+  See LICENSE.txt
+  or http://www.slicer.org/copyright/copyright.txt for details.
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+
+==============================================================================
+"""
+
+
 import os
 import csv
 import re
@@ -1215,7 +1235,7 @@ class TrackTest(ScriptedLoadableModuleTest):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    # self.test_load_inputs()
+    self.test_load_inputs()
 
   def test_load_inputs(self):
     """ Test if we can load all inputs
@@ -1238,35 +1258,4 @@ class TrackTest(ScriptedLoadableModuleTest):
     transformationList = self.logic.validateTransformsInput(csv_file_path, total_num_images, csv_headers)
     self.assertTrue(transformationList is not None)
     
-
-    # # Get/create input data
-
-    # import SampleData
-    # registerSampleData()
-    # inputVolume = SampleData.downloadSample('Track1')
-    # self.delayDisplay('Loaded test data set')
-
-    # inputScalarRange = inputVolume.GetImageData().GetScalarRange()
-    # self.assertEqual(inputScalarRange[0], 0)
-    # self.assertEqual(inputScalarRange[1], 695)
-
-    # outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")       
-    # threshold = 100
-
-    # # Test the module logic
-
-    # logic = TrackLogic()
-
-    # # Test algorithm with non-inverted threshold
-    # logic.process(inputVolume, outputVolume, threshold, True)
-    # outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-    # self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-    # self.assertEqual(outputScalarRange[1], threshold)
-
-    # # Test algorithm with inverted threshold
-    # logic.process(inputVolume, outputVolume, threshold, False)
-    # outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-    # self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-    # self.assertEqual(outputScalarRange[1], inputScalarRange[1])
-
-    # self.delayDisplay('Test passed')
+    self.delayDisplay('Test passed')
