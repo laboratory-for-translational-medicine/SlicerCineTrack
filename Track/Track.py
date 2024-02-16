@@ -109,7 +109,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic = None
     self.customParamNode = None
     self._updatingGUIFromParameterNode = False
-
+  def onColumnXSelectorChange(self):
+    print('reach listerners')
+    self.applyTransformButton.enabled = True
   def setup(self):
     """
     Called when the user opens the module the first time and the widget is initialized.
@@ -430,9 +432,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsFile.connect("currentPathChanged(QString)", \
       self.onTransformsFilePathChange)
     
-    self.columnXSelector.connect("currentTextChanged()", lambda: self.updateGUIFromParameterNode("anyColumnSelector", "currentTextChanged"))
-    self.columnYSelector.connect("currentTextChanged()", lambda: self.updateGUIFromParameterNode("anyColumnSelector", "currentTextChanged"))
-    self.columnZSelector.connect("currentTextChanged()", lambda: self.updateGUIFromParameterNode("anyColumnSelector", "currentTextChanged"))
+    self.columnXSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
+    self.columnYSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
+    self.columnZSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
     
     self.applyTransformButton.connect("clicked(bool)", \
       lambda: self.updateParameterNodeFromGUI("applyTransformsButton", "clicked"))
@@ -553,11 +555,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     else:
       self.selectorTransformsFile.enabled = False
       self.selectorTransformsFile.setToolTip("Load a valid Cine Images Folder to enable loading a Transforms file.")
-
-    # self.columnZSelector.connect("currentTextChanged()", lambda: self.updateGUIFromParameterNode("anyColumnSelector", "currentTextChanged"))
-    if caller == "anyColumnSelector" and event == "currentTextChanged":
-      print("Column Selector Changed")
-      self.applyTransformButton.enabled = True  # Enable the "Apply Transformation" button to assure the user can apply again
 
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
@@ -1247,6 +1244,7 @@ class TrackTest(ScriptedLoadableModuleTest):
   def test_load_inputs(self):
     """ Test if we can load all inputs
     """
+    print('==================== Start test ====================')
     data_folder_path = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
                                   'Data')
     csv_file_path = os.path.join(data_folder_path, 'Transforms.csv')
@@ -1266,3 +1264,5 @@ class TrackTest(ScriptedLoadableModuleTest):
     self.assertTrue(transformationList is not None)
     
     self.delayDisplay('Test passed')
+    print('==================== End test ====================')
+    
