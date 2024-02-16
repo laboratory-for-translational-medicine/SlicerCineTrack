@@ -429,16 +429,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
     self.selectorTransformsFile.connect("currentPathChanged(QString)", \
       self.onTransformsFilePathChange)
+    
+    self.columnXSelector.connect("currentTextChanged()", lambda: self.updateParameterNodeFromGUI("anyColumnSelector", "currentTextChanged"))
+    self.columnYSelector.connect("currentTextChanged()", lambda: self.updateParameterNodeFromGUI("anyColumnSelector", "currentTextChanged"))
+    self.columnZSelector.connect("currentTextChanged()", lambda: self.updateParameterNodeFromGUI("anyColumnSelector", "currentTextChanged"))
+    
     self.applyTransformButton.connect("clicked(bool)", \
       lambda: self.updateParameterNodeFromGUI("applyTransformsButton", "clicked"))
 
     # These connections will reset the visuals when one of the main inputs are modified
     self.selector2DImagesFolder.connect("currentPathChanged(QString)", self.resetVisuals)
     self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
-    # comment out this line because we only reset visuals when click apply transform button now
-    # self.selectorTransformsFile.connect("currentPathChanged(QString)", self.resetVisuals)
     
-    # self.applyTransformButton.connect("clicked(bool)", self.resetVisuals)
     
 
     #
@@ -534,6 +536,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     This method is called whenever parameter node is changed.
     The module GUI is updated to show the current state of the parameter node.
     """
+    
     if self.customParamNode is None or self._updatingGUIFromParameterNode:
       return
 
@@ -592,9 +595,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._updatingGUIFromParameterNode = False
     
     # Disable the "Apply Transformation" button to assure the user the Transformation is applied
-    # self.applyTransformButton.enabled = False
-    # commented out this to allow users to reapply transformation if they want to (after change columns selection)
-    # here is the link to the issue: https://trello.com/c/oQHynsbv/19-cannot-update-columns-once-transformation-is-applied
+    self.applyTransformButton.enabled = False
+    
 
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
@@ -732,7 +734,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
                                    "The file was not loaded into 3D Slicer.", "Input Error")
     
-          
+
+    if caller == "anyColumnSelector" and event == "currentTextChanged":
+        print('we get here')
+        self.applyTransformButton.enabled = True
                            
     if caller == "applyTransformsButton" and event == "clicked":
       # Set a param to hold the path to the transformations .csv file
