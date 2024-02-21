@@ -1,3 +1,23 @@
+"""
+==============================================================================
+
+  Copyright (c) 2024, laboratory-for-translational-medicine
+  Toronto Metropolitan University, Toronto, ON, Canada. All Rights Reserved.
+
+  See LICENSE.txt
+  or http://www.slicer.org/copyright/copyright.txt for details.
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+
+==============================================================================
+"""
+
+
 import os
 import csv
 import re
@@ -89,7 +109,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic = None
     self.customParamNode = None
     self._updatingGUIFromParameterNode = False
-
+  def onColumnXSelectorChange(self):
+    self.applyTransformButton.enabled = True
+    self.transformationAppliedLabel.setVisible(False)
+    
+    
   def setup(self):
     """
     Called when the user opens the module the first time and the widget is initialized.
@@ -447,6 +471,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
     self.selectorTransformsFile.connect("currentPathChanged(QString)", \
       self.onTransformsFilePathChange)
+    
+    self.columnXSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
+    self.columnYSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
+    self.columnZSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
+    
     self.applyTransformButton.connect("clicked(bool)", \
       lambda: self.updateParameterNodeFromGUI("applyTransformsButton", "clicked"))
     
@@ -466,10 +495,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # These connections will reset the visuals when one of the main inputs are modified
     self.selector2DImagesFolder.connect("currentPathChanged(QString)", self.resetVisuals)
     self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
-    # comment out this line because we only reset visuals when click apply transform button now
-    # self.selectorTransformsFile.connect("currentPathChanged(QString)", self.resetVisuals)
     
-    # self.applyTransformButton.connect("clicked(bool)", self.resetVisuals)
     
 
     #
@@ -565,9 +591,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     This method is called whenever parameter node is changed.
     The module GUI is updated to show the current state of the parameter node.
     """
+    
     if self.customParamNode is None or self._updatingGUIFromParameterNode:
       return
-
+    
     # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
     self._updatingGUIFromParameterNode = True
 
@@ -581,8 +608,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     else:
       self.selectorTransformsFile.enabled = False
       self.selectorTransformsFile.setToolTip("Load a valid Cine Images Folder to enable loading a Transforms file.")
-
-
 
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
@@ -624,6 +649,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     # Disable the "Apply Transformation" button to assure the user the Transformation is applied
     self.applyTransformButton.enabled = False
+    
 
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
@@ -791,7 +817,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                    "The file was not loaded into 3D Slicer.", "Input Error")
         self.selector3DSegmentation.currentPath = ''
     
-          
+
                            
     if caller == "applyTransformsButton" and event == "clicked":
       # Set a param to hold the path to the transformations .csv file
@@ -1296,11 +1322,12 @@ class TrackTest(ScriptedLoadableModuleTest):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    # self.test_load_inputs()
+    self.test_load_inputs()
 
   def test_load_inputs(self):
     """ Test if we can load all inputs
     """
+    print('==================== Start test ====================')
     data_folder_path = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
                                   'Data')
     csv_file_path = os.path.join(data_folder_path, 'Transforms.csv')
@@ -1319,35 +1346,6 @@ class TrackTest(ScriptedLoadableModuleTest):
     transformationList = self.logic.validateTransformsInput(csv_file_path, total_num_images, csv_headers)
     self.assertTrue(transformationList is not None)
     
-
-    # # Get/create input data
-
-    # import SampleData
-    # registerSampleData()
-    # inputVolume = SampleData.downloadSample('Track1')
-    # self.delayDisplay('Loaded test data set')
-
-    # inputScalarRange = inputVolume.GetImageData().GetScalarRange()
-    # self.assertEqual(inputScalarRange[0], 0)
-    # self.assertEqual(inputScalarRange[1], 695)
-
-    # outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")       
-    # threshold = 100
-
-    # # Test the module logic
-
-    # logic = TrackLogic()
-
-    # # Test algorithm with non-inverted threshold
-    # logic.process(inputVolume, outputVolume, threshold, True)
-    # outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-    # self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-    # self.assertEqual(outputScalarRange[1], threshold)
-
-    # # Test algorithm with inverted threshold
-    # logic.process(inputVolume, outputVolume, threshold, False)
-    # outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-    # self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-    # self.assertEqual(outputScalarRange[1], inputScalarRange[1])
-
-    # self.delayDisplay('Test passed')
+    self.delayDisplay('Test passed')
+    print('==================== End test ====================')
+    
