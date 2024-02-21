@@ -639,9 +639,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
     if caller == "selector2DImagesFolder" and event == "currentPathChanged":
-      # Remember if all inputs were previously provided
-      inputsProvided = self.selector3DSegmentation.currentPath != '' or self.selectorTransformsFile.currentPath != ''
-      
       # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
       # if the path changes, we want to remove any transforms related information. The user should
       # reselect the transforms file they wish to use with the 2D images.
@@ -676,56 +673,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           slicer.mrmlScene.RemoveNode(nodeToRemove)
         
         # Remove all nodes previously created by transforms data inside the scene if all inputs were previously provided
-        if inputsProvided:
-          # Remove the Image Nodes Sequence node
-          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
-          nodes.UnRegister(None)
-          nodeToRemove = nodes.GetItemAsObject(0)
-          slicer.mrmlScene.RemoveNode(nodeToRemove)
-          
-          # Remove the unused Sequence Browser if it exists
-          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
-          nodes.UnRegister(None)
-          if nodes.GetNumberOfItems() == 1:
-            sequenceBrowserNodeToDelete = nodes.GetItemAsObject(0)
-            slicer.mrmlScene.RemoveNode(sequenceBrowserNodeToDelete)
-          
-          # Remove the unused Transforms Nodes Sequence, if it exists
-          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
-          nodes.UnRegister(None)
-          if nodes.GetNumberOfItems() == 1:
-            nodeToRemove = nodes.GetItemAsObject(0)
-            slicer.mrmlScene.RemoveNode(nodeToRemove)
-          
-          # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
-          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
-          nodes.UnRegister(None)
-          if nodes.GetNumberOfItems() == 1:
-            nodeToRemove = nodes.GetItemAsObject(0)
-            slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
-            slicer.mrmlScene.RemoveNode(nodeToRemove)
-            
-          # Remove the image nodes of each slice view used to preserve the slice views
-          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
-          nodes.UnRegister(None)
-          for node in nodes:
-            if node.GetName() == 'Image Nodes Sequence':
-                break
-            if node.GetName() == node.GetAttribute('Sequences.BaseName'):
-              slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
-              slicer.mrmlScene.RemoveNode(node)
-          
-          # Remove the Volume Rendering Node, if it exists
-          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
-          
+        slicer.mrmlScene.Clear()
       else:
-        # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
-        # if the path changes, we want to remove any transforms related information. The user should
-        # reselect the transforms file they wish to use with the 2D images.
-        if self.customParamNode.transformsFilePath:
-          self.customParamNode.transformsFilePath = ""
-          self.customParamNode.sequenceNodeTransforms = None
-          
         # Set a param to hold the path to the folder containing the cine images
         self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
 
