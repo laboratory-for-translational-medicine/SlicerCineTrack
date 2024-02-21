@@ -110,8 +110,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode = None
     self._updatingGUIFromParameterNode = False
   def onColumnXSelectorChange(self):
-    print('reach listerners')
     self.applyTransformButton.enabled = True
+    self.transformationAppliedLabel.setVisible(False)
+    
+    
   def setup(self):
     """
     Called when the user opens the module the first time and the widget is initialized.
