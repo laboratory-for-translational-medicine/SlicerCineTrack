@@ -493,10 +493,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       # Add desired text to slice views that have a background node
       if currentSlice is not None:
         slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").SetBackgroundVolumeID(currentSlice.GetID())
-        imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
-        # Place "Current Alignment" text in the slice view corner
-        sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
-        sliceViewWindow.cornerAnnotation().SetText(0, imageFileNameText)
+        imageFile = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume') is not None
+        if imageFile:
+          imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
+          # Place "Current Alignment" text in the slice view corner
+          sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+          sliceViewWindow.cornerAnnotation().SetText(0, imageFileNameText)
     
     for color in self.backgrounds:
       sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
