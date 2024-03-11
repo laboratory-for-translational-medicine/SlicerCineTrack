@@ -425,35 +425,39 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     
     sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
-    name = sliceWidget.sliceViewName
+    name = None
+    fitSlice = None
+    if sliceWidget is not None:
+      name = sliceWidget.sliceViewName
         
-    sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+      sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
 
-    volumesLogic = slicer.modules.volumes.logic()
-    
-    # Checks if the current slice node is not showing an image
-    fitSlice = False
-    if sliceCompositeNode.GetLabelVolumeID() is None:
-      fitSlice = True
-    
-    sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
-    sliceCompositeNode.SetLabelOpacity(opacity)
-    
-    sliceCompositeNode.SetBackgroundVolumeID(labelMapNode.GetID())
-    
-    # Get the current slice node
-    sliceNode = sliceWidget.mrmlSliceNode()
+      volumesLogic = slicer.modules.volumes.logic()
+      
+      # Checks if the current slice node is not showing an image
+      fitSlice = False
+      if sliceCompositeNode.GetLabelVolumeID() is None:
+        fitSlice = True
+      
+      sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
+      sliceCompositeNode.SetLabelOpacity(opacity)
+      
+      sliceCompositeNode.SetBackgroundVolumeID(labelMapNode.GetID())
+      
+      # Get the current slice node
+      sliceNode = sliceWidget.mrmlSliceNode()
 
-    # Display the label map overlay as an outline
-    sliceNode.SetUseLabelOutline(overlayAsOutline)
+      # Display the label map overlay as an outline
+      sliceNode.SetUseLabelOutline(overlayAsOutline)
 
-    # Set the background volume for the current slice view
-    sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
+      # Set the background volume for the current slice view
+      sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
-    # Translate the 3D segmentation label map using the transform data
-    labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
-    
-    sliceNode.SetSliceVisible(True)
+      # Translate the 3D segmentation label map using the transform data
+      if proxyTransformNode is not None:
+        labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+      
+      sliceNode.SetSliceVisible(True)
 
     # Make the 3D segmentation visible in the 3D view
     tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
@@ -481,8 +485,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         background.SetAttribute("Sequences.BaseName", proxy2DImageNode.GetAttribute("Sequences.BaseName"))
     
     # Add the image name to the slice view background variable
-    currentSlice = getattr(self, name.lower() + 'Background')
-    currentSlice.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+    if name is not None:
+      currentSlice = getattr(self, name.lower() + 'Background')
+      currentSlice.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
 
     # Set the background volumes for each orientation, if they exist
     for color in self.backgrounds:
@@ -506,11 +511,14 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         sliceViewWindow.cornerAnnotation().RemoveAllObservers()
       if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
         sliceViewWindow.cornerAnnotation().RemoveAllObservers()
-    sliceView = sliceWidget.sliceView()
-    sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
+    
+    if sliceWidget is not None:
+      sliceView = sliceWidget.sliceView()
+      sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
     # Enable alignment of the 3D segmentation label map according to the transform data so that
     # the 3D segmentation label map overlays upon the ROI of the 2D images
-    labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+    if proxyTransformNode is not None:
+      labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
 
     # Render changes
     slicer.util.forceRenderAllViews()
@@ -525,27 +533,28 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """
     # Determine the orientation of the image
     tmpMatrix = vtk.vtkMatrix4x4()
-    imageNode.GetIJKToRASMatrix(tmpMatrix)
-    scanOrder = imageNode.ComputeScanOrderFromIJKToRAS(tmpMatrix)
+    if imageNode is not None:
+      imageNode.GetIJKToRASMatrix(tmpMatrix)
+      scanOrder = imageNode.ComputeScanOrderFromIJKToRAS(tmpMatrix)
 
-    if scanOrder == "LR" or scanOrder == "RL":
-      imageOrientation = "Sagittal"
-    elif scanOrder == "AP" or scanOrder == "PA":
-      imageOrientation = "Coronal"
-    elif scanOrder == "IS" or scanOrder == "SI":
-      imageOrientation = "Axial"
-    else:
-      print(f"Error: Unexpected image scan order {scanOrder}.")
-      exit(1)
+      if scanOrder == "LR" or scanOrder == "RL":
+        imageOrientation = "Sagittal"
+      elif scanOrder == "AP" or scanOrder == "PA":
+        imageOrientation = "Coronal"
+      elif scanOrder == "IS" or scanOrder == "SI":
+        imageOrientation = "Axial"
+      else:
+        print(f"Error: Unexpected image scan order {scanOrder}.")
+        exit(1)
 
-    # Find the slice widget that has the same orientation as the image
-    sliceWidget = None
-    for name in layoutManager.sliceViewNames():
-      if layoutManager.sliceWidget(name).sliceOrientation == imageOrientation:
-        sliceWidget = layoutManager.sliceWidget(name)
+      # Find the slice widget that has the same orientation as the image
+      sliceWidget = None
+      for name in layoutManager.sliceViewNames():
+        if layoutManager.sliceWidget(name).sliceOrientation == imageOrientation:
+          sliceWidget = layoutManager.sliceWidget(name)
 
-    if not sliceWidget:
-      print(f"Error: A slice with the {imageOrientation} orientation was not found.")
-      exit(1)
+      if not sliceWidget:
+        print(f"Error: A slice with the {imageOrientation} orientation was not found.")
+        exit(1)
 
-    return sliceWidget
+      return sliceWidget

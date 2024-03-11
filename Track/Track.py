@@ -21,6 +21,7 @@
 import os
 import csv
 import re
+import time
 
 import ctk
 import qt
@@ -752,6 +753,57 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       else:
         # Set a param to hold the path to the folder containing the cine images
         self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
+        
+        # Delete nodes if sequence is actively playing
+        activePlay = self.customParamNode.sequenceBrowserNode and \
+                     hasattr(self.customParamNode.sequenceBrowserNode, 'GetPlaybackActive') and \
+                     self.customParamNode.sequenceBrowserNode.GetPlaybackActive()
+        if activePlay:
+          print("We need to delete stuff")
+          # Remove the unused Sequence Browser if it exists
+          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            sequenceBrowserNodeToDelete = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(sequenceBrowserNodeToDelete)
+          
+          # Remove the image nodes of each slice view used to preserve the slice views
+          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+          nodes.UnRegister(None)
+          for node in nodes:
+            if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+              slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
+              slicer.mrmlScene.RemoveNode(node)
+
+          # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+            
+          # This is what isn't working
+          # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+          print(nodes)
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+            
+          # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+          
+          # Remove the unused Transforms Nodes Sequence, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
 
         # Load the images into 3D Slicer
         imagesSequenceNode, cancelled = \
@@ -769,28 +821,29 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.currentFrameInputBox.setMaximum(self.customParamNode.totalImages) # allows for image counter to go above 99, if there are more than 99 images
             self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
 
-            # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
-            nodes.UnRegister(None)
-            if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
-              slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
+            if not activePlay:
+              # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+                slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
 
-            # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
-            nodes.UnRegister(None)
-            if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
+              # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
 
-            # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
-            nodes.UnRegister(None)
-            if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
+              # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
             
           else:
             self.totalFrameLabel.setText(f"of 0")
