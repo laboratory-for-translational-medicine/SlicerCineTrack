@@ -21,7 +21,6 @@
 import os
 import csv
 import re
-import time
 
 import ctk
 import qt
@@ -1227,6 +1226,15 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     pause_icon = qt.QIcon(os.path.join(mediaIconsPath, 'pause.png'))
     play_icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
     self.playSequenceButton.setIconSize(iconSize)
+    
+    # Reset file deletion and tooltips
+    self.deleteImagesButton.enabled = True
+    self.deleteSegmentationButton.enabled = True
+    self.deleteTransformsButton.enabled = True
+    self.deleteImagesButton.setToolTip("Remove Cine images.")
+    self.deleteSegmentationButton.setToolTip("Remove Segmentation file.")
+    self.deleteTransformsButton.setToolTip("Remove Transforms file.")
+    
     if inputsProvided:
 
       self.divisionFrameLabel.enabled = True
@@ -1241,10 +1249,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.nextFrameButton.setToolTip("Move to the next frame.")
         self.playSequenceButton.setToolTip("Pause playback at current frame.")
         self.stopSequenceButton.setToolTip("Return to the first frame.")
+        self.deleteImagesButton.setToolTip("Pause the player to enable this feature.")
+        self.deleteSegmentationButton.setToolTip("Pause the player to enable this feature.")
+        self.deleteTransformsButton.setToolTip("Pause the player to enable this feature.")
 
         # Set the play button to be a pause button
         self.playSequenceButton.setIcon(pause_icon)
         self.playSequenceButton.enabled = True
+        
+        # Enable file deletion
+        self.deleteImagesButton.enabled = False
+        self.deleteSegmentationButton.enabled = False
+        self.deleteTransformsButton.enabled = False
 
         self.stopSequenceButton.enabled = True
         self.nextFrameButton.enabled = False
@@ -1253,12 +1269,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.sequenceSlider.enabled = False
       else:
         self.sequenceSlider.setToolTip("Select the next frame for playback.")
+        self.deleteImagesButton.setToolTip("Remove Cine images.")
+        self.deleteSegmentationButton.setToolTip("Remove Segmentation file.")
+        self.deleteTransformsButton.setToolTip("Remove Transforms file.")
         
         # If we are paused
         self.playSequenceButton.setIcon(play_icon)
         self.currentFrameInputBox.enabled = True
         self.sequenceSlider.enabled = True
         self.playSequenceButton.setToolTip("Play playback at current frame.")
+        
+        # Enable file deletion
+        self.deleteImagesButton.enabled = True
+        self.deleteSegmentationButton.enabled = True
+        self.deleteTransformsButton.enabled = True
 
         if self.atLastImage():
           #self.nextFrameButton.setToolTip("Move to the previous frame.") - may add a different tooltip at last image
