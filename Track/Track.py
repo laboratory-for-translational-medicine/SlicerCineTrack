@@ -758,7 +758,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                      hasattr(self.customParamNode.sequenceBrowserNode, 'GetPlaybackActive') and \
                      self.customParamNode.sequenceBrowserNode.GetPlaybackActive()
         if activePlay:
-          print("We need to delete stuff")
           # Remove the unused Sequence Browser if it exists
           nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
           nodes.UnRegister(None)
@@ -784,7 +783,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           # This is what isn't working
           # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
           nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
-          print(nodes)
           nodes.UnRegister(None)
           if nodes.GetNumberOfItems() == 1:
             nodeToRemove = nodes.GetItemAsObject(0)
