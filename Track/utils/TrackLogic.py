@@ -4,7 +4,6 @@ from slicer.ScriptedLoadableModule import *
 import qt, vtk, ctk
 
 import os, csv, re
-
 class TrackLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
   computation done by your module.  The interface
@@ -52,7 +51,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Find all the image file names within the provided dir
     imageFiles = []
     for item in os.listdir(path):
-      if re.match('.*\.mha', item) or re.match('.*\.dcm', item): # Only look for .mha and .dcm files
+      if re.match('.*\.mha', item) or re.match('.*\.dcm', item) or re.match('.*\.nrrd', item) or re.match('.*\.nii', item) or re.match('.*\.hdr', item) or re.match('.*\.img', item) or re.match('.*\.nhdr', item): # Only look for .mha, .dcm, and .nrrd files
         imageFiles.append(item)
     imageFiles.sort()
 
