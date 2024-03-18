@@ -1104,11 +1104,55 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sliceNode.SetFieldOfView(imageDict[sliceOfNewImage][0][0], imageDict[sliceOfNewImage][0][1], imageDict[sliceOfNewImage][0][2])
   
   def onResetButton(self):
-    slicer.mrmlScene.Clear()
-    self.playbackSpeedBox.value = 5.1
+    # slicer.mrmlScene.Clear()
+    if self.customParamNode.sequenceBrowserNode:
+      self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
+      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
+    self.playbackSpeedBox.value = 5.0
     self.overlayOutlineOnlyBox.checked = True
     self.opacitySlider.value = 1
+    self.sequenceSlider.setValue(0)
+    self.currentFrameInputBox.setValue(0)
+    self.logic.clearSliceForegrounds()
+    self.selector2DImagesFolder.currentPath = ''
+    self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged")
+    self.totalFrameLabel.setText(f"of 0")
 
+    # Remove the image nodes of each slice view used to preserve the slice views
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+    nodes.UnRegister(None)
+    for node in nodes:
+      if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+        slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
+        slicer.mrmlScene.RemoveNode(node)
+        
+    # Remove the label map node and the nodes it referenced, all created by the previous node
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
+    nodes.UnRegister(None)
+    if nodes.GetNumberOfItems() == 1:
+      nodeToRemove = nodes.GetItemAsObject(0)
+      slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+      if nodeToRemove.GetNumberOfDisplayNodes() == 1:
+        slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode().GetNodeReference('volumeProperty'))
+        slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+      slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+      slicer.mrmlScene.RemoveNode(nodeToRemove)
+    
+    # Remove the 3D segmentation node and the nodes it referenced, all created by the previous node
+    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "3D Segmentation")
+    nodes.UnRegister(None)
+    if nodes.GetNumberOfItems() == 1:
+      nodeToRemove = nodes.GetItemAsObject(0)
+      slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+      slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+      slicer.mrmlScene.RemoveNode(nodeToRemove)
+    
+    # Remove previous node values stored in variables
+    self.customParamNode.node3DSegmentation = 0
+    self.customParamNode.node3DSegmentationLabelMap = 0
+    self.selector3DSegmentation.currentPath = ''
+    self.customParamNode.path3DSegmentation = ''
     self.resetVisuals()
     self.updateGUIFromParameterNode()
 
