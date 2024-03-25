@@ -752,6 +752,55 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       else:
         # Set a param to hold the path to the folder containing the cine images
         self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
+        
+        # Delete nodes if sequence is actively playing
+        activePlay = self.customParamNode.sequenceBrowserNode and \
+                     hasattr(self.customParamNode.sequenceBrowserNode, 'GetPlaybackActive') and \
+                     self.customParamNode.sequenceBrowserNode.GetPlaybackActive()
+        if activePlay:
+          # Remove the unused Sequence Browser if it exists
+          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            sequenceBrowserNodeToDelete = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(sequenceBrowserNodeToDelete)
+          
+          # Remove the image nodes of each slice view used to preserve the slice views
+          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+          nodes.UnRegister(None)
+          for node in nodes:
+            if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+              slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
+              slicer.mrmlScene.RemoveNode(node)
+
+          # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+            
+          # This is what isn't working
+          # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+            
+          # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+          
+          # Remove the unused Transforms Nodes Sequence, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
 
         # Load the images into 3D Slicer
         imagesSequenceNode, cancelled = \
@@ -769,28 +818,29 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.currentFrameInputBox.setMaximum(self.customParamNode.totalImages) # allows for image counter to go above 99, if there are more than 99 images
             self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
 
-            # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
-            nodes.UnRegister(None)
-            if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
-              slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
+            if not activePlay:
+              # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
+                slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
 
-            # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
-            nodes.UnRegister(None)
-            if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
+              # Remove the unused Image Nodes Sequence node, containing the whole image sequence if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
 
-            # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
-            nodes.UnRegister(None)
-            if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
+              # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
             
           else:
             self.totalFrameLabel.setText(f"of 0")
@@ -1216,6 +1266,15 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     pause_icon = qt.QIcon(os.path.join(mediaIconsPath, 'pause.png'))
     play_icon = qt.QIcon(os.path.join(mediaIconsPath, 'play.png'))
     self.playSequenceButton.setIconSize(iconSize)
+    
+    # Reset file deletion and tooltips
+    self.deleteImagesButton.enabled = True
+    self.deleteSegmentationButton.enabled = True
+    self.deleteTransformsButton.enabled = True
+    self.deleteImagesButton.setToolTip("Remove Cine images.")
+    self.deleteSegmentationButton.setToolTip("Remove Segmentation file.")
+    self.deleteTransformsButton.setToolTip("Remove Transforms file.")
+    
     if inputsProvided:
 
       self.divisionFrameLabel.enabled = True
@@ -1230,10 +1289,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.nextFrameButton.setToolTip("Move to the next frame.")
         self.playSequenceButton.setToolTip("Pause playback at current frame.")
         self.stopSequenceButton.setToolTip("Return to the first frame.")
+        self.deleteImagesButton.setToolTip("Pause the player to enable this feature.")
+        self.deleteSegmentationButton.setToolTip("Pause the player to enable this feature.")
+        self.deleteTransformsButton.setToolTip("Pause the player to enable this feature.")
 
         # Set the play button to be a pause button
         self.playSequenceButton.setIcon(pause_icon)
         self.playSequenceButton.enabled = True
+        
+        # Enable file deletion
+        self.deleteImagesButton.enabled = False
+        self.deleteSegmentationButton.enabled = False
+        self.deleteTransformsButton.enabled = False
 
         self.stopSequenceButton.enabled = True
         self.nextFrameButton.enabled = False
@@ -1242,12 +1309,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.sequenceSlider.enabled = False
       else:
         self.sequenceSlider.setToolTip("Select the next frame for playback.")
+        self.deleteImagesButton.setToolTip("Remove Cine images.")
+        self.deleteSegmentationButton.setToolTip("Remove Segmentation file.")
+        self.deleteTransformsButton.setToolTip("Remove Transforms file.")
         
         # If we are paused
         self.playSequenceButton.setIcon(play_icon)
         self.currentFrameInputBox.enabled = True
         self.sequenceSlider.enabled = True
         self.playSequenceButton.setToolTip("Play playback at current frame.")
+        
+        # Enable file deletion
+        self.deleteImagesButton.enabled = True
+        self.deleteSegmentationButton.enabled = True
+        self.deleteTransformsButton.enabled = True
 
         if self.atLastImage():
           #self.nextFrameButton.setToolTip("Move to the previous frame.") - may add a different tooltip at last image
