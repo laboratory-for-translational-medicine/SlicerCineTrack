@@ -1104,10 +1104,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sliceNode.SetFieldOfView(imageDict[sliceOfNewImage][0][0], imageDict[sliceOfNewImage][0][1], imageDict[sliceOfNewImage][0][2])
   
   def onResetButton(self):
-    # slicer.mrmlScene.Clear()
     if self.customParamNode.sequenceBrowserNode:
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
-      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
     self.playbackSpeedBox.value = 5.0
     self.overlayOutlineOnlyBox.checked = True
