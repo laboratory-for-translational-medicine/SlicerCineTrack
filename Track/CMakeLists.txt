@@ -4,6 +4,8 @@ set(MODULE_NAME Track)
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}.py
+  utils/Helper.py
+  utils/TrackLogic.py
   )
 
 set(MODULE_PYTHON_RESOURCES
