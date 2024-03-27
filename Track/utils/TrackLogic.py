@@ -52,7 +52,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # Find all the image file names within the provided dir
     imageFiles = []
     for item in os.listdir(path):
-      if re.match('.*\.mha', item) or re.match('.*\.dcm', item): # Only look for .mha and .dcm files
+      fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img', '.*\.nhdr']  # Only look for valid files
+      validFormat = any(re.match(format, item) for format in fileFormats)
+      if validFormat:
         imageFiles.append(item)
     imageFiles.sort()
 

@@ -880,8 +880,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # Remove previous node values stored in variables
       self.customParamNode.node3DSegmentation = 0
       self.customParamNode.node3DSegmentationLabelMap = 0
-              
-      if re.match('.*\.mha', self.selector3DSegmentation.currentPath):
+
+      # Loads segmentation files
+      currentPath = self.selector3DSegmentation.currentPath
+      fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img', '.*\.nhdr'] # Supported segmentation files
+      validFormat = any(re.match(format, currentPath) for format in fileFormats)
+      if validFormat:
         # If a 3D segmentation node already exists, delete it before we load the new one
         if self.customParamNode.node3DSegmentation:
           nodeID = self.customParamNode.node3DSegmentation
@@ -912,7 +916,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Remove filepath for the Segmentation File in the `Inputs` section
         self.customParamNode.path3DSegmentation = ''
         if self.selector3DSegmentation.currentPath != '':
-          slicer.util.warningDisplay("The provided 3D segmentation was not of the .mha file type. "
+          slicer.util.warningDisplay("Not a valid file format."
                                    "The file was not loaded into 3D Slicer.", "Input Error")
         self.selector3DSegmentation.currentPath = ''
     
@@ -930,7 +934,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       headers.append(self.columnXSelector.currentText)
       headers.append(self.columnYSelector.currentText)
       headers.append(self.columnZSelector.currentText)
-
       transformsList = \
         self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages,headers)
 
