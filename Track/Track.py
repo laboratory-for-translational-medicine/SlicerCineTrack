@@ -216,7 +216,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsLayout.addWidget(self.deleteTransformsButton)
     self.inputsFormLayout.addRow("Transforms File: ", self.selectorTransformsLayout)
 
-    tooltipText = "Insert a Transforms file. Valid filetypes: .csv, .xls, .xlsx, .txt."
+    tooltipText = "Insert a Transforms file. Valid filetypes: .csv, .xls, .xlsx"
     self.selectorTransformsFile.setToolTip(tooltipText)
     browseButton = self.selectorTransformsFile.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
@@ -256,10 +256,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.columnSelectorsLayout.addWidget(self.columnZSelectorLabel)
     self.columnSelectorsLayout.addWidget(self.columnZSelector)
     
-    self.inputsFormLayout.addRow('Translation: ',self.columnSelectorsLayout)
+    self.inputsFormLayout.addRow('Translations: ',self.columnSelectorsLayout)
     
     # Layout for apply transformation button
-    self.applyTransformButton = qt.QPushButton("Apply Transformation")
+    self.applyTransformButton = qt.QPushButton("Apply Transformations")
     self.applyTransformButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     
     self.columnTransformsLayout = qt.QHBoxLayout()
