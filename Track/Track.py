@@ -98,7 +98,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-
+  def installPacakges(self):
+    # Install required packages
+    try:
+      import xlrd
+    except ImportError:
+      slicer.util.pip_install('xlrd')
+      import xlrd
+    
+    try:
+      import openpyxl
+    except ImportError:
+      slicer.util.pip_install('openpyxl')
+      import openpyxl
+    
   def __init__(self, parent=None):
     """
     Called when the user opens the module the first time and the widget is initialized.
@@ -435,7 +448,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #
     # End GUI
     #
-
+    
+    # Installing packages
+    
+    if not slicer.app.commandOptions().noMainWindow :
+        slicer.app.connect("startupCompleted()", self.installPacakges)
     #
     # Begin logic
     #
@@ -1486,35 +1503,39 @@ class TrackTest(ScriptedLoadableModuleTest):
     """ Do whatever is needed to reset the state - typically a scene clear will be enough.
     """
     slicer.mrmlScene.Clear()
+    self.logic = TrackLogic()
+    self.data_folder_path = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
+                                          'Data')
+    self.csv_file_path = os.path.join(self.data_folder_path, 'Transforms.csv')
+    self.cine_images_folder_path = os.path.join(self.data_folder_path, '2D Cine Images')
+    self.csv_headers = ['X', 'Y', 'Z']  
 
   def runTest(self):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    self.test_load_inputs()
-
-  def test_load_inputs(self):
-    """ Test if we can load all inputs
-    """
-    print('==================== Start test ====================')
-    data_folder_path = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
-                                  'Data')
-    csv_file_path = os.path.join(data_folder_path, 'Transforms.csv')
-    cine_images_folder_path = os.path.join(data_folder_path, '2D Cine Images')
-
-    self.logic = TrackLogic()
-    self.delayDisplay("Starting test - loading inputs")
-    csv_headers = ['X', 'Y', 'Z']  #default headers in the csv file
+    self.test_loadImagesIntoSequenceNode()
+    self.test_validateTransformsInput()
+    self.delayDisplay('Test passed')
     
-    # load cine images
+
+  def test_loadImagesIntoSequenceNode(self):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
     imagesSequenceNode, cancelled = \
-        self.logic.loadImagesIntoSequenceNode(shNode,cine_images_folder_path)
+        self.logic.loadImagesIntoSequenceNode(shNode, self.cine_images_folder_path)
     total_num_images = imagesSequenceNode.GetNumberOfDataNodes()
     self.assertEqual(total_num_images, 71)
-    transformationList = self.logic.validateTransformsInput(csv_file_path, total_num_images, csv_headers)
+    
+  def test_validateTransformsInput(self):
+    shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+    imagesSequenceNode, cancelled = \
+        self.logic.loadImagesIntoSequenceNode(shNode, self.cine_images_folder_path)
+    total_num_images = imagesSequenceNode.GetNumberOfDataNodes()
+    transformationList = self.logic.validateTransformsInput(self.csv_file_path, total_num_images, self.csv_headers)
     self.assertTrue(transformationList is not None)
-    
-    self.delayDisplay('Test passed')
-    print('==================== End test ====================')
-    
+    self.assertEqual(len(transformationList), total_num_images)
+    # test transformationList to be a list of lists with number in each list
+    for transform in transformationList:
+      self.assertTrue(isinstance(transform, list))
+      for num in transform:
+        self.assertTrue(isinstance(num, (float)))
