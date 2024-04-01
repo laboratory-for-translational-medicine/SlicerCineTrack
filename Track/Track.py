@@ -66,6 +66,21 @@ class Track(ScriptedLoadableModule):
     self.parent.acknowledgementText = """
 This extension was developed by the Laboratory for Translational Medicine.
 """
+    if not slicer.app.commandOptions().noMainWindow:
+      slicer.app.connect("startupCompleted()", self.installPacakges)
+    
+  def installPacakges(self):
+    try:
+      import xlrd
+    except ImportError:
+      slicer.util.pip_install('xlrd')
+      import xlrd
+      
+    try:
+      import openpyxl
+    except ImportError:
+      slicer.util.pip_install('openpyxl')
+      import openpyxl
 
 #
 # Custom Parameter Node
@@ -98,19 +113,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-  def installPacakges(self):
-    # Install required packages
-    try:
-      import xlrd
-    except ImportError:
-      slicer.util.pip_install('xlrd')
-      import xlrd
-    
-    try:
-      import openpyxl
-    except ImportError:
-      slicer.util.pip_install('openpyxl')
-      import openpyxl
+  
     
   def __init__(self, parent=None):
     """
@@ -122,6 +125,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic = None
     self.customParamNode = None
     self._updatingGUIFromParameterNode = False
+      
   def onColumnXSelectorChange(self):
     self.applyTransformButton.enabled = True
     self.transformationAppliedLabel.setVisible(False)
@@ -132,12 +136,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     Called when the user opens the module the first time and the widget is initialized.
     """
     ScriptedLoadableModuleWidget.setup(self)
-
-    # Load widget from .ui file (created by Qt Designer).
-    # Additional widgets can be instantiated manually and added to self.layout.
-    # uiWidget = slicer.util.loadUI(self.resourcePath('UI/Track.ui'))
-    # self.layout.addWidget(uiWidget)
-    # self.ui = slicer.util.childWidgetVariables(uiWidget)
 
     # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
     # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
@@ -451,8 +449,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     # Installing packages
     
-    if not slicer.app.commandOptions().noMainWindow :
-        slicer.app.connect("startupCompleted()", self.installPacakges)
+    
     #
     # Begin logic
     #
