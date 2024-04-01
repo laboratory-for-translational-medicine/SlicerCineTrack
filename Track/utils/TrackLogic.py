@@ -128,14 +128,14 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           headers = next(f).strip().split(',')
           return headers
       if filepath.endswith('.xlsx'):
-        import openpyxl
+        openpyxl = __import__('openpyxl')
         wb = openpyxl.load_workbook(filepath)
         sheet = wb.active
         headers = next(sheet.iter_rows(values_only=True))
         # print(headers)
         return headers
       elif filepath.endswith('.xls'):
-        import xlrd
+        xlrd = __import__('xlrd')
         wb = xlrd.open_workbook(filepath)
         sheet = wb.sheet_by_index(0)
         return sheet.row_values(0)
@@ -155,7 +155,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # NOTE: The current logic of this function will only ensure that the first {numImages}
     # transformations found within the CSV file are valid, so playback can occur. The playback will
     # still occur if later transformations after the first {numImages} transformations are corrupt.
-    print('start of validateTransformsInput')
     transformationsList = []
     fileName = os.path.basename(filepath)
     fileExtension = os.path.splitext(filepath)[1]
@@ -203,8 +202,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               break
 
       # Check that the transforms file is a .xlsx type
-      elif filepath.endswith('.xlsx'):
-        import openpyxl         
+      elif filepath.endswith('.xlsx') or filepath.endswith('.xlsx'):
+        openpyxl = __import__('openpyxl')
         wb = openpyxl.load_workbook(filepath)
         sheet = wb.active
         rows = iter(sheet.iter_rows(values_only=True))
@@ -225,7 +224,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             break
         
       # Check that the transforms file is a .xls type
-      elif filepath.endswith('.xls'):            
+      elif filepath.endswith('.xls'):    
+        xlrd = __import__('xlrd')
         workbook = xlrd.open_workbook(filepath)
         sheet = workbook.sheet_by_index(0)
         header_row = sheet.row_values(0)
