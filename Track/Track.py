@@ -1274,9 +1274,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.deleteImagesButton.enabled = True
     self.deleteSegmentationButton.enabled = True
     self.deleteTransformsButton.enabled = True
-    self.deleteImagesButton.setToolTip("Remove Cine images.")
-    self.deleteSegmentationButton.setToolTip("Remove Segmentation file.")
-    self.deleteTransformsButton.setToolTip("Remove Transforms file.")
+    self.deleteImagesButton.setToolTip("Remove Cine Images.")
+    self.deleteSegmentationButton.setToolTip("Remove Segmentation File.")
+    self.deleteTransformsButton.setToolTip("Remove Transforms File.")
     
     if inputsProvided:
 
