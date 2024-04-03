@@ -171,7 +171,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector2DImagesFolder.setToolTip(tooltipText)
     browseButton = self.selector2DImagesFolder.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
-    tooltipText = "Remove Cine images."
+    tooltipText = "Remove Cine Images."
     self.deleteImagesButton.setToolTip(tooltipText)
 
     # 3D segmentation file selector + delete button
@@ -190,7 +190,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorSegmentationLayout.addWidget(self.selector3DSegmentation)
     self.selectorSegmentationLayout.addWidget(self.deleteSegmentationButton)
     self.inputsFormLayout.addRow("Segmentation File: ", self.selectorSegmentationLayout)
-    tooltipText = "Remove Segmentation file."
+    tooltipText = "Remove Segmentation File."
     self.deleteSegmentationButton.setToolTip(tooltipText)
     
     tooltipText = "Insert a Segmentation file in .mha format."
@@ -216,11 +216,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsLayout.addWidget(self.deleteTransformsButton)
     self.inputsFormLayout.addRow("Transforms File: ", self.selectorTransformsLayout)
 
-    tooltipText = "Insert a Transforms file. Valid filetypes: .csv, .xls, .xlsx, .txt."
+    tooltipText = "Insert a Transforms file. Valid filetypes: .csv, .xls, .xlsx"
     self.selectorTransformsFile.setToolTip(tooltipText)
     browseButton = self.selectorTransformsFile.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
-    tooltipText = "Remove Transforms file."
+    tooltipText = "Remove Transforms File."
     self.deleteTransformsButton.setToolTip(tooltipText)
 
     # Column headers selectors
@@ -256,10 +256,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.columnSelectorsLayout.addWidget(self.columnZSelectorLabel)
     self.columnSelectorsLayout.addWidget(self.columnZSelector)
     
-    self.inputsFormLayout.addRow('Translation: ',self.columnSelectorsLayout)
+    self.inputsFormLayout.addRow('Translations: ',self.columnSelectorsLayout)
     
     # Layout for apply transformation button
-    self.applyTransformButton = qt.QPushButton("Apply Transformation")
+    self.applyTransformButton = qt.QPushButton("Apply Transformations")
     self.applyTransformButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     
     self.columnTransformsLayout = qt.QHBoxLayout()
@@ -1274,9 +1274,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.deleteImagesButton.enabled = True
     self.deleteSegmentationButton.enabled = True
     self.deleteTransformsButton.enabled = True
-    self.deleteImagesButton.setToolTip("Remove Cine images.")
-    self.deleteSegmentationButton.setToolTip("Remove Segmentation file.")
-    self.deleteTransformsButton.setToolTip("Remove Transforms file.")
+    self.deleteImagesButton.setToolTip("Remove Cine Images.")
+    self.deleteSegmentationButton.setToolTip("Remove Segmentation File.")
+    self.deleteTransformsButton.setToolTip("Remove Transforms File.")
     
     if inputsProvided:
 
