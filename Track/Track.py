@@ -171,7 +171,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector2DImagesFolder.setToolTip(tooltipText)
     browseButton = self.selector2DImagesFolder.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
-    tooltipText = "Remove Cine images."
+    tooltipText = "Remove Cine Images."
     self.deleteImagesButton.setToolTip(tooltipText)
 
     # 3D segmentation file selector + delete button
@@ -190,7 +190,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorSegmentationLayout.addWidget(self.selector3DSegmentation)
     self.selectorSegmentationLayout.addWidget(self.deleteSegmentationButton)
     self.inputsFormLayout.addRow("Segmentation File: ", self.selectorSegmentationLayout)
-    tooltipText = "Remove Segmentation file."
+    tooltipText = "Remove Segmentation File."
     self.deleteSegmentationButton.setToolTip(tooltipText)
     
     tooltipText = "Insert a Segmentation file in .mha format."
@@ -220,7 +220,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsFile.setToolTip(tooltipText)
     browseButton = self.selectorTransformsFile.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
-    tooltipText = "Remove Transforms file."
+    tooltipText = "Remove Transforms File."
     self.deleteTransformsButton.setToolTip(tooltipText)
 
     # Column headers selectors
