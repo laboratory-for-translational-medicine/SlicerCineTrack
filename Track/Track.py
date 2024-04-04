@@ -67,9 +67,9 @@ class Track(ScriptedLoadableModule):
 This extension was developed by the Laboratory for Translational Medicine.
 """
     if not slicer.app.commandOptions().noMainWindow:
-      slicer.app.connect("startupCompleted()", self.installPacakges)
+      slicer.app.connect("startupCompleted()", self.installPackages)
     
-  def installPacakges(self):
+  def installPackages(self):
     try:
       import xlrd
     except ImportError:
@@ -446,9 +446,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #
     # End GUI
     #
-    
-    # Installing packages
-    
     
     #
     # Begin logic
