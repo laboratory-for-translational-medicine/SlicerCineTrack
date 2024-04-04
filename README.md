@@ -37,8 +37,8 @@ DISCLAIMER: This software is not intended for clinical use.
    `Tracking` -> `Track`
 
 3) Use the input selectors to import the sample data from the `Track/Data` folder:
-   - 2D Images Folder : `Track/Data`
-   - 3D Segmentation File : `Track/Data/Segmentation.mha`
+   - Cine Images Folder : `Track/Data`
+   - Segmentation File : `Track/Data/Segmentation.mha`
    - Transforms File : `Track/Data/Transforms.csv`
 4) Press the `Play` button to begin playback
 
