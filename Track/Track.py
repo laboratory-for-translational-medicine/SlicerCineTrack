@@ -1058,7 +1058,33 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       
       self.transformationAppliedLabel.setVisible(False)
       self.applyTransformButton.enabled = True
-      
+
+    def onSequenceChange(self):
+      """
+      Allows for the reuploading of transforms file during active sequence
+      """
+      # Check if sequence is actively playing
+      activePlay = self.customParamNode.sequenceBrowserNode and \
+        hasattr(self.customParamNode.sequenceBrowserNode, 'GetPlaybackActive') and \
+        self.customParamNode.sequenceBrowserNode.GetPlaybackActive()
+
+      if activePlay:
+        # Stop sequence
+        self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+
+        # Removes existing transforms nodes and sequence nodes
+        nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+        nodes.UnRegister(None)
+        for node in nodes:
+          slicer.mrmlScene.RemoveNode(node)
+
+        nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+        nodes.UnRegister(None)
+        for node in nodes:
+            slicer.mrmlScene.RemoveNode(node)
+
+    onSequenceChange(self)
+
     clearColumnSeletors(self)
       
     addItemToColumnSeletors(self, self.logic.getColumnNamesFromTransformsInput(self.selectorTransformsFile.currentPath))
