@@ -425,106 +425,209 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     proxyTransformNode = sequenceBrowser.GetProxyNode(sequenceNodeTransforms)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
     
-    sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
+    if proxy2DImageNode.GetImageData().GetDataDimension() == 2:
+      sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
-    name = None
-    fitSlice = None
-    if sliceWidget is not None:
-      name = sliceWidget.sliceViewName
+      name = None
+      fitSlice = None
+      if sliceWidget is not None:
+        name = sliceWidget.sliceViewName
+          
+        sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+
+        volumesLogic = slicer.modules.volumes.logic()
         
-      sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+        # Checks if the current slice node is not showing an image
+        fitSlice = False
+        if sliceCompositeNode.GetLabelVolumeID() is None:
+          fitSlice = True
+        
+        sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
+        sliceCompositeNode.SetLabelOpacity(opacity)
+        
+        sliceCompositeNode.SetBackgroundVolumeID(labelMapNode.GetID())
+        
+        # Get the current slice node
+        sliceNode = sliceWidget.mrmlSliceNode()
 
-      volumesLogic = slicer.modules.volumes.logic()
-      
-      # Checks if the current slice node is not showing an image
-      fitSlice = False
-      if sliceCompositeNode.GetLabelVolumeID() is None:
-        fitSlice = True
-      
-      sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
-      sliceCompositeNode.SetLabelOpacity(opacity)
-      
-      sliceCompositeNode.SetBackgroundVolumeID(labelMapNode.GetID())
-      
-      # Get the current slice node
-      sliceNode = sliceWidget.mrmlSliceNode()
+        # Display the label map overlay as an outline
+        sliceNode.SetUseLabelOutline(overlayAsOutline)
 
-      # Display the label map overlay as an outline
-      sliceNode.SetUseLabelOutline(overlayAsOutline)
+        # Set the background volume for the current slice view
+        sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
-      # Set the background volume for the current slice view
-      sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
+        # Translate the 3D segmentation label map using the transform data
+        if proxyTransformNode is not None:
+          labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        
+        sliceNode.SetSliceVisible(True)
 
-      # Translate the 3D segmentation label map using the transform data
+      # Make the 3D segmentation visible in the 3D view
+      tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
+      tmpIdList.InsertNextId(segmentationLabelMapID)
+      threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
+      shNode.ShowItemsInView(tmpIdList, threeDViewNode)
+
+      # If the sliceNode is now showing an image, fit the slice view to the current background image   
+      if fitSlice:
+        sliceWidget.fitSliceToBackground()
+      
+      # Preserve previous slices
+      # If a background node for the specified orientation exists, update it with the current slice
+      # Otherwise, create a new background node and set it as the background for the specified orientation
+      
+      if name in self.backgrounds:
+        background = getattr(self, name.lower() + 'Background')
+        if background is None:
+          # Create a new background node for the orientation
+          setattr(self, name.lower() + 'Background', volumesLogic.CloneVolume(slicer.mrmlScene,
+                  proxy2DImageNode, f"{proxy2DImageNode.GetAttribute('Sequences.BaseName')}"))
+        else:
+          # Background exists, just replace the data to represent the next image in the sequence
+          background.SetAndObserveImageData(proxy2DImageNode.GetImageData())
+          background.SetAttribute("Sequences.BaseName", proxy2DImageNode.GetAttribute("Sequences.BaseName"))
+      
+      # Add the image name to the slice view background variable
+      if name is not None:
+        currentSlice = getattr(self, name.lower() + 'Background')
+        currentSlice.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+
+      # Set the background volumes for each orientation, if they exist
+      for color in self.backgrounds:
+        sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+        sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+        currentSlice = getattr(self, color.lower() + 'Background')
+        sliceViewWindow.cornerAnnotation().ClearAllTexts()
+        # Add desired text to slice views that have a background node
+        if currentSlice is not None:
+          slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").SetBackgroundVolumeID(currentSlice.GetID())
+          imageFile = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume') is not None
+          if imageFile:
+            imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
+            # Place "Current Alignment" text in the slice view corner
+            sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+            sliceViewWindow.cornerAnnotation().SetText(0, imageFileNameText)
+      
+      for color in self.backgrounds:
+        sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+        if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCommand.ModifiedEvent):
+          sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+        if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
+          sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+      
+      if sliceWidget is not None:
+        sliceView = sliceWidget.sliceView()
+        sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
+      # Enable alignment of the 3D segmentation label map according to the transform data so that
+      # the 3D segmentation label map overlays upon the ROI of the 2D images
       if proxyTransformNode is not None:
         labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
-      
-      sliceNode.SetSliceVisible(True)
 
-    # Make the 3D segmentation visible in the 3D view
-    tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
-    tmpIdList.InsertNextId(segmentationLabelMapID)
-    threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
-    shNode.ShowItemsInView(tmpIdList, threeDViewNode)
+      # Render changes
+      slicer.util.forceRenderAllViews()
+      slicer.app.processEvents()
 
-    # If the sliceNode is now showing an image, fit the slice view to the current background image   
-    if fitSlice:
-      sliceWidget.fitSliceToBackground()
-    
-    # Preserve previous slices
-    # If a background node for the specified orientation exists, update it with the current slice
-    # Otherwise, create a new background node and set it as the background for the specified orientation
-    
-    if name in self.backgrounds:
-      background = getattr(self, name.lower() + 'Background')
-      if background is None:
-        # Create a new background node for the orientation
-        setattr(self, name.lower() + 'Background', volumesLogic.CloneVolume(slicer.mrmlScene,
-                proxy2DImageNode, f"{proxy2DImageNode.GetAttribute('Sequences.BaseName')}"))
-      else:
-        # Background exists, just replace the data to represent the next image in the sequence
-        background.SetAndObserveImageData(proxy2DImageNode.GetImageData())
-        background.SetAttribute("Sequences.BaseName", proxy2DImageNode.GetAttribute("Sequences.BaseName"))
-    
-    # Add the image name to the slice view background variable
-    if name is not None:
-      currentSlice = getattr(self, name.lower() + 'Background')
-      currentSlice.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+    else:
+      sliceWidgets = self.getSliceWidgets(layoutManager, proxy2DImageNode)
+      for sliceWidget in sliceWidgets: 
+        name = None
+        fitSlice = None
+        if sliceWidget is not None:
+          name = sliceWidget.sliceViewName
+            
+          sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
 
-    # Set the background volumes for each orientation, if they exist
-    for color in self.backgrounds:
-      sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
-      sliceViewWindow.cornerAnnotation().RemoveAllObservers()
-      currentSlice = getattr(self, color.lower() + 'Background')
-      sliceViewWindow.cornerAnnotation().ClearAllTexts()
-      # Add desired text to slice views that have a background node
-      if currentSlice is not None:
-        slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").SetBackgroundVolumeID(currentSlice.GetID())
-        imageFile = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume') is not None
-        if imageFile:
-          imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
-          # Place "Current Alignment" text in the slice view corner
+          volumesLogic = slicer.modules.volumes.logic()
+          
+          # Checks if the current slice node is not showing an image
+          fitSlice = False
+          if sliceCompositeNode.GetLabelVolumeID() is None:
+            fitSlice = True
+          
+          sliceCompositeNode.SetLabelVolumeID(labelMapNode.GetID())
+          sliceCompositeNode.SetLabelOpacity(opacity)
+          
+          sliceCompositeNode.SetBackgroundVolumeID(labelMapNode.GetID())
+          
+          # Get the current slice node
+          sliceNode = sliceWidget.mrmlSliceNode()
+
+          # Display the label map overlay as an outline
+          sliceNode.SetUseLabelOutline(overlayAsOutline)
+
+          # Set the background volume for the current slice view
+          sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
+
+          # Translate the 3D segmentation label map using the transform data
+          if proxyTransformNode is not None:
+            labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+          
+          sliceNode.SetSliceVisible(True)
+
+        # Make the 3D segmentation visible in the 3D view
+        tmpIdList = vtk.vtkIdList() # The nodes you want to display need to be in a vtkIdList
+        tmpIdList.InsertNextId(segmentationLabelMapID)
+        threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
+        shNode.ShowItemsInView(tmpIdList, threeDViewNode)
+
+        # If the sliceNode is now showing an image, fit the slice view to the current background image   
+        if fitSlice:
+          sliceWidget.fitSliceToBackground()
+        
+        # Preserve previous slices
+        # If a background node for the specified orientation exists, update it with the current slice
+        # Otherwise, create a new background node and set it as the background for the specified orientation
+        
+        if name in self.backgrounds:
+          background = getattr(self, name.lower() + 'Background')
+          if background is None:
+            # Create a new background node for the orientation
+            setattr(self, name.lower() + 'Background', volumesLogic.CloneVolume(slicer.mrmlScene,
+                    proxy2DImageNode, f"{proxy2DImageNode.GetAttribute('Sequences.BaseName')}"))
+          else:
+            # Background exists, just replace the data to represent the next image in the sequence
+            background.SetAndObserveImageData(proxy2DImageNode.GetImageData())
+            background.SetAttribute("Sequences.BaseName", proxy2DImageNode.GetAttribute("Sequences.BaseName"))
+        
+        # Add the image name to the slice view background variable
+        if name is not None:
+          currentSlice = getattr(self, name.lower() + 'Background')
+          currentSlice.SetName(proxy2DImageNode.GetAttribute('Sequences.BaseName'))
+
+        # Set the background volumes for each orientation, if they exist
+        for color in self.backgrounds:
           sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
-          sliceViewWindow.cornerAnnotation().SetText(0, imageFileNameText)
-    
-    for color in self.backgrounds:
-      sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
-      if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCommand.ModifiedEvent):
-        sliceViewWindow.cornerAnnotation().RemoveAllObservers()
-      if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
-        sliceViewWindow.cornerAnnotation().RemoveAllObservers()
-    
-    if sliceWidget is not None:
-      sliceView = sliceWidget.sliceView()
-      sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
-    # Enable alignment of the 3D segmentation label map according to the transform data so that
-    # the 3D segmentation label map overlays upon the ROI of the 2D images
-    if proxyTransformNode is not None:
-      labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+          sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+          currentSlice = getattr(self, color.lower() + 'Background')
+          sliceViewWindow.cornerAnnotation().ClearAllTexts()
+          # Add desired text to slice views that have a background node
+          if currentSlice is not None:
+            slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").SetBackgroundVolumeID(currentSlice.GetID())
+            imageFile = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume') is not None
+            if imageFile:
+              imageFileNameText = slicer.mrmlScene.GetNodeByID(f"vtkMRMLSliceCompositeNode{color}").GetNodeReference('backgroundVolume').GetAttribute('Sequences.BaseName')
+              # Place "Current Alignment" text in the slice view corner
+              sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+              sliceViewWindow.cornerAnnotation().SetText(0, imageFileNameText)
+        
+        for color in self.backgrounds:
+          sliceViewWindow = slicer.app.layoutManager().sliceWidget(color).sliceView()
+          if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCommand.ModifiedEvent):
+            sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+          if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
+            sliceViewWindow.cornerAnnotation().RemoveAllObservers()
+        
+        if sliceWidget is not None:
+          sliceView = sliceWidget.sliceView()
+          sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
+        # Enable alignment of the 3D segmentation label map according to the transform data so that
+        # the 3D segmentation label map overlays upon the ROI of the 2D images
+        if proxyTransformNode is not None:
+          labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
 
-    # Render changes
-    slicer.util.forceRenderAllViews()
-    slicer.app.processEvents()
+        # Render changes
+        slicer.util.forceRenderAllViews()
+        slicer.app.processEvents()
 
   def getSliceWidget(self, layoutManager, imageNode):
     """
@@ -560,3 +663,19 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         exit(1)
 
       return sliceWidget
+
+  def getSliceWidgets(self, layoutManager, imageNode):
+    """
+    This function helps to determine the slice widgets that corresponds to the orientation of the
+    provided image. (i.e. the slice widget that would display the image)
+    :param layoutManager: node representing the MRML layout manager
+    :param imageNode: node representing the 3D image
+    """
+    sliceWidgets = []
+    for name in layoutManager.sliceViewNames():
+      if layoutManager.sliceWidget(name).sliceOrientation == "Axial" or layoutManager.sliceWidget(name).sliceOrientation == "Sagittal" or layoutManager.sliceWidget(name).sliceOrientation == "Coronal":
+        sliceWidgets.append(layoutManager.sliceWidget(name))
+      else:
+        print(f"Error: A slice with the required orientations was not found.")
+        exit(1)
+    return sliceWidgets
