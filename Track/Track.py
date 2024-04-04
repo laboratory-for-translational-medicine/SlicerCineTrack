@@ -1063,6 +1063,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       """
       Allows for the reuploading of transforms file during active sequence
       """
+      # Changes transforms file path to new one
+      if self.customParamNode.transformsFilePath != self.selectorTransformsFile.currentPath:
+        self.customParamNode.transformsFilePath = self.selectorTransformsFile.currentPath
+
       # Check if sequence is actively playing
       activePlay = self.customParamNode.sequenceBrowserNode and \
         hasattr(self.customParamNode.sequenceBrowserNode, 'GetPlaybackActive') and \
