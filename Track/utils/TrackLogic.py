@@ -527,7 +527,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       slicer.util.forceRenderAllViews()
       slicer.app.processEvents()
 
-    elif proxy2DImageNode.GetImageData().GetDataDimension() == 3:
+    else:
       sliceWidgets = self.getSliceWidgets(layoutManager, proxy2DImageNode)
       for sliceWidget in sliceWidgets: 
         name = None
