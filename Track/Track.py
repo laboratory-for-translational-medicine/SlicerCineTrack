@@ -48,7 +48,7 @@ class Track(ScriptedLoadableModule):
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "Track"
-    self.parent.categories = ["Tracking"]
+    self.parent.categories = ["SlicerTrack"]
     self.parent.dependencies = []
     self.parent.contributors = ["James McCafferty (laboratory-for-translational-medicine)",
                                 "Fabyan Mikhael (laboratory-for-translational-medicine)",
