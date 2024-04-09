@@ -19,9 +19,10 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     """
     Called when the logic class is instantiated. Can be used for initializing member variables.
     """
+    slicer.app.pythonConsole().clear()
     ScriptedLoadableModuleLogic.__init__(self)
     self.timer = qt.QTimer()
-    self.redBackground = None
+    self.redBackground = None 
     self.greenBackground = None
     self.yellowBackground = None
     self.backgrounds = {
@@ -121,92 +122,22 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           except:
             print(f"Encoding {encoding} failed, trying next encoding")
         return headers
-    # TODO - add support for .txt, xls and .xlsx files       
+   
       if filepath.endswith('.txt'):
         with open(filepath, "r") as f:
           headers = next(f).strip().split(',')
           return headers
       if filepath.endswith('.xlsx'):
-        try:
-          global openpyxl
-          import openpyxl
-        except ModuleNotFoundError:
-          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
-            try:
-              # Create a loading popup
-              messageBox = qt.QMessageBox()
-              messageBox.setIcon(qt.QMessageBox.Information)
-              messageBox.setWindowTitle("Package Installation")
-              messageBox.setText("Installing 'openpyxl' package...")
-              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
-              messageBox.show()
-              slicer.app.processEvents()
-              
-              slicer.util.pip_install('openpyxl')
-              import openpyxl
-              
-              messageBox.setText(f"'openpyxl' package installed successfully. {fileName} will now load.")
-              slicer.app.processEvents()  # Process events to allow the dialog to update
-              qt.QTimer.singleShot(3000, messageBox.accept)
-
-              # Wait for user interaction
-              while messageBox.isVisible():
-                slicer.app.processEvents()
-
-              messageBox.hide()  # Hide the message box
-              
-            except:
-              slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
-                                        "Failed to Load File")
-              return
-          else:
-            slicer.util.warningDisplay(f"{fileName} failed to load.\nPlease load a .csv or .txt file instead. ",
-                                       "Failed to Load File")
-            return
+        openpyxl = __import__('openpyxl')
         wb = openpyxl.load_workbook(filepath)
         sheet = wb.active
         headers = next(sheet.iter_rows(values_only=True))
+        # print(headers)
         return headers
       elif filepath.endswith('.xls'):
-        try:
-          global xlrd
-          import xlrd
-        except ModuleNotFoundError:
-          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
-            try:
-              # Create a loading popup
-              messageBox = qt.QMessageBox()
-              messageBox.setIcon(qt.QMessageBox.Information)
-              messageBox.setWindowTitle("Package Installation")
-              messageBox.setText("Installing 'xlrd' package...")
-              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
-              messageBox.show()
-              slicer.app.processEvents()
-              
-              slicer.util.pip_install('xlrd')
-              import xlrd
-              
-              messageBox.setText(f"'xlrd' package installed successfully. {fileName} will now load.")
-              slicer.app.processEvents()  # Process events to allow the dialog to update
-              qt.QTimer.singleShot(3000, messageBox.accept)
-
-              # Wait for user interaction
-              while messageBox.isVisible():
-                slicer.app.processEvents()
-
-              messageBox.hide()  # Hide the message box
-              
-            except:
-              slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
-                                        "Failed to Load File")
-              return
-          else:
-            slicer.util.warningDisplay(f"{fileName} failed to load.\nPlease load a .csv or .txt file instead. ",
-                                      "Failed to Load File")
-            return
+        xlrd = __import__('xlrd')
         wb = xlrd.open_workbook(filepath)
         sheet = wb.sheet_by_index(0)
-        print(sheet.row(0))
         return sheet.row_values(0)
     
     # if we get here, we failed to read the the headers -> print out warning and return a empty list for headers   
@@ -253,7 +184,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
                                   "Failed to Load File")
         return
       
-      # TODO - add support for column selectors for .txt, xls and .xlsx files        
       # Check that the transforms file is a .txt type
       elif filepath.endswith('.txt'):
         with open(filepath, "r") as f:
@@ -272,29 +202,42 @@ class TrackLogic(ScriptedLoadableModuleLogic):
               break
 
       # Check that the transforms file is a .xlsx type
-      elif filepath.endswith('.xlsx'):         
+      elif filepath.endswith('.xlsx') or filepath.endswith('.xlsx'):
+        openpyxl = __import__('openpyxl')
         wb = openpyxl.load_workbook(filepath)
         sheet = wb.active
         rows = iter(sheet.iter_rows(values_only=True))
-        next(rows)  # Start from the second row, assuming first row is header
+        header_row = next(rows)
+
+        x_index = header_row.index(headerX)
+        y_index = header_row.index(headerY)
+        z_index = header_row.index(headerZ)
+
         for row in rows:
           try:
-            [x, y, z] = row
+            x, y, z = map(float, [row[x_index], row[y_index], row[z_index]])
             transformationsList.append([x,y,z])
-          except:
+          except Exception as e:
+            print(e)
             slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
                                       "Failed to Load File")
-
             break
         
       # Check that the transforms file is a .xls type
-      elif filepath.endswith('.xls'):            
+      elif filepath.endswith('.xls'):    
+        xlrd = __import__('xlrd')
         workbook = xlrd.open_workbook(filepath)
         sheet = workbook.sheet_by_index(0)
+        header_row = sheet.row_values(0)
+        
+        x_index = header_row.index(headerX)
+        y_index = header_row.index(headerY)
+        z_index = header_row.index(headerZ)
+        
         for row_idx in range(1, sheet.nrows):  # Start from the second row, assuming first row is header
           values = sheet.row_values(row_idx)
           try:
-            x, y, z = map(float, values)
+            x, y, z = map(float, [values[x_index], values[y_index], values[z_index]])
             transformationsList.append([x, y, z])
           except:
             # If there was an error reading the values, break out because we can't/shouldn't
