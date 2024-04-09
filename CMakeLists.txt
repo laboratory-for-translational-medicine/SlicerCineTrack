@@ -5,14 +5,19 @@ project(SlicerTrack)
 #-----------------------------------------------------------------------------
 # Extension meta-information
 set(EXTENSION_HOMEPAGE "https://slicertrack.github.io/")
-set(EXTENSION_CATEGORY "Tracking")
-set(EXTENSION_CONTRIBUTORS "HaPhan Tran (laboratory-for-translational-medicine), \
-                            Mubariz Afzal (laboratory-for-translational-medicine) \
-                            James McCafferty (laboratory-for-translational-medicine), \
-                            Teo Mesrkhani ((laboratory-for-translational-medicine)")
+set(EXTENSION_CATEGORY "SlicerTrack")
+set(EXTENSION_CONTRIBUTORS "Elodie Lugez (Toronto Metropolitan University), \
+                            HaPhan Tran (Toronto Metropolitan University), \
+                            Fabyan Mikhael (Toronto Metropolitan University), \
+                            Mubariz Afzal (Toronto Metropolitan University), \
+                            Teo Mesrkhani (Toronto Metropolitan University), \
+                            Jacqueline Banh (Toronto Metropolitan University), \
+                            Nicholas Caro Lopez (Toronto Metropolitan University), \
+                            Venkat Guru Prasad (Toronto Metropolitan University), \
+                            Sayeed Jalil (Toronto Metropolitan University)")
 set(EXTENSION_DESCRIPTION "Module providing tracking tools and displacement visualizations")
-set(EXTENSION_ICONURL "http://www.example.com/Slicer/Extensions/Track.png")
-set(EXTENSION_SCREENSHOTURLS "http://www.example.com/Slicer/Extensions/Track/Screenshots/1.png")
+set(EXTENSION_ICONURL "https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/SlicerTrack_logo.png")
+set(EXTENSION_SCREENSHOTURLS "https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document1.png https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document2.png https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document3.png https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document5.png")
 set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
 
 #-----------------------------------------------------------------------------
