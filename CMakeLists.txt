@@ -15,9 +15,14 @@ set(EXTENSION_CONTRIBUTORS "Elodie Lugez (Toronto Metropolitan University), \
                             Nicholas Caro Lopez (Toronto Metropolitan University), \
                             Venkat Guru Prasad (Toronto Metropolitan University), \
                             Sayeed Jalil (Toronto Metropolitan University)")
-set(EXTENSION_DESCRIPTION "Module providing tracking tools and displacement visualizations")
+set(EXTENSION_DESCRIPTION "SlicerTrack is open-source, extendable, developed in Python as an extension on the highly successful 3D Slicer platform. SlicerTrack extension enables target tracking visualization by replaying cine 2D images and overlays the outline of the Region of interest (ROI) using a displacement data file.")
 set(EXTENSION_ICONURL "https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/SlicerTrack_logo.png")
-set(EXTENSION_SCREENSHOTURLS "https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document1.png https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document2.png https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document3.png https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document5.png")
+set(EXTENSION_SCREENSHOTURLS
+  "https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document1.png"
+  "https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document2.png"
+  "https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document3.png"
+  "https://raw.githubusercontent.com/slicertrack/slicertrack.github.io/main/resources/screenshots/ST_Document5.png"
+)
 set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
 
 #-----------------------------------------------------------------------------
