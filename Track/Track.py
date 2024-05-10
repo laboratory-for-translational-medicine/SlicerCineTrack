@@ -1538,6 +1538,11 @@ class TrackTest(ScriptedLoadableModuleTest):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
+    # check if folder exists
+    if not os.path.exists(self.cine_images_folder_path) or not os.path.exists(self.csv_file_path):
+        self.delayDisplay('Data is not available for testing',None,2000)
+        return
+        
     self.test_loadImagesIntoSequenceNode()
     self.test_validateTransformsInput()
     self.delayDisplay('Test passed')
