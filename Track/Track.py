@@ -48,7 +48,7 @@ class Track(ScriptedLoadableModule):
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "Track"
-    self.parent.categories = ["SlicerTrack"]
+    self.parent.categories = ["SlicerCineTrack"]
     self.parent.dependencies = []
     self.parent.contributors = ["James McCafferty (laboratory-for-translational-medicine)",
                                 "Fabyan Mikhael (laboratory-for-translational-medicine)",
@@ -62,7 +62,7 @@ class Track(ScriptedLoadableModule):
     self.parent.helpText = """From the input dropdown, select valid 2D cine images in the Cine
     Images Folder, a target to track in the 3D Segmentation File, and a transforms file containing information
     about the X,Y,Z coordinates of exactly where the target is. <br> <br>
-    For more information see <a href="https://slicertrack.github.io/">the online documentation</a>"""
+    For more information see <a href="https://slicercinetrack.github.io/">the online documentation</a>"""
     self.parent.acknowledgementText = """
 This extension was developed by the Laboratory for Translational Medicine.
 """
