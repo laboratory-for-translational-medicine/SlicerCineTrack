@@ -1,6 +1,6 @@
 # SlicerTrack
 
-SlicerTrack is a 3D Slicer extension designed for easy target tracking of a ROI as it moves through a set of time-series medical images.
+SlicerTrack is a 3D Slicer extension designed for visual verification of target tracking results. The ROI segmentation is resampled according to user-provided transformation data and overlaid on a set of time-series medical images.
 
 DISCLAIMER: This software is not intended for clinical use.
 
