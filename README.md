@@ -4,7 +4,7 @@ SlicerTrack is a 3D Slicer extension designed for the visual verification of tar
 
 DISCLAIMER: This software is not intended for clinical use.
 
-## What can SlicerTrack does?
+## What can SlicerTrack do?
 
 Please take a look at [documentation page](https://slicertrack.github.io/Documentation) on SlicerTrack's Homepage.
 Here is a little demo
