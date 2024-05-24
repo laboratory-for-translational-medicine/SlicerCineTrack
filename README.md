@@ -42,7 +42,7 @@ Now add the path to the `Track` folder within the `Additional module paths` sele
 3) Download sample dataset
    You can use 2 datasets below:
 
-   * [Dataset 1](https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/releases/download/v.1.0.0-SlicerCineTrack/Data.zip)
+   * [Dataset 1](https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/releases/download/v1.0.0-SlicerCineTrack/Data.zip)
    * [Dataset 2](https://drive.google.com/drive/folders/1qJj53YfGM4Q7atsI-XZyySvR-F98ENXA?usp=sharing)
 
 4) Unzip the data into folder `Track/Data`
