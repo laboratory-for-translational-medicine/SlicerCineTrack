@@ -905,9 +905,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set a param to hold the path to the 3D segmentation file
         self.customParamNode.path3DSegmentation = self.selector3DSegmentation.currentPath
 
-        # Segmentation file should end with .mha
+        # Segmentation file should end with specified formats above
         segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
                                                   {"singleFile": True, "show": False})
+        
+        # Check if Segmentation file is a binary mask
         if np.unique(slicer.util.arrayFromVolume(segmentationNode)).size == 2:
           self.logic.clearSliceForegrounds()
           segmentationNode.SetName("3D Segmentation")
