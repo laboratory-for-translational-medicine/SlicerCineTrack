@@ -288,6 +288,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.resetButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.resetButtonLayout = qt.QGridLayout()
     self.resetButtonLayout.addWidget(self.resetButton)
+    # Spacer to separate transformation button and reset button
+    spacer = qt.QSpacerItem(10, 20, qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
+    self.inputsFormLayout.addItem(spacer)
     self.inputsFormLayout.addRow('',self.resetButtonLayout)
     
     # self.inputsFormLayout.addRow(' ',self.applyTranformButton)    
