@@ -21,6 +21,7 @@
 import os
 import csv
 import re
+import numpy as np
 
 import ctk
 import qt
@@ -892,25 +893,36 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Set a param to hold the path to the 3D segmentation file
         self.customParamNode.path3DSegmentation = self.selector3DSegmentation.currentPath
 
-        # Segmentation file should end with .mha
+        # Segmentation file should end with specified formats above
         segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
                                                   {"singleFile": True, "show": False})
-        self.logic.clearSliceForegrounds()
-        segmentationNode.SetName("3D Segmentation")
-        # Set a param to hold the 3D segmentation node ID
-        nodeID = shNode.GetItemByDataNode(segmentationNode)
-        self.customParamNode.node3DSegmentation = nodeID
+        
+        # Check if Segmentation file is a binary mask
+        if np.unique(slicer.util.arrayFromVolume(segmentationNode)).size == 2:
+          self.logic.clearSliceForegrounds()
+          segmentationNode.SetName("3D Segmentation")
+          # Set a param to hold the 3D segmentation node ID
+          nodeID = shNode.GetItemByDataNode(segmentationNode)
+          self.customParamNode.node3DSegmentation = nodeID
 
-        # Create a label map of the 3D segmentation that will be used to define the mask overlayed
-        # on the 2D images during playback
-        volumesModuleLogic = slicer.modules.volumes.logic()
-        segmentationLabelMap = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode',
-                                                                  "3D Segmentation Label Map")
-        volumesModuleLogic.CreateLabelVolumeFromVolume(slicer.mrmlScene, segmentationLabelMap,
-                                                       segmentationNode)
-        # Set a param to hold the 3D segmentation label map ID
-        labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
-        self.customParamNode.node3DSegmentationLabelMap = labelMapID
+          # Create a label map of the 3D segmentation that will be used to define the mask overlayed
+          # on the 2D images during playback
+          volumesModuleLogic = slicer.modules.volumes.logic()
+          segmentationLabelMap = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode',
+                                                                    "3D Segmentation Label Map")
+          volumesModuleLogic.CreateLabelVolumeFromVolume(slicer.mrmlScene, segmentationLabelMap,
+                                                        segmentationNode)
+          # Set a param to hold the 3D segmentation label map ID
+          labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
+          self.customParamNode.node3DSegmentationLabelMap = labelMapID
+        else:
+          # If the segmentation file is not binary, remove the nodes created
+          slicer.util.warningDisplay("The segmentation file is not binary. The file was not loaded into 3D Slicer.", "Input Error")
+          slicer.mrmlScene.RemoveNode(segmentationNode)
+          self.customParamNode.node3DSegmentation = 0
+          self.customParamNode.node3DSegmentationLabelMap = 0
+          self.selector3DSegmentation.currentPath = ''
+          self.customParamNode.path3DSegmentation = ''
       else:
         # Remove filepath for the Segmentation File in the `Inputs` section
         self.customParamNode.path3DSegmentation = ''
