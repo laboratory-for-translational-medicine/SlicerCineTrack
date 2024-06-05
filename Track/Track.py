@@ -689,7 +689,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # if the path changes, we want to remove any transforms related information. The user should
       # reselect the transforms file they wish to use with the 2D images.
       if self.customParamNode.transformsFilePath:
-        self.customParamNode.transformsFilePath = ""
         self.customParamNode.sequenceNodeTransforms = None
 
       if self.selector2DImagesFolder.currentPath == '':
