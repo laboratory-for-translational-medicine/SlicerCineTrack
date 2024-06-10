@@ -1215,6 +1215,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.customParamNode.sequenceBrowserNode:
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
+    
+    self.selectorTransformsFile.currentPath = ''
+    self.updateParameterNodeFromGUI("applyTransformsButton", "clicked")
     self.playbackSpeedBox.value = 5.0
     self.overlayOutlineOnlyBox.checked = True
     self.opacitySlider.value = 1
