@@ -1515,6 +1515,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                  self.customParamNode.sequenceNodeTransforms,
                                  self.customParamNode.opacity,
                                  self.customParamNode.overlayAsOutline)
+      # center images on segmentation
+      labelmap = slicer.mrmlScene.GetNodesByClass('vtkMRMLLabelMapVolumeNode').GetItemAsObject(0)
+      seg = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
+      slicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmap, seg)
+      center = seg.GetSegmentCenterRAS(seg.GetSegmentation().GetNthSegmentID(0))
+      for name in layoutManager.sliceViewNames():
+        sliceNode = slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{name}')
+        sliceNode.JumpSlice(center[0], center[1], center[2])
     
     self.applyTransformButton.enabled = False
 
