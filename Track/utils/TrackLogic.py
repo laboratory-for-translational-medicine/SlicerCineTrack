@@ -348,7 +348,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
   def visualize(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID,
-                    sequenceNodeTransforms, opacity, overlayAsOutline):
+                    sequenceNodeTransforms, opacity, overlayAsOutline, show=False):
     """
     Visualizes the image data (2D images and 3D segmentation overlay) within the slice views and
     enables the alignment of the 3D segmentation label map according to the transformation data.
@@ -457,10 +457,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           sliceViewWindow.cornerAnnotation().RemoveAllObservers()
         if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
           sliceViewWindow.cornerAnnotation().RemoveAllObservers()
-      
-      if sliceWidget is not None:
-        sliceView = sliceWidget.sliceView()
-        sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
+
+      # Ensure "Current Alignment" text is displayed in the slice view corner only when required
+      if show:
+        if sliceWidget is not None:
+          sliceView = sliceWidget.sliceView()
+          sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
       # Enable alignment of the 3D segmentation label map according to the transform data so that
       # the 3D segmentation label map overlays upon the ROI of the 2D images
       if proxyTransformNode is not None:
@@ -560,9 +562,6 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
             sliceViewWindow.cornerAnnotation().RemoveAllObservers()
         
-        if sliceWidget is not None:
-          sliceView = sliceWidget.sliceView()
-          sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
         # Enable alignment of the 3D segmentation label map according to the transform data so that
         # the 3D segmentation label map overlays upon the ROI of the 2D images
         if proxyTransformNode is not None:
