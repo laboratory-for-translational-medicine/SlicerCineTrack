@@ -181,17 +181,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.deleteSegmentationButton.setIconSize(iconSize)
     self.deleteSegmentationButton.setFixedSize(buttonSize)
     self.deleteSegmentationButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed) 
-
+    
     self.selectorSegmentationLayout = qt.QHBoxLayout()
     self.selectorSegmentationLayout.setAlignment(qt.Qt.AlignLeft)
     self.selectorSegmentationLayout.addWidget(self.selector3DSegmentation)
     self.selectorSegmentationLayout.addWidget(self.deleteSegmentationButton)
-    self.inputsFormLayout.addRow("Segmentation File: ", self.selectorSegmentationLayout)
     tooltipText = "Remove Segmentation File."
     self.deleteSegmentationButton.setToolTip(tooltipText)
-    
+    self.inputsFormLayout.addRow("Segmentation File: ", self.selectorSegmentationLayout)
     tooltipText = "Insert a Segmentation file in .mha format."
-    self.selector3DSegmentation.setToolTip(tooltipText)
+    self.selector3DSegmentation.setToolTip(tooltipText)    
     browseButton = self.selector3DSegmentation.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
     
@@ -847,6 +846,83 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                       f"{self.selector2DImagesFolder.currentPath}", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
+        
+      currentPath = self.selector3DSegmentation.currentPath
+      fileName = os.path.basename(currentPath)
+      
+      if re.match('.*\.dcm', currentPath): # if getting a dcm -> try install dcmrtstruct2nii
+        try:
+          from dcmrtstruct2nii import dcmrtstruct2nii, list_rt_structs
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay("The dcmrtstruct2nii module is required to load DICOM RT files."
+                                    "Please install it by clicking OK button", "Missing Python packages"):
+            messageBox = qt.QMessageBox()
+            messageBox.setIcon(qt.QMessageBox.Information)
+            messageBox.setWindowTitle("Package Installation")
+            messageBox.setText("Installing 'dcmrtstruct2nii' package...")
+            messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+            messageBox.show()
+            slicer.app.processEvents()
+
+            slicer.util.pip_install('dcmrtstruct2nii')
+            from dcmrtstruct2nii import dcmrtstruct2nii, list_rt_structs
+            messageBox.setText(f"Package 'dcmrtstruct2nii' installed successfully. {fileName} will now load.")
+            slicer.app.processEvents()  # Process events to allow the dialog to update
+            qt.QTimer.singleShot(3000, messageBox.accept)
+
+            # Wait for user interaction
+            while messageBox.isVisible():
+                slicer.app.processEvents()
+            messageBox.hide()
+        except Exception as e:
+          print(e)
+          slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
+                                        "Failed to Load File")
+          return# Hide the message box
+
+        from dcmrtstruct2nii import dcmrtstruct2nii, list_rt_structs
+        structs = list_rt_structs(currentPath)
+        if len(structs) == 0:
+            slicer.util.warningDisplay(f"{fileName} does not contain any RT structures.",
+                                        "No RT Structures Found")
+            return
+        # show a dialog to select the struct and path to dicom
+        def onOK():
+            nonlocal currentPath
+            struct = structSelectorComboBox.currentText
+            dicomPath = dicomPathSelector.currentPath
+            outputPath = outputPathSelector.currentPath
+            segmentationPath = os.path.join(outputPath, 'mask_' + struct + '.nii.gz')
+            dcmrtstruct2nii(currentPath, dicomPath,outputPath)
+            self.selector3DSegmentation.currentPath = segmentationPath
+            currentPath = segmentationPath
+            structSelectorDialog.hide()
+        structSelectorDialogLayout = qt.QFormLayout()
+        structSelectorComboBox = qt.QComboBox()
+        structSelectorComboBox.addItems(structs)
+        structSelectorDialogLayout.addRow("Select the structure to load", structSelectorComboBox)
+        dicomPathSelector = ctk.ctkPathLineEdit()
+        dicomPathSelector.filters = ctk.ctkPathLineEdit.Dirs
+        structSelectorDialogLayout.addRow("Select the path to the DICOM files", dicomPathSelector)
+        outputPathSelector = ctk.ctkPathLineEdit()
+        outputPathSelector.filters = ctk.ctkPathLineEdit.Dirs
+        structSelectorDialogLayout.addRow("Select the path to the output structs", outputPathSelector)
+        
+        okButton = qt.QPushButton("OK")
+        
+        structSelectorDialogLayout.addWidget(okButton)     
+        
+        structSelectorDialog = qt.QDialog()
+        structSelectorDialog.setLayout(structSelectorDialogLayout)
+        structSelectorDialog.setModal(True)
+        okButton.connect("clicked()", onOK)
+        
+        structSelectorDialog.show()
+        while structSelectorDialog.isVisible():
+            slicer.app.processEvents()
+        structSelectorDialog.hide()
+      
+      
       # Remove the image nodes of each slice view used to preserve the slice views
       nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
       nodes.UnRegister(None)
@@ -881,7 +957,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.customParamNode.node3DSegmentationLabelMap = 0
 
       # Loads segmentation files
-      currentPath = self.selector3DSegmentation.currentPath
       fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img', '.*\.nhdr'] # Supported segmentation files
       validFormat = any(re.match(format, currentPath) for format in fileFormats)
       if validFormat:

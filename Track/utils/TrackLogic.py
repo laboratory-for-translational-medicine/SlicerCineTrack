@@ -102,7 +102,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       self.clearSliceForegrounds()
 
     return imagesSequenceNode, False
-
+  def createStructFromDCM(self, path2RTSTRUCT, path2DCM, path2Output):
+    from dcmrtstruct2nii import dcmrtstruct2nii
+    dcmrtstruct2nii(path2RTSTRUCT, path2DCM, path2Output)
   def getColumnNamesFromTransformsInput(self, filepath):
       
     fileName = os.path.basename(filepath)
