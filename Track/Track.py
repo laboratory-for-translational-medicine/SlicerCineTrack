@@ -1511,6 +1511,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       seg = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
       slicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmap, seg)
       center = seg.GetSegmentCenterRAS(seg.GetSegmentation().GetNthSegmentID(0))
+      slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(seg, labelmap)
+      slicer.mrmlScene.RemoveNode(seg)
       for name in layoutManager.sliceViewNames():
         sliceNode = slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{name}')
         sliceNode.JumpSlice(center[0], center[1], center[2])
