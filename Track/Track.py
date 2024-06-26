@@ -1278,7 +1278,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.node3DSegmentationLabelMap,
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
-                           self.customParamNode.overlayAsOutline)
+                           self.customParamNode.overlayAsOutline,
+                           True) # True to indicate that current alignment should be displayed
     self.editSliceView(imageDict)
 
   def onDecrement(self):
@@ -1294,7 +1295,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.node3DSegmentationLabelMap,
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
-                           self.customParamNode.overlayAsOutline)
+                           self.customParamNode.overlayAsOutline,
+                           True) # True to indicate that current alignment should be displayed
     self.editSliceView(imageDict)
 
   def onSkipImages(self):
@@ -1311,7 +1313,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                          self.customParamNode.node3DSegmentationLabelMap,
                          self.customParamNode.sequenceNodeTransforms,
                          self.customParamNode.opacity,
-                         self.customParamNode.overlayAsOutline)
+                         self.customParamNode.overlayAsOutline,
+                         True) # True to indicate that current alignment should be displayeds
     self.editSliceView(imageDict)
     
     
