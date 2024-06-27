@@ -128,6 +128,38 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           headers = next(f).strip().split(',')
           return headers
       if filepath.endswith('.xlsx'):
+        try:
+          import openpyxl
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'openpyxl' Python package. Click OK to install now."):
+            try:
+              # Create a loading popup
+              messageBox = qt.QMessageBox()
+              messageBox.setIcon(qt.QMessageBox.Information)
+              messageBox.setWindowTitle("Package Installation")
+              messageBox.setText("Installing 'openpyxl' package...")
+              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+              messageBox.show()
+              slicer.app.processEvents()
+
+              slicer.util.pip_install('openpyxl')
+              openpyxl = __import__('openpyxl')
+
+              messageBox.setText(f"'openpyxl' package installed successfully. {fileName} will now load.")
+              slicer.app.processEvents()  # Process events to allow the dialog to update
+              qt.QTimer.singleShot(3000, messageBox.accept)
+
+              # Wait for user interaction
+              while messageBox.isVisible():
+                slicer.app.processEvents()
+            except:
+              slicer.util.warningDisplay(f"{fileName} file failed to load.\nPlease load a .csv or .txt file instead. ",
+                                          "Failed to Load File")
+              return
+          else:
+            slicer.util.warningDisplay(f"{fileName} failed to load.\nPlease load a .csv or .txt file instead. ",
+                                      "Failed to Load File")
+            return
         openpyxl = __import__('openpyxl')
         wb = openpyxl.load_workbook(filepath)
         sheet = wb.active
@@ -135,6 +167,41 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         # print(headers)
         return headers
       elif filepath.endswith('.xls'):
+        try:
+          import xlrd
+        except ModuleNotFoundError:
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
+            try:
+              # Create a loading popup
+              messageBox = qt.QMessageBox()
+              messageBox.setIcon(qt.QMessageBox.Information)
+              messageBox.setWindowTitle("Package Installation")
+              messageBox.setText("Installing 'xlrd' package...")
+              messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+              messageBox.show()
+              slicer.app.processEvents()
+
+              slicer.util.pip_install('xlrd')
+              xlrd = __import__('xlrd')
+
+
+              messageBox.setText(f"'xlrd' package installed successfully. {fileName} will now load.")
+              slicer.app.processEvents()  # Process events to allow the dialog to update
+              qt.QTimer.singleShot(3000, messageBox.accept)
+
+              # Wait for user interaction
+              while messageBox.isVisible():
+                slicer.app.processEvents()
+
+              messageBox.hide()  # Hide the message box
+            except:
+              slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                              "Failed to Load File")
+              return
+          else:
+            slicer.util.warningDisplay(f"{fileName} file not loaded.\nPlease load a .csv or .txt file instead. ",
+                                      "Failed to Load File")
+            return 
         xlrd = __import__('xlrd')
         wb = xlrd.open_workbook(filepath)
         sheet = wb.sheet_by_index(0)
@@ -203,12 +270,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
       # Check that the transforms file is a .xlsx type
       elif filepath.endswith('.xlsx') or filepath.endswith('.xlsx'):
-        openpyxl = __import__('openpyxl')
+        openpyxl = __import__('openpyxl')        
         wb = openpyxl.load_workbook(filepath)
         sheet = wb.active
         rows = iter(sheet.iter_rows(values_only=True))
         header_row = next(rows)
-
+        
         x_index = header_row.index(headerX)
         y_index = header_row.index(headerY)
         z_index = header_row.index(headerZ)
@@ -224,8 +291,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             break
         
       # Check that the transforms file is a .xls type
-      elif filepath.endswith('.xls'):    
-        xlrd = __import__('xlrd')
+      elif filepath.endswith('.xls'):
+        xlrd = __import__('xlrd')    
         workbook = xlrd.open_workbook(filepath)
         sheet = workbook.sheet_by_index(0)
         header_row = sheet.row_values(0)
