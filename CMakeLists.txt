@@ -5,7 +5,7 @@ project(SlicerCineTrack)
 #-----------------------------------------------------------------------------
 # Extension meta-information
 set(EXTENSION_HOMEPAGE "https://slicercinetrack.github.io/")
-set(EXTENSION_CATEGORY "SlicerCineTrack")
+set(EXTENSION_CATEGORY "Sequences")
 set(EXTENSION_CONTRIBUTORS "Elodie Lugez (Toronto Metropolitan University), \
                             HaPhan Tran (Toronto Metropolitan University), \
                             Fabyan Mikhael (Toronto Metropolitan University), \

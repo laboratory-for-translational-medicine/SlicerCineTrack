@@ -48,7 +48,7 @@ class Track(ScriptedLoadableModule):
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "Track"
-    self.parent.categories = ["SlicerCineTrack"]
+    self.parent.categories = ["Sequences"]
     self.parent.dependencies = []
     self.parent.contributors = ["James McCafferty (laboratory-for-translational-medicine)",
                                 "Fabyan Mikhael (laboratory-for-translational-medicine)",
@@ -66,21 +66,6 @@ class Track(ScriptedLoadableModule):
     self.parent.acknowledgementText = """
 This extension was developed by the Laboratory for Translational Medicine.
 """
-    if not slicer.app.commandOptions().noMainWindow:
-      slicer.app.connect("startupCompleted()", self.installPackages)
-    
-  def installPackages(self):
-    try:
-      import xlrd
-    except ImportError:
-      slicer.util.pip_install('xlrd')
-      import xlrd
-      
-    try:
-      import openpyxl
-    except ImportError:
-      slicer.util.pip_install('openpyxl')
-      import openpyxl
 
 #
 # Custom Parameter Node
