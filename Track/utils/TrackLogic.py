@@ -131,7 +131,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         try:
           import openpyxl
         except ModuleNotFoundError:
-          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'xlrd' Python package. Click OK to install now."):
+          if slicer.util.confirmOkCancelDisplay(f"To load {fileName}, install the 'openpyxl' Python package. Click OK to install now."):
             try:
               # Create a loading popup
               messageBox = qt.QMessageBox()
