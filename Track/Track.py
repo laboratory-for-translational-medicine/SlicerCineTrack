@@ -892,21 +892,24 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             struct = structSelectorComboBox.currentText
             dicomPath = dicomPathSelector.currentPath
             outputPath = outputPathSelector.currentPath
+            structures = [struct]
             segmentationPath = os.path.join(outputPath, 'mask_' + struct + '.nii.gz')
-            dcmrtstruct2nii(currentPath, dicomPath,outputPath)
+            dcmrtstruct2nii(rtstruct_file=currentPath,dicom_file=dicomPath,output_path=outputPath, structures=structures)
             self.selector3DSegmentation.currentPath = segmentationPath
             currentPath = segmentationPath
             structSelectorDialog.hide()
         structSelectorDialogLayout = qt.QFormLayout()
         structSelectorComboBox = qt.QComboBox()
         structSelectorComboBox.addItems(structs)
-        structSelectorDialogLayout.addRow("Select the structure to load", structSelectorComboBox)
+        structSelectorDialogLayout.addRow("Select the target segmentation:", structSelectorComboBox)
         dicomPathSelector = ctk.ctkPathLineEdit()
         dicomPathSelector.filters = ctk.ctkPathLineEdit.Dirs
-        structSelectorDialogLayout.addRow("Select the path to the DICOM files", dicomPathSelector)
+        structSelectorDialogLayout.addRow("DICOM images directory", dicomPathSelector)
         outputPathSelector = ctk.ctkPathLineEdit()
         outputPathSelector.filters = ctk.ctkPathLineEdit.Dirs
-        structSelectorDialogLayout.addRow("Select the path to the output structs", outputPathSelector)
+        structSelectorDialogLayout.addRow("Output segmentation directory", outputPathSelector)
+        structSelectorDialogLayout.addRow("Note: DICOM RT-STRUCT files are not directly loadable. Please provide the paths below to convert the segmentation into a loadable format.")
+        
         
         okButton = qt.QPushButton("OK")
         
