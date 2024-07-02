@@ -889,11 +889,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # show a dialog to select the struct and path to dicom
         def onOK():
             nonlocal currentPath
-            struct = structSelectorComboBox.currentText
+            structure = structSelectorComboBox.currentText
             dicomPath = dicomPathSelector.currentPath
             outputPath = outputPathSelector.currentPath
-            structures = [struct]
-            segmentationPath = os.path.join(outputPath, 'mask_' + struct + '.nii.gz')
+            structures = [structure]
+            segmentationPath = os.path.join(outputPath, 'mask_' + structure + '.nii.gz')
             dcmrtstruct2nii(rtstruct_file=currentPath,dicom_file=dicomPath,output_path=outputPath, structures=structures)
             self.selector3DSegmentation.currentPath = segmentationPath
             currentPath = segmentationPath
