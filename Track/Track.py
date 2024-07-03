@@ -888,16 +888,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         # show a dialog to select the struct and path to dicom
         def onOK():
-            nonlocal currentPath
-            structure = structSelectorComboBox.currentText
-            dicomPath = dicomPathSelector.currentPath
-            outputPath = outputPathSelector.currentPath
-            structures = [structure]
-            segmentationPath = os.path.join(outputPath, 'mask_' + structure + '.nii.gz')
-            dcmrtstruct2nii(rtstruct_file=currentPath,dicom_file=dicomPath,output_path=outputPath, structures=structures)
-            self.selector3DSegmentation.currentPath = segmentationPath
-            currentPath = segmentationPath
-            structSelectorDialog.hide()
+          nonlocal currentPath
+          structure = structSelectorComboBox.currentText
+          dicomPath = dicomPathSelector.currentPath
+          outputPath = outputPathSelector.currentPath
+          structures = [structure]
+          segmentationPath = os.path.join(outputPath, 'mask_' + structure + '.nii.gz')
+          dcmrtstruct2nii(rtstruct_file=currentPath,dicom_file=dicomPath,output_path=outputPath, structures=structures)
+          self.selector3DSegmentation.currentPath = segmentationPath
+          currentPath = segmentationPath
+          structSelectorDialog.accept()
+          structSelectorDialog.hide()
         structSelectorDialogLayout = qt.QFormLayout()
         structSelectorComboBox = qt.QComboBox()
         structSelectorComboBox.addItems(structs)
@@ -908,10 +909,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         outputPathSelector = ctk.ctkPathLineEdit()
         outputPathSelector.filters = ctk.ctkPathLineEdit.Dirs
         structSelectorDialogLayout.addRow("Output segmentation directory", outputPathSelector)
-        structSelectorDialogLayout.addRow("Note: DICOM RT-STRUCT files are not directly loadable. Please provide the paths below to convert the segmentation into a loadable format.")
+        structSelectorDialogLayout.addWidget(qt.QLabel("Note: DICOM RT-STRUCT files are not directly loadable. Please provide the paths below to convert the segmentation into a loadable format."))
         
         
         okButton = qt.QPushButton("OK")
+        okButton.setDefault(True)
         
         structSelectorDialogLayout.addWidget(okButton)     
         
@@ -923,8 +925,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         structSelectorDialog.show()
         while structSelectorDialog.isVisible():
             slicer.app.processEvents()
-        structSelectorDialog.hide()
-      
+        if structSelectorDialog.result() == qt.QDialog.Rejected:
+          # Remove filepath for the Segmentation File in the `Inputs` section
+          self.customParamNode.path3DSegmentation = ""
+          self.selector3DSegmentation.currentPath = ""
+          return
+        structSelectorDialog.hide()      
       
       # Remove the image nodes of each slice view used to preserve the slice views
       nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
