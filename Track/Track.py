@@ -75,7 +75,7 @@ This extension was developed by the Laboratory for Translational Medicine.
 
 @parameterNodeWrapper
 class CustomParameterNode:
-  folder2DImages: str
+  files2DImages: list
   sequenceNode2DImages: vtkMRMLSequenceNode
   path3DSegmentation: str
   node3DSegmentation: int  # subject hierarchy id
@@ -141,35 +141,66 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Layout within the dummy collapsible button
     self.inputsFormLayout = qt.QFormLayout(inputsCollapsibleButton)
 
-    # File and folder selectors for our input data
-
-    # 2D time series image data folder selector + delete button
-    self.selector2DImagesFolder = ctk.ctkPathLineEdit()
-    self.selector2DImagesFolder.showHistoryButton = False
-    self.selector2DImagesFolder.filters = ctk.ctkPathLineEdit.Dirs | ctk.ctkPathLineEdit.Executable | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
-    self.selector2DImagesFolder.options = ctk.ctkPathLineEdit.ShowDirsOnly
-    self.selector2DImagesFolder.settingKey = '2DImagesFolder'
-    
     iconSize = qt.QSize(24, 19)
     buttonSize = qt.QSize(25, 25)
-     
-    self.deleteImagesButton = qt.QPushButton("X")
-    self.deleteImagesButton.setIconSize(iconSize)
-    self.deleteImagesButton.setFixedSize(buttonSize)
-    self.deleteImagesButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed) 
-    
-    self.selectorImagesLayout = qt.QHBoxLayout()
-    self.selectorImagesLayout.setAlignment(qt.Qt.AlignLeft)
-    self.selectorImagesLayout.addWidget(self.selector2DImagesFolder)
-    self.selectorImagesLayout.addWidget(self.deleteImagesButton)
-    self.inputsFormLayout.addRow("Cine Images Folder: ", self.selectorImagesLayout)
 
-    tooltipText = "Insert Cine images in .mha format."
-    self.selector2DImagesFolder.setToolTip(tooltipText)
-    browseButton = self.selector2DImagesFolder.findChildren(qt.QToolButton)[0]
-    browseButton.setToolTip(tooltipText)
-    tooltipText = "Remove Cine Images."
-    self.deleteImagesButton.setToolTip(tooltipText)
+    # File and folder selectors for our input data
+    # 2D time series image data multi file selector
+    self.selector2DImagesFiles = ctk.ctkPathListWidget()
+    self.selector2DImagesFiles.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Fixed)
+    self.selector2DImagesFiles.setMaximumHeight(100)
+
+    # Create buttons for browsing and deleting images
+    self.deleteImagesButton = qt.QPushButton("X")
+    self.deleteImagesButton.setIconSize(qt.QSize(24, 19))
+    self.deleteImagesButton.setFixedSize(qt.QSize(25, 25))
+    self.deleteImagesButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+
+    self.browseImagesButton = qt.QPushButton("...")
+    self.browseImagesButton.setIconSize(qt.QSize(24, 19))
+    self.browseImagesButton.setFixedSize(qt.QSize(26, 20))
+    self.browseImagesButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+
+    # Spacer for adjusting UI
+    spacer = qt.QSpacerItem(10, 25, qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
+
+    # Create "View More" button for displaying all selected files
+    self.viewMoreButton = qt.QPushButton("View More")
+    self.viewMoreButton.setFixedSize(qt.QSize(58, 25))
+    self.viewMoreButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+
+    # Create a layout for the buttons
+    self.buttonsLayout = qt.QVBoxLayout()
+    self.buttonsLayout.setAlignment(qt.Qt.AlignTop)
+
+    self.buttonsLayout.addSpacerItem(spacer)
+
+    # Create a horizontal layout for X and ... buttons
+    self.topButtonsLayout = qt.QHBoxLayout()
+    self.topButtonsLayout.addWidget(self.browseImagesButton)
+    self.topButtonsLayout.addWidget(self.deleteImagesButton)
+
+    self.buttonsLayout.addLayout(self.topButtonsLayout)
+
+    # Add the "View More" button below
+    self.buttonsLayout.addWidget(self.viewMoreButton)
+    self.buttonsLayout.setSpacing(4)
+
+    self.selectorImageFilesLayout = qt.QHBoxLayout()
+    self.selectorImageFilesLayout.setSpacing(0)
+    self.selectorImageFilesLayout.setContentsMargins(0, 0, 0, 2)
+    self.selectorImageFilesLayout.setAlignment(qt.Qt.AlignLeft)
+    self.selectorImageFilesLayout.addWidget(self.selector2DImagesFiles)
+    self.selectorImageFilesLayout.addLayout(self.buttonsLayout)
+
+    self.inputsFormLayout.addRow("Cine Image Files: ", self.selectorImageFilesLayout)
+
+    # Set tooltips for the widgets
+    tooltipText = "Select Cine images in .mha format."
+    self.selector2DImagesFiles.setToolTip(tooltipText)
+    self.deleteImagesButton.setToolTip("Remove selected Cine Images.")
+    self.browseImagesButton.setToolTip("Browse and add Cine Images.")
+    self.viewMoreButton.setToolTip("View all selected files")
 
     # 3D segmentation file selector + delete button
     self.selector3DSegmentation = ctk.ctkPathLineEdit()
@@ -194,7 +225,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selector3DSegmentation.setToolTip(tooltipText)
     browseButton = self.selector3DSegmentation.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
-    
+
     # Transforms file selector + delete button
     self.selectorTransformsFile = ctk.ctkPathLineEdit()
     self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
@@ -464,16 +495,21 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.opacitySlider.connect("valueChanged(double)", self.onOpacityChange)
     self.overlayOutlineOnlyBox.connect("toggled(bool)", self.onOverlayOutlineChange)
     self.resetButton.connect("clicked(bool)", self.onResetButton)
+    self.browseImagesButton.clicked.connect(self.onMultiFileBrowse)
+    self.viewMoreButton.clicked.connect(self.onViewMoreClicked)
+    self.deleteImagesButton.clicked.connect(self.onDeleteImagesButton)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
-    self.selector2DImagesFolder.connect("currentPathChanged(QString)", \
-      lambda: self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged"))
+    self.selector2DImagesFiles.connect("pathsChanged()", \
+      lambda: self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged"))
     self.selector3DSegmentation.connect("currentPathChanged(QString)", \
       lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
     self.selectorTransformsFile.connect("currentPathChanged(QString)", \
       self.onTransformsFilePathChange)
-    
+    self.selector2DImagesFiles.connect("currentPathChanged(QString)", \
+       lambda: self.updateGUIFromParameterNode("selector2DImagesFiles", "currentPathChanged"))
+
     self.columnXSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
     self.columnYSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
     self.columnZSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
@@ -482,12 +518,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       lambda: self.updateParameterNodeFromGUI("applyTransformsButton", "clicked"))
     
     # These connections ensure that whenever the user deletes some settings on the GUI, the appropiate
-    # parameter node is deleted as well  
+    # parameter node is deleted as well
     self.deleteImagesButton.connect("clicked(bool)", self.resetVisuals)
     self.deleteSegmentationButton.connect("clicked(bool)", self.resetVisuals)
     self.deleteImagesButton.connect("clicked(bool)", \
-      lambda: [self.selector2DImagesFolder.setCurrentPath(''),  
-               self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged")])
+      lambda: [self.selector2DImagesFiles.clear(),
+               self.updateParameterNodeFromGUI("selector2DImagesFiles", "currentPathChanged")])
     self.deleteSegmentationButton.connect("clicked(bool)", \
       lambda: [self.selector3DSegmentation.setCurrentPath(''),
                self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"),])
@@ -495,7 +531,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       lambda: [self.selectorTransformsFile.setCurrentPath(''), self.updateParameterNodeFromGUI("applyTransformsButton", "clicked")])
 
     # These connections will reset the visuals when one of the main inputs are modified
-    self.selector2DImagesFolder.connect("currentPathChanged(QString)", self.resetVisuals)
+    self.selector2DImagesFiles.connect("currentPathChanged(QString)", self.resetVisuals)
     self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
     
     
@@ -600,9 +636,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Make sure GUI changes do not call updateParameterNodeFromGUI (it could cause infinite loop)
     self._updatingGUIFromParameterNode = True
 
-    self.selector2DImagesFolder.currentPath = self.customParamNode.folder2DImages
     self.selector3DSegmentation.currentPath = self.customParamNode.path3DSegmentation
     self.selectorTransformsFile.currentPath = self.customParamNode.transformsFilePath
+    self.selector2DImagesFiles.clear()
+    self.selector2DImagesFiles.addPaths(self.customParamNode.files2DImages)
 
     if self.customParamNode.sequenceNode2DImages:
       self.selectorTransformsFile.enabled = True
@@ -666,19 +703,21 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     wasModified = self.customParamNode.StartModify()
 
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-    if caller == "selector2DImagesFolder" and event == "currentPathChanged":
+
+    if caller == "selector2DImagesFiles" and event == "pathsChanged":
       # Remember if all inputs were previously provided
       inputsProvided = self.selector3DSegmentation.currentPath != '' or self.selectorTransformsFile.currentPath != ''
-      
       # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
       # if the path changes, we want to remove any transforms related information. The user should
       # reselect the transforms file they wish to use with the 2D images.
       if self.customParamNode.transformsFilePath:
+        self.customParamNode.transformsFilePath = ""
         self.customParamNode.sequenceNodeTransforms = None
 
-      if self.selector2DImagesFolder.currentPath == '':
+      if len(self.selector2DImagesFiles.paths) == 0:
         # Remove the Images folder stored in customParamNode
-        self.customParamNode.folder2DImages = ''
+        self.customParamNode.files2DImages = []
+
         # Remove the unused Image Nodes Sequence node, containing each image node, if it exists
         nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
         nodes.UnRegister(None)
@@ -737,21 +776,21 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           nodes.UnRegister(None)
           for node in nodes:
             if node.GetName() == 'Image Nodes Sequence':
-                break
+              break
             if node.GetName() == node.GetAttribute('Sequences.BaseName'):
               slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
               slicer.mrmlScene.RemoveNode(node)
-          
+
           # Remove the Volume Rendering Node, if it exists
-          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")  
-        # Remove all nodes created 
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+        # Remove all nodes created
         else:
           slicer.mrmlScene.Clear()
-          
+
       else:
-        # Set a param to hold the path to the folder containing the cine images
-        self.customParamNode.folder2DImages = self.selector2DImagesFolder.currentPath
-        
+        # Set a param to hold the list of paths to the cine images
+        self.customParamNode.files2DImages = self.selector2DImagesFiles.paths
+
         # Delete nodes if sequence is actively playing
         activePlay = self.customParamNode.sequenceBrowserNode and \
                      hasattr(self.customParamNode.sequenceBrowserNode, 'GetPlaybackActive') and \
@@ -803,18 +842,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Load the images into 3D Slicer
         imagesSequenceNode, cancelled = \
-          self.logic.loadImagesIntoSequenceNode(shNode, self.selector2DImagesFolder.currentPath)
+          self.logic.loadImagesIntoSequenceNode(shNode, self.selector2DImagesFiles.paths)
 
         if cancelled:
-          # Unset the param which holds the path to the folder containing the 2D images
-          self.customParamNode.folder2DImages = ""
+          # Unset the param which holds the list of paths to the 2D images
+          self.customParamNode.files2DImages = []
         else:
           if imagesSequenceNode:
             # Set a param to hold a sequence node which holds the cine images
             self.customParamNode.sequenceNode2DImages = imagesSequenceNode
             # Track the number of total images within the parameter totalImages
             self.customParamNode.totalImages = imagesSequenceNode.GetNumberOfDataNodes()
-            self.currentFrameInputBox.setMaximum(self.customParamNode.totalImages) # allows for image counter to go above 99, if there are more than 99 images
+            self.currentFrameInputBox.setMaximum(
+              self.customParamNode.totalImages)  # allows for image counter to go above 99, if there are more than 99 images
             self.totalFrameLabel.setText(f"of {self.customParamNode.totalImages}")
 
             if not activePlay:
@@ -843,8 +883,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             
           else:
             self.totalFrameLabel.setText(f"of 0")
-            slicer.util.warningDisplay("No image files were found within the folder: "
-                                      f"{self.selector2DImagesFolder.currentPath}", "Input Error")
+            slicer.util.warningDisplay("No image files were found within the selected files.", "Input Error")
 
     if caller == "selector3DSegmentation" and event == "currentPathChanged":
       # Remove the image nodes of each slice view used to preserve the slice views
@@ -1195,7 +1234,68 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sliceNode = slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{sliceOfNewImage}')
       sliceNode.SetXYZOrigin(imageDict[sliceOfNewImage][1][0], imageDict[sliceOfNewImage][1][1], imageDict[sliceOfNewImage][1][2])
       sliceNode.SetFieldOfView(imageDict[sliceOfNewImage][0][0], imageDict[sliceOfNewImage][0][1], imageDict[sliceOfNewImage][0][2])
-  
+
+  def onMultiFileBrowse(self):
+    # Opens a file dialogue for the user to select cine images
+    fileDialog = qt.QFileDialog()
+    fileDialog.setFileMode(qt.QFileDialog.ExistingFiles)  # Allow selection of multiple files
+
+    # Create a filter for only supported file formats
+    supportedFormats = ["*.mha", "*.dcm", "*.nrrd", "*.nii", "*.hdr", "*.img", "*.nhdr"]
+    filterString = "Supported Files ({})".format(" ".join(supportedFormats))
+    fileDialog.setNameFilter(filterString)
+
+    if fileDialog.exec():
+      selectedFiles = fileDialog.selectedFiles()
+      self.selector2DImagesFiles.addPaths(selectedFiles)
+      self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged")
+
+  def onDeleteImagesButton(self):
+    # Removes the cine images from the multi file selector
+    self.selector2DImagesFiles.clear()
+    self.customParamNode.files2DImages = []
+    self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged")
+
+  def onViewMoreClicked(self):
+    # Opens up a dialog displaying selected files when the user clicks "View More"
+    dialog = qt.QDialog()
+    dialog.setWindowTitle("Selected Files")
+    dialog.setMinimumSize(400, 300)
+    layout = qt.QVBoxLayout(dialog)
+
+    tableWidget = qt.QTableWidget()
+    tableWidget.setColumnCount(1)
+    tableWidget.setHorizontalHeaderLabels(["File"])
+    tableWidget.horizontalHeader().setStretchLastSection(True)
+    tableWidget.verticalHeader().setVisible(False)
+    tableWidget.setShowGrid(False)
+    tableWidget.setAlternatingRowColors(True)
+
+    # Populate the table
+    for path in self.selector2DImagesFiles.paths:
+        rowPosition = tableWidget.rowCount
+        tableWidget.insertRow(rowPosition)
+        tableWidget.setItem(rowPosition, 0, qt.QTableWidgetItem(os.path.basename(path)))
+
+    layout.addWidget(tableWidget)
+
+    # Add an "OK" button
+    okButton = qt.QPushButton("OK")
+    okButton.clicked.connect(lambda: dialog.done(qt.QDialog.Accepted))
+    layout.addWidget(okButton)
+
+    # Apply grey/darker grey pattern
+    dialog.setStyleSheet("""
+        QDialog, QTableWidget { background-color: #2e2e2e; color: white; }
+        QTableWidget::item { padding: 5px; }
+        QTableWidget::item:selected { background-color: #3a3a3a; }
+        QHeaderView::section { background-color: #2e2e2e; color: white; padding: 5px; border: none; }
+        QPushButton { background-color: #3a3a3a; color: white; padding: 5px 15px; }
+        QPushButton:hover { background-color: #4a4a4a; }
+    """)
+
+    dialog.exec()
+      
   def onResetButton(self):
     if self.customParamNode.sequenceBrowserNode:
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
@@ -1209,8 +1309,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.sequenceSlider.setValue(0)
     self.currentFrameInputBox.setValue(0)
     self.logic.clearSliceForegrounds()
-    self.selector2DImagesFolder.currentPath = ''
-    self.updateParameterNodeFromGUI("selector2DImagesFolder", "currentPathChanged")
+    self.customParamNode.files2DImages = []
+    self.selector2DImagesFiles.clear()
+    self.updateParameterNodeFromGUI("selector2DImagesFiles", "currentPathChanged")
     self.totalFrameLabel.setText(f"of 0")
 
     # Remove the image nodes of each slice view used to preserve the slice views
