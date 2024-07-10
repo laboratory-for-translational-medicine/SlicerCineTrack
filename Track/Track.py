@@ -894,11 +894,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           outputPath = outputPathSelector.currentPath
           structures = [structure]
           segmentationPath = os.path.join(outputPath, 'mask_' + structure + '.nii.gz')
-          dcmrtstruct2nii(rtstruct_file=currentPath,dicom_file=dicomPath,output_path=outputPath, structures=structures)
-          self.selector3DSegmentation.currentPath = segmentationPath
-          currentPath = segmentationPath
-          structSelectorDialog.accept()
-          structSelectorDialog.hide()
+          try:
+            dcmrtstruct2nii(rtstruct_file=currentPath,dicom_file=dicomPath,output_path=outputPath, structures=structures)
+            self.selector3DSegmentation.currentPath = segmentationPath
+            currentPath = segmentationPath
+          except Exception as e:
+            slicer.util.warningDisplay(f"Failed to convert {fileName} to a loadable format.\n{e}",
+                                        "Failed to Convert File")
+            self.customParamNode.path3DSegmentation = ""
+            self.selector3DSegmentation.currentPath = ""
+            return
+          finally:
+            structSelectorDialog.accept()
+            structSelectorDialog.hide()
         structSelectorDialogLayout = qt.QFormLayout()
         structSelectorComboBox = qt.QComboBox()
         structSelectorComboBox.addItems(structs)
