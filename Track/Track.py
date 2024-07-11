@@ -854,12 +854,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         try:
           from dcmrtstruct2nii import dcmrtstruct2nii, list_rt_structs
         except ModuleNotFoundError:
-          if slicer.util.confirmOkCancelDisplay("The dcmrtstruct2nii module is required to load DICOM RT files."
-                                    "Please install it by clicking OK button", "Missing Python packages"):
+          if slicer.util.confirmOkCancelDisplay("To load a DICOM RT structure, the dcmrtstruct2nii module is required."
+                                    "Please click 'OK' to install it", "Missing Python packages"):
             messageBox = qt.QMessageBox()
             messageBox.setIcon(qt.QMessageBox.Information)
             messageBox.setWindowTitle("Package Installation")
-            messageBox.setText("Installing 'dcmrtstruct2nii' package...")
+            messageBox.setText("Installing 'dcmrtstruct2nii'...")
             messageBox.setStandardButtons(qt.QMessageBox.NoButton)
             messageBox.show()
             slicer.app.processEvents()
