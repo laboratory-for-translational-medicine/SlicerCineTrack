@@ -1341,6 +1341,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.deleteImagesButton.setToolTip("Pause the player to enable this feature.")
         self.deleteSegmentationButton.setToolTip("Pause the player to enable this feature.")
         self.deleteTransformsButton.setToolTip("Pause the player to enable this feature.")
+        self.columnXSelector.setToolTip("Pause the player to enable this feature.")
+        self.columnYSelector.setToolTip("Pause the player to enable this feature.")
+        self.columnZSelector.setToolTip("Pause the player to enable this feature.")
 
         # Set the play button to be a pause button
         self.playSequenceButton.setIcon(pause_icon)
@@ -1356,6 +1359,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.previousFrameButton.enabled = False
         self.currentFrameInputBox.enabled = False
         self.sequenceSlider.enabled = False
+        self.columnXSelector.enabled = False
+        self.columnYSelector.enabled = False
+        self.columnZSelector.enabled = False
       else:
         self.sequenceSlider.setToolTip("Select the next frame for playback.")
         self.deleteImagesButton.setToolTip("Remove Cine images.")
@@ -1372,6 +1378,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.deleteImagesButton.enabled = True
         self.deleteSegmentationButton.enabled = True
         self.deleteTransformsButton.enabled = True
+
+        # Enable column selectors
+        self.columnXSelector.enabled = True
+        self.columnYSelector.enabled = True
+        self.columnZSelector.enabled = True
+        self.columnXSelector.setToolTip("")
+        self.columnYSelector.setToolTip("")
+        self.columnZSelector.setToolTip("")
 
         if self.atLastImage():
           #self.nextFrameButton.setToolTip("Move to the previous frame.") - may add a different tooltip at last image
