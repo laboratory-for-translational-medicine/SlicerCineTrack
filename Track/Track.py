@@ -1117,6 +1117,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.customParamNode.sequenceBrowserNode.GetPlaybackActive():
       # if we are playing, click this button will pause the playback
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+      self.updatePlaybackButtons(True)
       # Synchronize `sequenceSlider` and `currentFrameInputBox` if either is modified by the user
       self.sequenceSlider.setValue(self.currentFrameInputBox.value)
       self.currentFrameInputBox.setValue(self.sequenceSlider.value)
