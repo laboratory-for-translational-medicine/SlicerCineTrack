@@ -1520,16 +1520,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                  self.customParamNode.sequenceNodeTransforms,
                                  self.customParamNode.opacity,
                                  self.customParamNode.overlayAsOutline)
-      # center images on segmentation
-      labelmap = slicer.mrmlScene.GetNodesByClass('vtkMRMLLabelMapVolumeNode').GetItemAsObject(0)
-      seg = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
-      slicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmap, seg)
-      center = seg.GetSegmentCenterRAS(seg.GetSegmentation().GetNthSegmentID(0))
-      slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(seg, labelmap)
-      slicer.mrmlScene.RemoveNode(seg)
-      for name in layoutManager.sliceViewNames():
-        sliceNode = slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{name}')
-        sliceNode.JumpSlice(center[0], center[1], center[2])
+      # center 3D images on segmentation
+      if self.customParamNode.sequenceNode2DImages.GetDataNodeAtValue("0").GetImageData().GetDataDimension() == 3:
+        labelmap = slicer.mrmlScene.GetNodesByClass('vtkMRMLLabelMapVolumeNode').GetItemAsObject(0)
+        seg = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')
+        slicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmap, seg)
+        center = seg.GetSegmentCenterRAS(seg.GetSegmentation().GetNthSegmentID(0))
+        slicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(seg, labelmap)
+        slicer.mrmlScene.RemoveNode(seg)
+        for name in layoutManager.sliceViewNames():
+          sliceNode = slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{name}')
+          sliceNode.JumpSlice(center[0], center[1], center[2])
     
     self.applyTransformButton.enabled = False
 
