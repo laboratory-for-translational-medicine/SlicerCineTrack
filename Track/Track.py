@@ -166,7 +166,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Create "View More" button for displaying all selected files
     self.viewMoreButton = qt.QPushButton("View More")
-    self.viewMoreButton.setFixedSize(qt.QSize(58, 25))
+    self.viewMoreButton.setFixedSize(qt.QSize(66, 25))
     self.viewMoreButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
 
     # Create a layout for the buttons

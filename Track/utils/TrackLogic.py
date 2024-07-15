@@ -52,9 +52,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     # Find all the image file names within the provided paths
     imageFiles = []
+    fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img',
+                   '.*\.nhdr']  # Only look for valid files
     for path in paths:
-      fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img',
-                     '.*\.nhdr']  # Only look for valid files
       validFormat = any(re.match(format, path) for format in fileFormats)
       if validFormat:
         imageFiles.append(path)
