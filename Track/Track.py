@@ -917,7 +917,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         outputPathSelector = ctk.ctkPathLineEdit()
         outputPathSelector.filters = ctk.ctkPathLineEdit.Dirs
         structSelectorDialogLayout.addRow("Output segmentation directory", outputPathSelector)
-        structSelectorDialogLayout.addWidget(qt.QLabel("Note: DICOM RT-STRUCT files are not directly loadable. Please provide the paths below to convert the segmentation into a loadable format."))
+        structSelectorDialogLayout.addWidget(qt.QLabel("Note: DICOM RT-STRUCT files are not directly loadable. Please provide the paths above to convert the segmentation into a loadable format."))
         
         
         okButton = qt.QPushButton("OK")
