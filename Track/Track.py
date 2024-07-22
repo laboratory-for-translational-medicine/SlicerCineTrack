@@ -895,9 +895,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           structures = [structure]
           segmentationPath = os.path.join(outputPath, 'mask_' + structure + '.nii.gz')
           try:
-            dcmrtstruct2nii(rtstruct_file=currentPath,dicom_file=dicomPath,output_path=outputPath, structures=structures)
+            messageBox = qt.QMessageBox()
+            messageBox.setIcon(qt.QMessageBox.Information)
+            messageBox.setWindowTitle("Converting DICOM RT-STRUCT")
+            messageBox.setText(f"Converting {structure} to a loadable format...")
+            messageBox.setStandardButtons(qt.QMessageBox.NoButton)
+            messageBox.show()
+            slicer.app.processEvents()
+            dcmrtstruct2nii(rtstruct_file=currentPath,dicom_file=dicomPath,output_path=outputPath, structures=structures,convert_original_dicom=False)
             self.selector3DSegmentation.currentPath = segmentationPath
             currentPath = segmentationPath
+            messageBox.setText(f"Convert DICOM RT_STRUCT successfully. Mask {structure} will now load.")
+            slicer.app.processEvents()  # Process events to allow the dialog to update
+            qt.QTimer.singleShot(3000, messageBox.accept)
           except Exception as e:
             slicer.util.warningDisplay(f"Failed to convert {fileName} to a loadable format.\n{e}",
                                         "Failed to Convert File")
