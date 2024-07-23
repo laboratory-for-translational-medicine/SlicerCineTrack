@@ -40,26 +40,27 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     customParameterNode.opacity = 1.0  # 100 %
     customParameterNode.overlayAsOutline = True
 
-  def loadImagesIntoSequenceNode(self, shNode, path):
+  def loadImagesIntoSequenceNode(self, shNode, paths):
     """
-    Loads the cine images located within the provided path into 3D Slicer. They are
+    Loads the cine images located in the provided paths into 3D Slicer. They are
     placed within a sequence node and the loaded image nodes are deleted thereafter.
     :param shNode: node representing the subject hierarchy
-    :param path: path to folder containing the 2D images to be imported
+    :param paths: list of paths to the 2D images to be imported
     """
     # NOTE: This represents a node within the MRML scene, not within the subject hierarchy
     imagesSequenceNode = None
 
-    # Find all the image file names within the provided dir
+    # Find all the image file names within the provided paths
     imageFiles = []
-    for item in os.listdir(path):
-      fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img', '.*\.nhdr']  # Only look for valid files
-      validFormat = any(re.match(format, item) for format in fileFormats)
+    fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img',
+                   '.*\.nhdr']  # Only look for valid files
+    for path in paths:
+      validFormat = any(re.match(format, path) for format in fileFormats)
       if validFormat:
-        imageFiles.append(item)
+        imageFiles.append(path)
     imageFiles.sort()
 
-    # We only want to create a sequence node if image files were found within the provided path
+    # We only want to create a sequence node if image files were found within the provided paths
     if len(imageFiles) != 0:
       imagesSequenceNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode",
                                                               "Image Nodes Sequence")
@@ -76,8 +77,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           slicer.mrmlScene.RemoveNode(imagesSequenceNode)
           return None, True
 
-        filepath = os.path.join(path, imageFiles[fileIndex])
-        nodeName = (f"Image {fileIndex + 1} ({imageFiles[fileIndex]})").format(filepath)
+        filepath = imageFiles[fileIndex]
+        nodeName = (f"Image {fileIndex + 1} ({os.path.basename(filepath)})")
 
         loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
         loadedImageNode.SetName(nodeName)
