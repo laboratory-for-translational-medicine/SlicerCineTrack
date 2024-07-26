@@ -111,7 +111,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic = None
     self.customParamNode = None
     self._updatingGUIFromParameterNode = False
-    self.isDarkMode = None
+      
   def onColumnXSelectorChange(self):
     self.applyTransformButton.enabled = True
     self.transformationAppliedLabel.setVisible(False)
@@ -152,28 +152,22 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Create buttons for browsing and deleting images
     self.deleteImagesButton = qt.QPushButton("X")
-    self.deleteImagesButton.setIconSize(iconSize)
-    self.deleteImagesButton.setFixedSize(buttonSize)
+    self.deleteImagesButton.setIconSize(qt.QSize(24, 19))
+    self.deleteImagesButton.setFixedSize(qt.QSize(25, 25))
     self.deleteImagesButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
 
     self.browseImagesButton = qt.QPushButton("...")
-    self.browseImagesButton.setIconSize(qt.QSize(50, 25))
-    self.browseImagesButton.setFixedSize(qt.QSize(26, 21))
+    self.browseImagesButton.setIconSize(qt.QSize(24, 19))
+    self.browseImagesButton.setFixedSize(qt.QSize(26, 20))
     self.browseImagesButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
 
     # Spacer for adjusting UI
     spacer = qt.QSpacerItem(10, 25, qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
 
     # Create "View More" button for displaying all selected files
-    self.mediaIconsPath = os.path.join(os.path.dirname(slicer.util.modulePath(self.__module__)),
-                                       'Resources', 'Icons')
-    self.viewMoreButton = qt.QPushButton()
+    self.viewMoreButton = qt.QPushButton("View More")
+    self.viewMoreButton.setFixedSize(qt.QSize(66, 25))
     self.viewMoreButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
-    self.viewMoreButton.setFixedSize(qt.QSize(28, 26))
-
-    # Initial colour of the icon
-    self.updateViewMoreIcon()
-    slicer.app.paletteChanged.connect(self.updateViewMoreIcon)
 
     # Create a layout for the buttons
     self.buttonsLayout = qt.QVBoxLayout()
@@ -190,7 +184,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Add the "View More" button below
     self.buttonsLayout.addWidget(self.viewMoreButton)
-    self.buttonsLayout.setSpacing(3)
+    self.buttonsLayout.setSpacing(4)
 
     self.selectorImageFilesLayout = qt.QHBoxLayout()
     self.selectorImageFilesLayout.setSpacing(0)
@@ -377,7 +371,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.previousFrameButton = qt.QPushButton()
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'previous.png'))
     self.previousFrameButton.setIcon(icon)
-    self.previousFrameButton.setIconSize(iconSize)
+    self.previousFrameButton.setIconSize(qt.QSize(16, 16))
     self.previousFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.previousFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.previousFrameButton)
@@ -387,7 +381,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.nextFrameButton = qt.QPushButton()
     icon = qt.QIcon(os.path.join(mediaIconsPath, 'next.png'))
     self.nextFrameButton.setIcon(icon)
-    self.nextFrameButton.setIconSize(iconSize)
+    self.nextFrameButton.setIconSize(qt.QSize(16, 16))
     self.nextFrameButton.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.nextFrameButton.setFixedSize(buttonSize)
     self.controlLayout.addWidget(self.nextFrameButton)
@@ -1344,17 +1338,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       sliceNode.SetXYZOrigin(imageDict[sliceOfNewImage][1][0], imageDict[sliceOfNewImage][1][1], imageDict[sliceOfNewImage][1][2])
       sliceNode.SetFieldOfView(imageDict[sliceOfNewImage][0][0], imageDict[sliceOfNewImage][0][1], imageDict[sliceOfNewImage][0][2])
 
-  def updateViewMoreIcon(self):
-    # Changes icon image between black icon and white icon depending on if user is using light or dark mode
-    isDarkMode = slicer.app.palette().color(qt.QPalette.Window).lightness() < 128
-
-    if isDarkMode != self.isDarkMode:
-      self.isDarkMode = isDarkMode
-      iconPath = os.path.join(self.mediaIconsPath, 'ViewMore.png' if isDarkMode else 'ViewMore2.png')
-      icon = qt.QIcon(iconPath)
-      self.viewMoreButton.setIcon(icon)
-      self.viewMoreButton.setIconSize(qt.QSize(24, 19))
-
   def onMultiFileBrowse(self):
     # Opens a file dialogue for the user to select cine images
     fileDialog = qt.QFileDialog()
@@ -1404,29 +1387,15 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     okButton.clicked.connect(lambda: dialog.done(qt.QDialog.Accepted))
     layout.addWidget(okButton)
 
-    isDarkMode = slicer.app.palette().color(qt.QPalette.Window).lightness() < 128
-
     # Apply grey/darker grey pattern
-    if isDarkMode:
-      # Dark mode styling
-      dialog.setStyleSheet("""
-          QDialog, QTableWidget { background-color: #2e2e2e; color: white; }
-          QTableWidget::item { padding: 5px; }
-          QTableWidget::item:selected { background-color: #3a3a3a; }
-          QHeaderView::section { background-color: #2e2e2e; color: white; padding: 5px; border: none; }
-          QPushButton { background-color: #3a3a3a; color: white; padding: 5px 15px; }
-          QPushButton:hover { background-color: #4a4a4a; }
-      """)
-    else:
-      # Light mode styling
-      dialog.setStyleSheet("""
-          QDialog, QTableWidget { background-color: #f0f0f0; color: #333333; }
-          QTableWidget::item { padding: 5px; }
-          QTableWidget::item:selected { background-color: #e0e0e0; }
-          QHeaderView::section { background-color: #f0f0f0; color: #333333; padding: 5px; border: none; }
-          QPushButton { background-color: #e0e0e0; color: #333333; padding: 5px 15px; }
-          QPushButton:hover { background-color: #d0d0d0; }
-      """)
+    dialog.setStyleSheet("""
+        QDialog, QTableWidget { background-color: #2e2e2e; color: white; }
+        QTableWidget::item { padding: 5px; }
+        QTableWidget::item:selected { background-color: #3a3a3a; }
+        QHeaderView::section { background-color: #2e2e2e; color: white; padding: 5px; border: none; }
+        QPushButton { background-color: #3a3a3a; color: white; padding: 5px 15px; }
+        QPushButton:hover { background-color: #4a4a4a; }
+    """)
 
     dialog.exec()
       
