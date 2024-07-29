@@ -1361,7 +1361,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     fileDialog.setFileMode(qt.QFileDialog.ExistingFiles)  # Allow selection of multiple files
 
     # Create a filter for only supported file formats
-    supportedFormats = ["*.mha", "*.dcm", "*.nrrd", "*.nii", "*.hdr", "*.img", "*.nhdr"]
+    supportedFormats = ["*.mha", "*.dcm", "*.nrrd", "*.nii", "*.hdr", "*.img", "*.nhdr", "*.mhd", "*.raw", "*.nii.gz"]
     filterString = "Supported Files ({})".format(" ".join(supportedFormats))
     fileDialog.setNameFilter(filterString)
 
