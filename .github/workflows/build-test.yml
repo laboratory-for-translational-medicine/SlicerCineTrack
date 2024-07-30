@@ -109,4 +109,4 @@ jobs:
       uses: coactions/setup-xvfb@v1.0.1
       with:
         run:
-          ctest -V --test-dir ${{ steps.SlicerCineTrack-build.outputs.EXTENSION_BUILD_DIR }}/inner-build
+          ctest -V --test-dir ${{ steps.SlicerCineTrack-build.outputs.EXTENSION_BUILD_DIR }}
