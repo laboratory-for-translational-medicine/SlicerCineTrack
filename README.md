@@ -24,6 +24,7 @@ Here is a little demo
 ## Setup Instructions
 
 A video is attached to show sample usage and behaviour of SlicerCineTrack. This demo can also be performed locally, using the provided steps and dataset below.
+
 ![SlicerCineTrack Tutorial](https://github.com/user-attachments/assets/ddab1832-e721-4d43-a99c-982e72ac5641)
 
 
