@@ -25,7 +25,10 @@ Here is a little demo
 
 A video is attached to show sample usage and behaviour of SlicerCineTrack. This demo can also be performed locally, using the provided steps and dataset below.
 
-![SlicerCineTrack Tutorial](https://github.com/user-attachments/assets/ddab1832-e721-4d43-a99c-982e72ac5641)
+
+
+[!SlicerCineTrackTutorial.mp4](https://github.com/user-attachments/assets/d72f8d53-ca74-4ec4-a0d0-8e7131de3a62)
+
 
 
 1) Install the "SlicerCineTrack" extension from the 3D Slicer extension manager
