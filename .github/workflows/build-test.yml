@@ -109,7 +109,7 @@ jobs:
       name: Download Test Data
       run: |
         SLICER_VERSION="$(find ${{ steps.SlicerCineTrack-build.outputs.EXTENSION_BUILD_DIR }}/lib -maxdepth 1 -type d -name "Slicer-*" -printf "%f\n" | head -n1)"
-        EXTENSION_FOLDER="${${{ steps.SlicerCineTrack-build.outputs.EXTENSION_BUILD_DIR }}/lib/$SLICER_VERSION/qt-scripted-modules/}"
+        EXTENSION_FOLDER="$(${{ steps.SlicerCineTrack-build.outputs.EXTENSION_BUILD_DIR }}/lib/$SLICER_VERSION/qt-scripted-modules/)"
         # TODO try to make this dynamic so we can test on different dataset
         wget -P $EXTENSION_FOLDER https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/releases/download/v1.0.0-SlicerCineTrack/Data.zip
         unzip $EXTENSION_FOLDER/Data.zip
