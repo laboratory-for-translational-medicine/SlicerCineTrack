@@ -7,9 +7,9 @@ DISCLAIMER: This software is not intended for clinical use.
 ## What can SlicerCineTrack do?
 
 Please take a look at [documentation page](https://slicercinetrack.github.io/Documentation) on SlicerCineTrack's Homepage.
-Here is a little demo
+<!-- Here is a little demo
 
-![Track.gif](https://github.com/slicercinetrack/slicercinetrack.github.io/blob/603168b23fd5b0adb6c4a1a495d314b104a438f1/resources/screenshots/Track.gif?raw=true)
+![Track.gif](https://github.com/slicercinetrack/slicercinetrack.github.io/blob/603168b23fd5b0adb6c4a1a495d314b104a438f1/resources/screenshots/Track.gif?raw=true) -->
 
 ## Directory Tree Description
 
@@ -52,11 +52,15 @@ A video is attached to show sample usage and behaviour of SlicerCineTrack. This 
 
 6) Press the `Play` button to begin playback 
 
-## Quick Setup Instructions for Developers
+## Using the Preview Release of SlicerCineTrack for Development
 
-If you want to clone this demo and make it work with 3D Slicer software, please follow steps below
+1) Navigate to the desired location and clone this repository using 
+   ```
+   git clone https://github.com/laboratory-for-translational-medicine/SlicerCineTrack.git
+   ```
+   Ensure that the branch is set to the 'dev' branch, as it contains the latest changes.
 
-1) To access the module within your 3D Slicer installation you must first make the module available to 3D Slicer. Open 3D Slicer and click:
+2) To access the module within your 3D Slicer installation you must first make the module available to 3D Slicer. Open 3D Slicer and click:
 
    `Edit` -> `Application Settings` -> `Modules`
 
@@ -65,8 +69,6 @@ If you want to clone this demo and make it work with 3D Slicer software, please 
 * Hint: Click on the `>>` button to show the `Add` button
 * Ensure to add the path to `SlicerCineTrack/Track`
 * After the path is added, the program will restart
-
-Follow Steps 2, 3, 4, 5, 6 from the setup guide
 
 ### Extension Development
 
