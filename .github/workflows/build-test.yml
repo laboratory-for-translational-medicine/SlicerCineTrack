@@ -113,7 +113,7 @@ jobs:
         echo "$EXTENSION_FOLDER"
         # TODO try to make this dynamic so we can test on different dataset
         wget -P $EXTENSION_FOLDER https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/releases/download/v1.0.0-SlicerCineTrack/Data.zip
-        unzip $EXTENSION_FOLDER/Data.zip
+        unzip $EXTENSION_FOLDER/Data.zip -d $EXTENSION_FOLDER/
         echo $(ls -latR $EXTENSION_FOLDER/Data)
         echo $(tree $EXTENSION_FOLDER)
     - name: Test SlicerCineTrack
