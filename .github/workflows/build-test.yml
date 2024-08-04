@@ -45,7 +45,8 @@ jobs:
     - id: slicer-build
       name: Build Slicer
       run: |
-        Qt5_DIR=$QT_ROOT_DIR/lib/cmake/Qt5
+        # TODO: check if we can use the prebuild docker image from SlicerDocker https://github.com/Slicer/SlicerDocker
+        Qt5_DIR=$QT_ROOT_DIR/lib/cmake/Qt5 
 
         Slicer_SOURCE_DIR=${{ github.workspace }}/Slicer
         Slicer_BUILD_DIR=${{ github.workspace }}/Slicer-build
