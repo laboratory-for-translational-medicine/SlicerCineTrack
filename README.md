@@ -23,7 +23,7 @@ Please take a look at [documentation page](https://slicercinetrack.github.io/Doc
 
 ## Setup Instructions
 
-A video is attached to show sample usage and behaviour of SlicerCineTrack. This demo can also be performed locally, using the provided steps and dataset below.
+The video below demonstrates sample usage and behaviour of SlicerCineTrack. This demo can also be performed locally, using the provided steps and dataset below.
 
 
 
@@ -54,17 +54,17 @@ A video is attached to show sample usage and behaviour of SlicerCineTrack. This 
 
 ## Using the Preview Release of SlicerCineTrack for Development
 
-1) Navigate to the desired location and clone this repository using 
+1) Navigate to the desired location and clone this repository using: 
    ```
    git clone https://github.com/laboratory-for-translational-medicine/SlicerCineTrack.git
    ```
-   Ensure that the branch is set to the 'dev' branch, as it contains the latest changes.
+   Ensure that the branch is set to the `dev` branch, as it contains the latest changes.
 
 2) To access the module within your 3D Slicer installation you must first make the module available to 3D Slicer. Open 3D Slicer and click:
 
    `Edit` -> `Application Settings` -> `Modules`
 
-   Now add the path to the `Track` folder within th   e `Additional module paths` selection box
+   Now add the path to the `Track` folder within the `Additional module paths` selection box
 
 * Hint: Click on the `>>` button to show the `Add` button
 * Ensure to add the path to `SlicerCineTrack/Track`
