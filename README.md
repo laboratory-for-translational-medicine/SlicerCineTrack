@@ -1,8 +1,9 @@
 # SlicerCineTrack
 
+[![main branch](https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/actions/workflows/build-test.yml) [![dev branch](https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/actions/workflows/build-test.yml/badge.svg?branch=dev)](https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/actions/workflows/build-test.yml)
 SlicerCineTrack is a 3D Slicer extension designed for the visual verification of target tracking results. The ROI segmentation is resampled according to user-provided transformation data and overlaid on a set of time-series medical images.
 
-DISCLAIMER: This software is not intended for clinical use.
+**DISCLAIMER**: This software is not intended for clinical use.
 
 ## What can SlicerCineTrack do?
 
