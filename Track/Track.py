@@ -1367,6 +1367,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     if fileDialog.exec():
       selectedFiles = fileDialog.selectedFiles()
+      selectedFiles = sorted(list(selectedFiles))
       self.selector2DImagesFiles.addPaths(selectedFiles)
       self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged")
 
