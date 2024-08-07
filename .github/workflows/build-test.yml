@@ -1,0 +1,124 @@
+name: Build, test
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "**.png"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-22.04
+
+    env:
+      BUILD_TYPE: Release
+
+    steps:
+
+    - name: Checkout out SlicerCineTrack
+      uses: actions/checkout@v3
+      with:
+        path: ${{ github.workspace }}/SlicerCineTrack
+
+    - name: Get specific version of CMake, Ninja
+      uses: lukka/get-cmake@v3.24.2
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        host: 'linux'
+        dir: '/opt/qt'
+        modules: 'qtwebengine'
+        setup-python: false
+
+    - name: Checkout out Slicer
+      uses: actions/checkout@v3
+      with:
+        repository: Slicer/Slicer
+        path: ${{ github.workspace }}/Slicer
+
+    - id: slicer-build
+      name: Build Slicer
+      run: |
+        # TODO: check if we can use the prebuild docker image from SlicerDocker https://github.com/Slicer/SlicerDocker
+        Qt5_DIR=$QT_ROOT_DIR/lib/cmake/Qt5 
+
+        Slicer_SOURCE_DIR=${{ github.workspace }}/Slicer
+        Slicer_BUILD_DIR=${{ github.workspace }}/Slicer-build
+
+        cmake \
+          -GNinja \
+          -DBUILD_TESTING:BOOL=OFF \
+          -DCMAKE_BUILD_TYPE:STRING=$BUILD_TYPE \
+          -DQt5_DIR:PATH=$Qt5_DIR \
+          -DSlicer_BUILD_APPLICATIONUPDATE_SUPPORT:BOOL=OFF \
+          -DSlicer_BUILD_DOCUMENTATION:BOOL=OFF \
+          -DSlicer_BUILD_BRAINSTOOLS:BOOL=OFF \
+          -DSlicer_BUILD_CompareVolumes:BOOL=OFF \
+          -DSlicer_BUILD_DICOM_SUPPORT:BOOL=ON \
+          -DSlicer_BUILD_I18N_SUPPORT:BOOL=OFF \
+          -DSlicer_BUILD_LandmarkRegistration:BOOL=OFF \
+          -DSlicer_BUILD_MULTIMEDIA_SUPPORT:BOOL=OFF \
+          -DSlicer_BUILD_MULTIVOLUME_SUPPORT:BOOL=OFF \
+          -DSlicer_BUILD_QT_DESIGNER_PLUGINS:BOOL=OFF \
+          -DSlicer_BUILD_SurfaceToolbox:BOOL=OFF \
+          -DSlicer_BUILD_WEBENGINE_SUPPORT:BOOL=OFF \
+          -DSlicer_USE_NUMPY:BOOL=OFF \
+          -DSlicer_USE_PYTHONQT:BOOL=ON \
+          -DSlicer_USE_QtTesting:BOOL=OFF \
+          -DSlicer_USE_SCIPY:BOOL=OFF \
+          -DSlicer_USE_SimpleITK:BOOL=OFF \
+          -DSlicer_USE_TBB:BOOL=OFF \
+          -DSlicer_USE_VTK_DEBUG_LEAKS:BOOL=OFF \
+          -S $Slicer_SOURCE_DIR \
+          -B $Slicer_BUILD_DIR
+
+        cmake \
+          --build $Slicer_BUILD_DIR \
+          --config $BUILD_TYPE
+
+        echo "Slicer_DIR=$Slicer_BUILD_DIR/Slicer-build" >> $GITHUB_OUTPUT
+
+    - id: SlicerCineTrack-build
+      name: Build SlicerCineTrack
+      run: |
+        Slicer_DIR=${{ steps.slicer-build.outputs.Slicer_DIR }}
+
+        EXTENSION_NAME=SlicerCineTrack
+        EXTENSION_SOURCE_DIR=${{ github.workspace }}/$EXTENSION_NAME
+        EXTENSION_BUILD_DIR=${{ github.workspace }}/$EXTENSION_NAME-build
+
+        cmake \
+          -GNinja \
+          -DCMAKE_BUILD_TYPE:STRING=$BUILD_TYPE \
+          -DSlicer_DIR:PATH=$Slicer_DIR \
+          -S $EXTENSION_SOURCE_DIR \
+          -B $EXTENSION_BUILD_DIR
+
+        cmake \
+          --build $EXTENSION_BUILD_DIR \
+          --config $BUILD_TYPE
+
+        echo "EXTENSION_BUILD_DIR=$EXTENSION_BUILD_DIR" >> $GITHUB_OUTPUT
+
+    - id: DownloadTestData
+      name: Download Test Data
+      run: |
+        SLICER_VERSION="$(find ${{ steps.SlicerCineTrack-build.outputs.EXTENSION_BUILD_DIR }}/lib -maxdepth 1 -type d -name "Slicer-*" -printf "%f\n" | head -n1)"
+        EXTENSION_FOLDER=${{ steps.SlicerCineTrack-build.outputs.EXTENSION_BUILD_DIR }}/lib/$SLICER_VERSION/qt-scripted-modules
+        echo "$EXTENSION_FOLDER"
+        # TODO try to make this dynamic so we can test on different dataset
+        wget -P $EXTENSION_FOLDER https://github.com/laboratory-for-translational-medicine/SlicerCineTrack/releases/download/v1.0.0-SlicerCineTrack/Data.zip
+        unzip $EXTENSION_FOLDER/Data.zip -d $EXTENSION_FOLDER/
+        echo $(ls -latR $EXTENSION_FOLDER/Data)
+        echo $(tree $EXTENSION_FOLDER)
+    - name: Test SlicerCineTrack
+      uses: coactions/setup-xvfb@v1.0.1
+      with:
+        run:
+          ctest -V --test-dir ${{ steps.SlicerCineTrack-build.outputs.EXTENSION_BUILD_DIR }}

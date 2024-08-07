@@ -1797,6 +1797,7 @@ class TrackTest(ScriptedLoadableModuleTest):
                                           'Data')
     self.csv_file_path = os.path.join(self.data_folder_path, 'Transforms.csv')
     self.cine_images_folder_path = os.path.join(self.data_folder_path, '2D Cine Images')
+    self.cine_files_paths = [os.path.join(self.cine_images_folder_path, f) for f in os.listdir(self.cine_images_folder_path)]
     self.csv_headers = ['X', 'Y', 'Z']  
 
   def runTest(self):
@@ -1816,14 +1817,14 @@ class TrackTest(ScriptedLoadableModuleTest):
   def test_loadImagesIntoSequenceNode(self):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
     imagesSequenceNode, cancelled = \
-        self.logic.loadImagesIntoSequenceNode(shNode, self.cine_images_folder_path)
+        self.logic.loadImagesIntoSequenceNode(shNode, self.cine_files_paths)
     total_num_images = imagesSequenceNode.GetNumberOfDataNodes()
     self.assertEqual(total_num_images, 71)
     
   def test_validateTransformsInput(self):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
     imagesSequenceNode, cancelled = \
-        self.logic.loadImagesIntoSequenceNode(shNode, self.cine_images_folder_path)
+        self.logic.loadImagesIntoSequenceNode(shNode, self.cine_files_paths)
     total_num_images = imagesSequenceNode.GetNumberOfDataNodes()
     transformationList = self.logic.validateTransformsInput(self.csv_file_path, total_num_images, self.csv_headers)
     self.assertTrue(transformationList is not None)
