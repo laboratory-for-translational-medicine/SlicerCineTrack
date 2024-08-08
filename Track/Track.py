@@ -1438,6 +1438,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     self.selectorTransformsFile.currentPath = ''
     self.updateParameterNodeFromGUI("applyTransformsButton", "clicked")
+    self.columnXSelector.clear()
+    self.columnXSelector.enabled = False
+    self.columnYSelector.clear()
+    self.columnYSelector.enabled = False
+    self.columnZSelector.clear()
+    self.columnZSelector.enabled = False
     self.playbackSpeedBox.value = 5.0
     self.overlayOutlineOnlyBox.checked = True
     self.opacitySlider.value = 1
