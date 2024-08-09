@@ -4,6 +4,8 @@ from slicer.ScriptedLoadableModule import *
 import qt, vtk, ctk
 
 import os, csv, re
+import SimpleITK as sitk
+import sitkUtils
 
 class TrackLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
@@ -638,7 +640,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         # Render changes
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
-
+  
   def getSliceWidget(self, layoutManager, imageNode):
     """
     This function helps to determine the slice widget that corresponds to the orientation of the
@@ -646,7 +648,56 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     :param layoutManager: node representing the MRML layout manager
     :param imageNode: node representing the 2D image
     """
+    
+    def get_anatomical_orientation(image):
+      """
+      Helper function for fixing images with incorrect anatomical orientation.
+      Determine the anatomical orientation of an image based on its direction cosines.
+      """
+      direction = image.GetDirection()
+      anatomical_labels = ['R', 'A', 'I', 'L', 'P', 'S']
+      orientation = []
+
+      # Determine the dominant direction for each axis
+      for axis in range(3):
+        # Extract the direction vector for the current axis
+        vector = direction[axis::3]
+        # Determine the index of the dominant direction
+        max_index = max(range(3), key=lambda i: abs(vector[i]))
+        # Append the corresponding anatomical label
+        orientation.append(anatomical_labels[max_index + (3 if vector[max_index] < 0 else 0)])
+
+      return ''.join(orientation)
+
+    def reorient_image(image, orientation):
+      """
+      Helper function for fixing images oritentation.
+      Reorient the image based on the anatomical orientation.
+      """
+      if image.GetSize()[0] == 1:
+        # Single-slice in x-direction, check for sagittal, coronal, or axial
+        if orientation[0] in ('L', 'R'):
+          return sitk.DICOMOrient(image, 'PIR')  # Sagittal
+        elif orientation[0] in ('A', 'P'):
+          return sitk.DICOMOrient(image, 'LIA')  # Coronal
+        else:
+          return sitk.DICOMOrient(image, 'LPS')  # Axial
+      elif image.GetSize()[1] == 1:
+        # Single-slice in y-direction, check for sagittal, coronal, or axial
+        if orientation[1] in ('L', 'R'):
+          return sitk.DICOMOrient(image, 'PIR')  # Sagittal
+        elif orientation[1] in ('A', 'P'):
+          return sitk.DICOMOrient(image, 'LIA')  # Coronal
+        else:
+          return sitk.DICOMOrient(image, 'LPS')  # Axial
+      return image
+  
     # Determine the orientation of the image
+    sitk_image = sitkUtils.PullVolumeFromSlicer(imageNode)
+    if sitk_image.GetSize()[2] != 1:
+      orientation = get_anatomical_orientation(sitk_image)
+      reoriented_image = reorient_image(sitk_image, orientation)
+      imageNode = sitkUtils.PushVolumeToSlicer(reoriented_image, None, name=imageNode.GetName())
     tmpMatrix = vtk.vtkMatrix4x4()
     if imageNode is not None:
       imageNode.GetIJKToRASMatrix(tmpMatrix)
