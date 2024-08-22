@@ -1499,7 +1499,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.customParamNode.sequenceBrowserNode:
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
-    self.customParamNode.contourColor = [0, 1, 0]
+    self.customParamNode.contourColor = [0, 0.7, 0]
     self.contourColorButton.setStyleSheet("background-color: green;")
     self.selectorTransformsFile.currentPath = ''
     self.updateParameterNodeFromGUI("applyTransformsButton", "clicked")
