@@ -708,13 +708,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     # Disable the "Apply Transformation" button to assure the user the Transformation is applied
     self.applyTransformButton.enabled = False
-    
-
-    # Restore contour color
-    if hasattr(self.customParamNode, 'contourColor'):
-      color = qt.QColor()
-      color.setRgbF(*self.customParamNode.contourColor)
-      self.contourColorButton.setStyleSheet(f"background-color: {color.name()};")
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
     This method is called when the user makes any change in the GUI.
