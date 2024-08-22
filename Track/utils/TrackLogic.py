@@ -39,7 +39,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     customParameterNode.fps = 5.0  # frames (i.e. images) per second
     customParameterNode.opacity = 1.0  # 100 %
     customParameterNode.overlayAsOutline = True
-    customParameterNode.contourColor = [0, 1, 0]
+    customParameterNode.contourColor = [0, 0.7, 0]
 
   def loadImagesIntoSequenceNode(self, shNode, paths):
     """

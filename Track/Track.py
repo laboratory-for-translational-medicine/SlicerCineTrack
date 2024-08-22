@@ -87,7 +87,7 @@ class CustomParameterNode:
   fps: float
   opacity: float
   overlayAsOutline: bool
-  contourColor: list  # [r, g, b] values from 0 to 1
+  contourColor: list # [r, g, b] values from 0 to 1
 
 #
 # TrackWidget
@@ -1391,12 +1391,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged")
 
   def onContourColorPicker(self):
-    current_color = qt.QColor()
-    current_color.setRgbF(*self.customParamNode.contourColor)
+    currentColor = qt.QColor()
+    currentColor.setRgbF(*self.customParamNode.contourColor)
 
     # Open color dialog with the currently selected color
     colorDialog = qt.QColorDialog()
-    colorDialog.setCurrentColor(current_color)
+    colorDialog.setCurrentColor(currentColor)
     colorDialog.setOption(qt.QColorDialog.ShowAlphaChannel, False)
 
     if colorDialog.exec_() == qt.QDialog.Accepted:
