@@ -87,6 +87,7 @@ class CustomParameterNode:
   fps: float
   opacity: float
   overlayAsOutline: bool
+  contourColor: list  # [r, g, b] values from 0 to 1
 
 #
 # TrackWidget
@@ -468,6 +469,18 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.opacityPercentageLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
+
+    # Color picker for contour
+    self.contourColorLabel = qt.QLabel("Contour Color:")
+    self.contourColorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.contourColorLabel.setContentsMargins(20, 0, 10, 0)
+    self.visualControlsLayout.addWidget(self.contourColorLabel)
+
+    self.contourColorButton = qt.QPushButton()
+    self.contourColorButton.setStyleSheet("background-color: green;")
+    self.contourColorButton.setFixedSize(24, 24)
+    self.visualControlsLayout.addWidget(self.contourColorButton)
+
     #
     # End GUI
     #
@@ -503,6 +516,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.browseImagesButton.clicked.connect(self.onMultiFileBrowse)
     self.viewMoreButton.clicked.connect(self.onViewMoreClicked)
     self.deleteImagesButton.clicked.connect(self.onDeleteImagesButton)
+    self.contourColorButton.connect('clicked(bool)', self.onContourColorPicker)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
@@ -673,7 +687,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.node3DSegmentationLabelMap,
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
-                           self.customParamNode.overlayAsOutline)
+                           self.customParamNode.overlayAsOutline,
+                           customParamNode=self.customParamNode)
       self.editSliceView(imageDict)
                            
     elif not self.customParamNode.sequenceBrowserNode:
@@ -695,6 +710,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.applyTransformButton.enabled = False
     
 
+    # Restore contour color
+    if hasattr(self.customParamNode, 'contourColor'):
+      color = qt.QColor()
+      color.setRgbF(*self.customParamNode.contourColor)
+      self.contourColorButton.setStyleSheet(f"background-color: {color.name()};")
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
     This method is called when the user makes any change in the GUI.
@@ -1377,6 +1397,57 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode.files2DImages = []
     self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged")
 
+  def onContourColorPicker(self):
+    current_color = qt.QColor()
+    current_color.setRgbF(*self.customParamNode.contourColor)
+
+    # Open color dialog with the currently selected color
+    colorDialog = qt.QColorDialog()
+    colorDialog.setCurrentColor(current_color)
+    colorDialog.setOption(qt.QColorDialog.ShowAlphaChannel, False)
+
+    if colorDialog.exec_() == qt.QDialog.Accepted:
+      color = colorDialog.selectedColor()
+      if color.isValid():
+        self.contourColorButton.setStyleSheet(f"background-color: {color.name()};")
+        self.customParamNode.contourColor = [color.redF(), color.greenF(), color.blueF()]
+
+        # Update segmentation node color
+        if self.customParamNode.node3DSegmentation:
+          segmentationNode = slicer.mrmlScene.GetNodeByID(str(self.customParamNode.node3DSegmentation))
+          if segmentationNode:
+            displayNode = segmentationNode.GetDisplayNode()
+            if displayNode:
+              # Update color for all segments
+              for segmentIndex in range(segmentationNode.GetSegmentation().GetNumberOfSegments()):
+                displayNode.SetSegmentColor(segmentIndex, *self.customParamNode.contourColor)
+
+        # Update 3D view colour
+        volumeRenderingDisplayNodes = slicer.util.getNodesByClass("vtkMRMLVolumeRenderingDisplayNode")
+        for vrDisplayNode in volumeRenderingDisplayNodes:
+          volumeProperty = vrDisplayNode.GetVolumePropertyNode()
+          if volumeProperty:
+            colorTransferFunction = volumeProperty.GetColor()
+            if colorTransferFunction:
+              colorTransferFunction.RemoveAllPoints()
+              colorTransferFunction.AddRGBPoint(0, 0, 0, 0)
+              colorTransferFunction.AddRGBPoint(1, *self.customParamNode.contourColor)
+
+        # Update all views
+        if self.customParamNode.sequenceBrowserNode:
+          currentItemNumber = self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber()
+          self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                               self.customParamNode.sequenceNode2DImages,
+                               self.customParamNode.node3DSegmentationLabelMap,
+                               self.customParamNode.sequenceNodeTransforms,
+                               self.customParamNode.opacity,
+                               self.customParamNode.overlayAsOutline,
+                               customParamNode=self.customParamNode)
+          self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(currentItemNumber)
+
+        # Final render to ensure all changes are visible
+        slicer.util.forceRenderAllViews()
+
   def onViewMoreClicked(self):
     # Opens up a dialog displaying selected files when the user clicks "View More"
     dialog = qt.QDialog()
@@ -1435,7 +1506,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.customParamNode.sequenceBrowserNode:
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
-    
+    self.customParamNode.contourColor = [0, 1, 0]
+    self.contourColorButton.setStyleSheet("background-color: green;")
     self.selectorTransformsFile.currentPath = ''
     self.updateParameterNodeFromGUI("applyTransformsButton", "clicked")
     self.columnXSelector.clear()
@@ -1506,7 +1578,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline,
-                           True) # True to indicate that current alignment should be displayed
+                           True, # True to indicate that current alignment should be displayed
+                           customParamNode=self.customParamNode)
     self.editSliceView(imageDict)
 
   def onDecrement(self):
@@ -1523,7 +1596,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline,
-                           True) # True to indicate that current alignment should be displayed
+                           True, # True to indicate that current alignment should be displayed
+                           customParamNode=self.customParamNode)
     self.editSliceView(imageDict)
 
   def onSkipImages(self):
@@ -1541,7 +1615,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                          self.customParamNode.sequenceNodeTransforms,
                          self.customParamNode.opacity,
                          self.customParamNode.overlayAsOutline,
-                         True) # True to indicate that current alignment should be displayeds
+                         True, # True to indicate that current alignment should be displayeds
+                         customParamNode=self.customParamNode)
     self.editSliceView(imageDict)
     
     
@@ -1615,6 +1690,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.currentFrameInputBox.enabled = True
         self.sequenceSlider.enabled = True
         self.playSequenceButton.setToolTip("Play playback at current frame.")
+
         
         # Enable file deletion
         self.deleteImagesButton.enabled = True
@@ -1761,7 +1837,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                  self.customParamNode.node3DSegmentationLabelMap,
                                  self.customParamNode.sequenceNodeTransforms,
                                  self.customParamNode.opacity,
-                                 self.customParamNode.overlayAsOutline)
+                                 self.customParamNode.overlayAsOutline,
+                                 customParamNode=self.customParamNode)
       # center 3D images on segmentation
       if self.customParamNode.sequenceNode2DImages.GetDataNodeAtValue("0").GetImageData().GetDataDimension() == 3:
         labelmap = slicer.mrmlScene.GetNodesByClass('vtkMRMLLabelMapVolumeNode').GetItemAsObject(0)
