@@ -39,6 +39,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     customParameterNode.fps = 5.0  # frames (i.e. images) per second
     customParameterNode.opacity = 1.0  # 100 %
     customParameterNode.overlayAsOutline = True
+    customParameterNode.contourColor = [0, 0.7, 0]
 
   def loadImagesIntoSequenceNode(self, shNode, paths):
     """
@@ -416,7 +417,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
   def visualize(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID,
-                    sequenceNodeTransforms, opacity, overlayAsOutline, show=False):
+                    sequenceNodeTransforms, opacity, overlayAsOutline, show=False, customParamNode=None):
     """
     Visualizes the image data (2D images and 3D segmentation overlay) within the slice views and
     enables the alignment of the 3D segmentation label map according to the transformation data.
@@ -435,7 +436,15 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # The proxy transform node represents the current selected transform within the sequence
     proxyTransformNode = sequenceBrowser.GetProxyNode(sequenceNodeTransforms)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
+
+    displayNode = labelMapNode.GetDisplayNode()
+    if displayNode:
+        colorNode = displayNode.GetColorNode()
+        if colorNode and customParamNode and hasattr(customParamNode, 'contourColor'):
+          colorNode.SetColor(1, *customParamNode.contourColor)
+          displayNode.SetAndObserveColorNodeID(colorNode.GetID())
     
+
     if proxy2DImageNode.GetImageData().GetDataDimension() == 2:
       sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
