@@ -87,7 +87,8 @@ class CustomParameterNode:
   fps: float
   opacity: float
   overlayAsOutline: bool
-  contourColor: list # [r, g, b] values from 0 to 1
+  overlayColor: list # [r, g, b] values from 0 to 1
+  overlayThickness: int = 4
 
 #
 # TrackWidget
@@ -470,16 +471,31 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
 
-    # Color picker for contour
-    self.contourColorLabel = qt.QLabel("Contour Color:")
-    self.contourColorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.contourColorLabel.setContentsMargins(20, 0, 10, 0)
-    self.visualControlsLayout.addWidget(self.contourColorLabel)
+    # Color picker for overlay
+    self.overlayColorLabel = qt.QLabel("Overlay Color:")
+    self.overlayColorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.overlayColorLabel.setContentsMargins(20, 0, 10, 0)
+    self.visualControlsLayout.addWidget(self.overlayColorLabel)
 
-    self.contourColorButton = qt.QPushButton()
-    self.contourColorButton.setStyleSheet("background-color: green;")
-    self.contourColorButton.setFixedSize(24, 24)
-    self.visualControlsLayout.addWidget(self.contourColorButton)
+    self.overlayColorButton = qt.QPushButton()
+    self.overlayColorButton.setStyleSheet("background-color: green;")
+    self.overlayColorButton.setFixedSize(24, 24)
+    self.visualControlsLayout.addWidget(self.overlayColorButton)
+
+    # Overlay thickness slider
+    self.overlayThicknessLabel = qt.QLabel("Overlay Thickness:")
+    self.overlayThicknessLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+    self.overlayThicknessLabel.setContentsMargins(20, 0, 10, 0)
+    self.visualControlsLayout.addWidget(self.overlayThicknessLabel)
+
+    self.overlayThicknessSlider = ctk.ctkSliderWidget()
+    self.overlayThicknessSlider.minimum = 1
+    self.overlayThicknessSlider.maximum = 10
+    self.overlayThicknessSlider.value = 4
+    self.overlayThicknessSlider.singleStep = 1
+    self.overlayThicknessSlider.enabled = False
+    self.visualControlsLayout.addWidget(self.overlayThicknessSlider)
+
 
     #
     # End GUI
@@ -516,7 +532,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.browseImagesButton.clicked.connect(self.onMultiFileBrowse)
     self.viewMoreButton.clicked.connect(self.onViewMoreClicked)
     self.deleteImagesButton.clicked.connect(self.onDeleteImagesButton)
-    self.contourColorButton.connect('clicked(bool)', self.onContourColorPicker)
+    self.overlayColorButton.connect('clicked(bool)', self.onOverlayColorPicker)
+    self.overlayThicknessSlider.connect("valueChanged(double)", self.onOverlayThicknessChange)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
@@ -688,6 +705,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline,
+                           self.customParamNode.overlayThickness,
                            customParamNode=self.customParamNode)
       self.editSliceView(imageDict)
                            
@@ -1174,6 +1192,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
               if node.GetName() == node.GetAttribute('Sequences.BaseName'):
                 slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
                 slicer.mrmlScene.RemoveNode(node)
+          self.overlayThicknessSlider.enabled = True
 
           # Load first image of the sequence when all required inputs are satisfied
           self.resetVisuals()
@@ -1201,7 +1220,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Remove filepath for the Transforms File in the `Inputs` section
         self.customParamNode.transformsFilePath = ''
         self.selectorTransformsFile.currentPath = ''
-        
     self.customParamNode.EndModify(wasModified)
   def onTransformsFilePathChange(self):
     
@@ -1390,9 +1408,17 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode.files2DImages = []
     self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged")
 
-  def onContourColorPicker(self):
+  def onOverlayThicknessChange(self):
+    # Allows the user to adjust the thickness of the overlay
+    self.customParamNode.overlayThickness = int(self.overlayThicknessSlider.value)
+    shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+    labelMapNode = shNode.GetItemDataNode(self.customParamNode.node3DSegmentationLabelMap)
+    displayNode = labelMapNode.GetDisplayNode()
+    displayNode.SetSliceIntersectionThickness(self.customParamNode.overlayThickness)
+
+  def onOverlayColorPicker(self):
     currentColor = qt.QColor()
-    currentColor.setRgbF(*self.customParamNode.contourColor)
+    currentColor.setRgbF(*self.customParamNode.overlayColor)
 
     # Open color dialog with the currently selected color
     colorDialog = qt.QColorDialog()
@@ -1402,8 +1428,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if colorDialog.exec_() == qt.QDialog.Accepted:
       color = colorDialog.selectedColor()
       if color.isValid():
-        self.contourColorButton.setStyleSheet(f"background-color: {color.name()};")
-        self.customParamNode.contourColor = [color.redF(), color.greenF(), color.blueF()]
+        self.overlayColorButton.setStyleSheet(f"background-color: {color.name()};")
+        self.customParamNode.overlayColor = [color.redF(), color.greenF(), color.blueF()]
 
         # Update segmentation node color
         if self.customParamNode.node3DSegmentation:
@@ -1413,7 +1439,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if displayNode:
               # Update color for all segments
               for segmentIndex in range(segmentationNode.GetSegmentation().GetNumberOfSegments()):
-                displayNode.SetSegmentColor(segmentIndex, *self.customParamNode.contourColor)
+                displayNode.SetSegmentColor(segmentIndex, *self.customParamNode.overlayColor)
 
         # Update 3D view colour
         volumeRenderingDisplayNodes = slicer.util.getNodesByClass("vtkMRMLVolumeRenderingDisplayNode")
@@ -1424,7 +1450,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if colorTransferFunction:
               colorTransferFunction.RemoveAllPoints()
               colorTransferFunction.AddRGBPoint(0, 0, 0, 0)
-              colorTransferFunction.AddRGBPoint(1, *self.customParamNode.contourColor)
+              colorTransferFunction.AddRGBPoint(1, *self.customParamNode.overlayColor)
 
         # Update all views
         if self.customParamNode.sequenceBrowserNode:
@@ -1435,7 +1461,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                self.customParamNode.sequenceNodeTransforms,
                                self.customParamNode.opacity,
                                self.customParamNode.overlayAsOutline,
-                               customParamNode=self.customParamNode)
+                               self.customParamNode.overlayThickness,
+                               customParamNode=self.customParamNode,
+                               )
           self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(currentItemNumber)
 
         # Final render to ensure all changes are visible
@@ -1499,8 +1527,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if self.customParamNode.sequenceBrowserNode:
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
-    self.customParamNode.contourColor = [0, 0.7, 0]
-    self.contourColorButton.setStyleSheet("background-color: green;")
+    self.customParamNode.overlayColor = [0, 0.7, 0]
+    self.overlayColorButton.setStyleSheet("background-color: green;")
+    self.overlayThicknessSlider.value = 4
+    self.customParamNode.overlayThickness = 4
+    self.overlayThicknessSlider.enabled = False
     self.selectorTransformsFile.currentPath = ''
     self.updateParameterNodeFromGUI("applyTransformsButton", "clicked")
     self.columnXSelector.clear()
@@ -1571,6 +1602,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline,
+                           self.customParamNode.overlayThickness,
                            True, # True to indicate that current alignment should be displayed
                            customParamNode=self.customParamNode)
     self.editSliceView(imageDict)
@@ -1589,6 +1621,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.sequenceNodeTransforms,
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline,
+                           self.customParamNode.overlayThickness,
                            True, # True to indicate that current alignment should be displayed
                            customParamNode=self.customParamNode)
     self.editSliceView(imageDict)
@@ -1608,6 +1641,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                          self.customParamNode.sequenceNodeTransforms,
                          self.customParamNode.opacity,
                          self.customParamNode.overlayAsOutline,
+                         self.customParamNode.overlayThickness,
                          True, # True to indicate that current alignment should be displayeds
                          customParamNode=self.customParamNode)
     self.editSliceView(imageDict)
@@ -1831,6 +1865,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                  self.customParamNode.sequenceNodeTransforms,
                                  self.customParamNode.opacity,
                                  self.customParamNode.overlayAsOutline,
+                                 self.customParamNode.overlayThickness,
                                  customParamNode=self.customParamNode)
       # center 3D images on segmentation
       if self.customParamNode.sequenceNode2DImages.GetDataNodeAtValue("0").GetImageData().GetDataDimension() == 3:
