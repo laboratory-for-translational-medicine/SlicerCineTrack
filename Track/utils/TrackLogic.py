@@ -39,7 +39,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     customParameterNode.fps = 5.0  # frames (i.e. images) per second
     customParameterNode.opacity = 1.0  # 100 %
     customParameterNode.overlayAsOutline = True
-    customParameterNode.contourColor = [0, 0.7, 0]
+    customParameterNode.overlayColor = [0, 0.7, 0]
 
   def loadImagesIntoSequenceNode(self, shNode, paths):
     """
@@ -417,7 +417,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
   def visualize(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID,
-                    sequenceNodeTransforms, opacity, overlayAsOutline, show=False, customParamNode=None):
+                    sequenceNodeTransforms, opacity, overlayAsOutline, overlayThickness, show=False, customParamNode=None):
     """
     Visualizes the image data (2D images and 3D segmentation overlay) within the slice views and
     enables the alignment of the 3D segmentation label map according to the transformation data.
@@ -439,11 +439,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     displayNode = labelMapNode.GetDisplayNode()
     if displayNode:
-        colorNode = displayNode.GetColorNode()
-        if colorNode and customParamNode and hasattr(customParamNode, 'contourColor'):
-          colorNode.SetColor(1, *customParamNode.contourColor)
-          displayNode.SetAndObserveColorNodeID(colorNode.GetID())
-    
+      colorNode = displayNode.GetColorNode()
+      if colorNode and customParamNode and hasattr(customParamNode, 'overlayColor'):
+        colorNode.SetColor(1, *customParamNode.overlayColor)
+        displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+
+      displayNode.SetSliceIntersectionThickness(overlayThickness)
 
     if proxy2DImageNode.GetImageData().GetDataDimension() == 2:
       sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
@@ -638,7 +639,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             sliceViewWindow.cornerAnnotation().RemoveAllObservers()
           if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
             sliceViewWindow.cornerAnnotation().RemoveAllObservers()
-        
+
         # Enable alignment of the 3D segmentation label map according to the transform data so that
         # the 3D segmentation label map overlays upon the ROI of the 2D images
         if proxyTransformNode is not None:
