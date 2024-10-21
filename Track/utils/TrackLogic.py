@@ -4,6 +4,8 @@ from slicer.ScriptedLoadableModule import *
 import qt, vtk, ctk
 
 import os, csv, re
+import SimpleITK as sitk
+import sitkUtils
 
 class TrackLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
@@ -39,27 +41,29 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     customParameterNode.fps = 5.0  # frames (i.e. images) per second
     customParameterNode.opacity = 1.0  # 100 %
     customParameterNode.overlayAsOutline = True
+    customParameterNode.overlayColor = [0, 0.7, 0]
 
-  def loadImagesIntoSequenceNode(self, shNode, path):
+  def loadImagesIntoSequenceNode(self, shNode, paths):
     """
-    Loads the cine images located within the provided path into 3D Slicer. They are
+    Loads the cine images located in the provided paths into 3D Slicer. They are
     placed within a sequence node and the loaded image nodes are deleted thereafter.
     :param shNode: node representing the subject hierarchy
-    :param path: path to folder containing the 2D images to be imported
+    :param paths: list of paths to the 2D images to be imported
     """
     # NOTE: This represents a node within the MRML scene, not within the subject hierarchy
     imagesSequenceNode = None
 
-    # Find all the image file names within the provided dir
+    # Find all the image file names within the provided paths
     imageFiles = []
-    for item in os.listdir(path):
-      fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img', '.*\.nhdr']  # Only look for valid files
-      validFormat = any(re.match(format, item) for format in fileFormats)
+    # Only accept valid file formats
+    fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr','.*\.nhdr', '.*\.mhd']  
+    for path in paths:
+      validFormat = any(re.match(format, path) for format in fileFormats)
       if validFormat:
-        imageFiles.append(item)
+        imageFiles.append(path)
     imageFiles.sort()
 
-    # We only want to create a sequence node if image files were found within the provided path
+    # We only want to create a sequence node if image files were found within the provided paths
     if len(imageFiles) != 0:
       imagesSequenceNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode",
                                                               "Image Nodes Sequence")
@@ -76,8 +80,8 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           slicer.mrmlScene.RemoveNode(imagesSequenceNode)
           return None, True
 
-        filepath = os.path.join(path, imageFiles[fileIndex])
-        nodeName = (f"Image {fileIndex + 1} ({imageFiles[fileIndex]})").format(filepath)
+        filepath = imageFiles[fileIndex]
+        nodeName = (f"Image {fileIndex + 1} ({os.path.basename(filepath)})")
 
         loadedImageNode = slicer.util.loadVolume(filepath, {"singleFile": True, "show": False})
         loadedImageNode.SetName(nodeName)
@@ -415,7 +419,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
   def visualize(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID,
-                    sequenceNodeTransforms, opacity, overlayAsOutline):
+                    sequenceNodeTransforms, opacity, overlayAsOutline, overlayThickness, show=False, customParamNode=None):
     """
     Visualizes the image data (2D images and 3D segmentation overlay) within the slice views and
     enables the alignment of the 3D segmentation label map according to the transformation data.
@@ -434,7 +438,16 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     # The proxy transform node represents the current selected transform within the sequence
     proxyTransformNode = sequenceBrowser.GetProxyNode(sequenceNodeTransforms)
     labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
-    
+
+    displayNode = labelMapNode.GetDisplayNode()
+    if displayNode:
+      colorNode = displayNode.GetColorNode()
+      if colorNode and customParamNode and hasattr(customParamNode, 'overlayColor'):
+        colorNode.SetColor(1, *customParamNode.overlayColor)
+        displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+
+      displayNode.SetSliceIntersectionThickness(overlayThickness)
+
     if proxy2DImageNode.GetImageData().GetDataDimension() == 2:
       sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
 
@@ -524,10 +537,12 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           sliceViewWindow.cornerAnnotation().RemoveAllObservers()
         if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
           sliceViewWindow.cornerAnnotation().RemoveAllObservers()
-      
-      if sliceWidget is not None:
-        sliceView = sliceWidget.sliceView()
-        sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
+
+      # Ensure "Current Alignment" text is displayed in the slice view corner only when required
+      if show:
+        if sliceWidget is not None:
+          sliceView = sliceWidget.sliceView()
+          sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
       # Enable alignment of the 3D segmentation label map according to the transform data so that
       # the 3D segmentation label map overlays upon the ROI of the 2D images
       if proxyTransformNode is not None:
@@ -626,10 +641,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
             sliceViewWindow.cornerAnnotation().RemoveAllObservers()
           if sliceViewWindow.cornerAnnotation().HasObserver(vtk.vtkCornerAnnotation.UpperLeft):
             sliceViewWindow.cornerAnnotation().RemoveAllObservers()
-        
-        if sliceWidget is not None:
-          sliceView = sliceWidget.sliceView()
-          sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
+
         # Enable alignment of the 3D segmentation label map according to the transform data so that
         # the 3D segmentation label map overlays upon the ROI of the 2D images
         if proxyTransformNode is not None:
@@ -638,7 +650,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         # Render changes
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
-
+  
   def getSliceWidget(self, layoutManager, imageNode):
     """
     This function helps to determine the slice widget that corresponds to the orientation of the
@@ -646,7 +658,56 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     :param layoutManager: node representing the MRML layout manager
     :param imageNode: node representing the 2D image
     """
+    
+    def get_anatomical_orientation(image):
+      """
+      Helper function for fixing images with incorrect anatomical orientation.
+      Determine the anatomical orientation of an image based on its direction cosines.
+      """
+      direction = image.GetDirection()
+      anatomical_labels = ['R', 'A', 'I', 'L', 'P', 'S']
+      orientation = []
+
+      # Determine the dominant direction for each axis
+      for axis in range(3):
+        # Extract the direction vector for the current axis
+        vector = direction[axis::3]
+        # Determine the index of the dominant direction
+        max_index = max(range(3), key=lambda i: abs(vector[i]))
+        # Append the corresponding anatomical label
+        orientation.append(anatomical_labels[max_index + (3 if vector[max_index] < 0 else 0)])
+
+      return ''.join(orientation)
+
+    def reorient_image(image, orientation):
+      """
+      Helper function for fixing images oritentation.
+      Reorient the image based on the anatomical orientation.
+      """
+      if image.GetSize()[0] == 1:
+        # Single-slice in x-direction, check for sagittal, coronal, or axial
+        if orientation[0] in ('L', 'R'):
+          return sitk.DICOMOrient(image, 'PIR')  # Sagittal
+        elif orientation[0] in ('A', 'P'):
+          return sitk.DICOMOrient(image, 'LIA')  # Coronal
+        else:
+          return sitk.DICOMOrient(image, 'LPS')  # Axial
+      elif image.GetSize()[1] == 1:
+        # Single-slice in y-direction, check for sagittal, coronal, or axial
+        if orientation[1] in ('L', 'R'):
+          return sitk.DICOMOrient(image, 'PIR')  # Sagittal
+        elif orientation[1] in ('A', 'P'):
+          return sitk.DICOMOrient(image, 'LIA')  # Coronal
+        else:
+          return sitk.DICOMOrient(image, 'LPS')  # Axial
+      return image
+  
     # Determine the orientation of the image
+    sitk_image = sitkUtils.PullVolumeFromSlicer(imageNode)
+    if sitk_image.GetSize()[2] != 1:
+      orientation = get_anatomical_orientation(sitk_image)
+      reoriented_image = reorient_image(sitk_image, orientation)
+      imageNode = sitkUtils.PushVolumeToSlicer(reoriented_image, None, name=imageNode.GetName())
     tmpMatrix = vtk.vtkMatrix4x4()
     if imageNode is not None:
       imageNode.GetIJKToRASMatrix(tmpMatrix)
