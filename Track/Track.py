@@ -468,33 +468,43 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.opacityPercentageLabel = qt.QLabel("100%")
     self.opacityPercentageLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.opacityPercentageLabel.setContentsMargins(10, 0, 0, 0)
+    self.opacityPercentageLabel.setContentsMargins(0, 0, 0, 0)
     self.visualControlsLayout.addWidget(self.opacityPercentageLabel)
-
+    
+    # Break this to next line to avoid over flowing UI
+    # Visual controls layout 2 
+    self.visualControlsWidget2 = qt.QWidget()
+    self.visualControlsWidget2.setMinimumHeight(30)
+    self.visualControlsLayout2 = qt.QHBoxLayout()
+    self.visualControlsLayout2.setAlignment(qt.Qt.AlignLeft)
+    self.visualControlsWidget2.setLayout(self.visualControlsLayout2)
+    self.sequenceFormLayout.addWidget(self.visualControlsWidget2)
+    
     # Color picker for overlay
     self.overlayColorLabel = qt.QLabel("Overlay Color:")
     self.overlayColorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.overlayColorLabel.setContentsMargins(20, 0, 10, 0)
-    self.visualControlsLayout.addWidget(self.overlayColorLabel)
+    self.overlayColorLabel.setContentsMargins(0, 0, 8, 0)
+    self.visualControlsLayout2.addWidget(self.overlayColorLabel)
 
     self.overlayColorButton = qt.QPushButton()
     self.overlayColorButton.setStyleSheet("background-color: green;")
     self.overlayColorButton.setFixedSize(24, 24)
-    self.visualControlsLayout.addWidget(self.overlayColorButton)
+    self.visualControlsLayout2.addWidget(self.overlayColorButton)
 
     # Overlay thickness slider
     self.overlayThicknessLabel = qt.QLabel("Overlay Thickness:")
     self.overlayThicknessLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.overlayThicknessLabel.setContentsMargins(20, 0, 10, 0)
-    self.visualControlsLayout.addWidget(self.overlayThicknessLabel)
+    self.visualControlsLayout2.addWidget(self.overlayThicknessLabel)
 
     self.overlayThicknessSlider = ctk.ctkSliderWidget()
+    self.overlayThicknessSlider.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     self.overlayThicknessSlider.minimum = 1
     self.overlayThicknessSlider.maximum = 10
     self.overlayThicknessSlider.value = 4
     self.overlayThicknessSlider.singleStep = 1
     self.overlayThicknessSlider.enabled = False
-    self.visualControlsLayout.addWidget(self.overlayThicknessSlider)
+    self.visualControlsLayout2.addWidget(self.overlayThicknessSlider)
 
 
     #
