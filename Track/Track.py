@@ -1919,6 +1919,15 @@ class TrackTest(ScriptedLoadableModuleTest):
                                           'Data')
     self.csv_file_path = os.path.join(self.data_folder_path, 'Transforms.csv')
     self.cine_images_folder_path = os.path.join(self.data_folder_path, '2D Cine Images')
+    
+    if not os.path.exists(self.csv_file_path):
+        self.delayDisplay(f'CSV file not found: {self.csv_file_path}', None, 2000)
+        return
+    
+    if not os.path.exists(self.cine_images_folder_path):
+        self.delayDisplay(f'Cine images folder not found: {self.cine_images_folder_path}', None, 2000)
+        return
+    
     self.cine_files_paths = [os.path.join(self.cine_images_folder_path, f) for f in os.listdir(self.cine_images_folder_path)]
     self.csv_headers = ['X', 'Y', 'Z']  
 
