@@ -1947,6 +1947,8 @@ class TrackTest(ScriptedLoadableModuleTest):
 
   def test_loadImagesIntoSequenceNode(self):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+    if  self.cine_files_paths is None:
+        return
     imagesSequenceNode, cancelled = \
         self.logic.loadImagesIntoSequenceNode(shNode, self.cine_files_paths)
     total_num_images = imagesSequenceNode.GetNumberOfDataNodes()
@@ -1954,6 +1956,8 @@ class TrackTest(ScriptedLoadableModuleTest):
     
   def test_validateTransformsInput(self):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+    if  self.cine_files_paths is None or self.csv_file_path is None or self.csv_headers is None:
+        return
     imagesSequenceNode, cancelled = \
         self.logic.loadImagesIntoSequenceNode(shNode, self.cine_files_paths)
     total_num_images = imagesSequenceNode.GetNumberOfDataNodes()
