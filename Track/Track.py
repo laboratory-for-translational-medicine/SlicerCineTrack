@@ -1936,7 +1936,7 @@ class TrackTest(ScriptedLoadableModuleTest):
     """
     self.setUp()
     # check if folder exists
-    if self.cine_images_folder_path is None or self.csv_file_path is None or not os.path.exists(self.cine_images_folder_path) or not os.path.exists(self.csv_file_path):
+    if self.cine_images_folder_path is None or self.csv_file_path is None or self.cine_files_paths is None or not os.path.exists(self.cine_images_folder_path) or not os.path.exists(self.csv_file_path) or not os.path.exists(self.cine_files_paths):
         self.delayDisplay('Data is not available for testing',None,2000)
         return
     
