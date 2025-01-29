@@ -1921,10 +1921,16 @@ class TrackTest(ScriptedLoadableModuleTest):
     self.cine_images_folder_path = os.path.join(self.data_folder_path, '2D Cine Images')
     
     if not os.path.exists(self.csv_file_path):
+        self.cine_files_paths = None
+        self.csv_file_path = None
+        self.cine_images_folder_path = None
         self.delayDisplay(f'CSV file not found: {self.csv_file_path}', None, 2000)
         return
     
     if not os.path.exists(self.cine_images_folder_path):
+        self.cine_files_paths = None
+        self.csv_file_path = None
+        self.cine_images_folder_path = None
         self.delayDisplay(f'Cine images folder not found: {self.cine_images_folder_path}', None, 2000)
         return
     
@@ -1947,7 +1953,7 @@ class TrackTest(ScriptedLoadableModuleTest):
 
   def test_loadImagesIntoSequenceNode(self):
     shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-    if  self.cine_files_paths is None:
+    if self.cine_files_paths is None:
         return
     imagesSequenceNode, cancelled = \
         self.logic.loadImagesIntoSequenceNode(shNode, self.cine_files_paths)
