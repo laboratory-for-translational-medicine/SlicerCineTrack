@@ -22,6 +22,7 @@ import os
 import csv
 import re
 import numpy as np
+import functools
 
 import ctk
 import qt
@@ -35,6 +36,13 @@ from slicer import vtkMRMLSequenceNode
 from slicer import vtkMRMLSequenceBrowserNode
 from utils.Helper import SpinBox, Slider
 from utils.TrackLogic import TrackLogic
+
+import numpy as np
+import slicer
+from slicer.util import arrayFromVolume, updateVolumeFromArray
+import functools
+
+
 
 #
 # Track
@@ -89,6 +97,8 @@ class CustomParameterNode:
   overlayAsOutline: bool
   overlayColor: list # [r, g, b] values from 0 to 1
   overlayThickness: int = 4
+  
+
 
 #
 # TrackWidget
@@ -114,6 +124,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode = None
     self._updatingGUIFromParameterNode = False
     self.isDarkMode = None
+    self.labelColorButtons = {}
+
   def onColumnXSelectorChange(self):
     self.applyTransformButton.enabled = True
     self.transformationAppliedLabel.setVisible(False)
@@ -294,7 +306,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.inputsFormLayout.addRow('Translations: ',self.columnSelectorsLayout)
     
     # Layout for apply transformation button
-    self.applyTransformButton = qt.QPushButton("Apply Transformations")
+    self.applyTransformButton = qt.QPushButton("Apply")
     self.applyTransformButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
     
     self.columnTransformsLayout = qt.QHBoxLayout()
@@ -432,13 +444,21 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.controlLayout.addWidget(self.playbackSpeedBox)
     self.playbackSpeedBox.setToolTip("Modify playback speed using the arrows on the right.")
 
-    # Visual controls layout
+
+    overlayColoursCollapsibleButton = ctk.ctkCollapsibleButton()
+    overlayColoursCollapsibleButton.text = "Overlay"
+    overlayColoursCollapsibleButton.collapsed = False  # Open by default
+    self.layout.addWidget(overlayColoursCollapsibleButton)
+
+    self.overlayColoursFormLayout = qt.QFormLayout(overlayColoursCollapsibleButton)
+
+        # Visual controls layout
     self.visualControlsWidget = qt.QWidget()
     self.visualControlsWidget.setMinimumHeight(30)
     self.visualControlsLayout = qt.QHBoxLayout()
     self.visualControlsLayout.setAlignment(qt.Qt.AlignLeft)
     self.visualControlsWidget.setLayout(self.visualControlsLayout)
-    self.sequenceFormLayout.addWidget(self.visualControlsWidget)
+    self.overlayColoursFormLayout.addWidget(self.visualControlsWidget)
 
     # Overlay outline label and checkbox
     self.outlineLabel = qt.QLabel("Outlined Overlay:")
@@ -478,18 +498,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.visualControlsLayout2 = qt.QHBoxLayout()
     self.visualControlsLayout2.setAlignment(qt.Qt.AlignLeft)
     self.visualControlsWidget2.setLayout(self.visualControlsLayout2)
-    self.sequenceFormLayout.addWidget(self.visualControlsWidget2)
-    
-    # Color picker for overlay
-    self.overlayColorLabel = qt.QLabel("Overlay Color:")
-    self.overlayColorLabel.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.overlayColorLabel.setContentsMargins(0, 0, 8, 0)
-    self.visualControlsLayout2.addWidget(self.overlayColorLabel)
+    self.overlayColoursFormLayout.addWidget(self.visualControlsWidget2)
 
-    self.overlayColorButton = qt.QPushButton()
-    self.overlayColorButton.setStyleSheet("background-color: green;")
-    self.overlayColorButton.setFixedSize(24, 24)
-    self.visualControlsLayout2.addWidget(self.overlayColorButton)
+    
 
     # Overlay thickness slider
     self.overlayThicknessLabel = qt.QLabel("Overlay Thickness:")
@@ -505,6 +516,16 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.overlayThicknessSlider.singleStep = 1
     self.overlayThicknessSlider.enabled = False
     self.visualControlsLayout2.addWidget(self.overlayThicknessSlider)
+
+    # Layout for color picker
+    self.overlayColoursLayout = qt.QGridLayout()
+    self.overlayColoursLayout.setVerticalSpacing(15)  # space between rows
+    self.overlayColoursLayout.setAlignment(qt.Qt.AlignLeft)
+    self.overlayColoursFormLayout.addRow(self.overlayColoursLayout)
+
+
+
+
 
 
     #
@@ -542,7 +563,6 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.browseImagesButton.clicked.connect(self.onMultiFileBrowse)
     self.viewMoreButton.clicked.connect(self.onViewMoreClicked)
     self.deleteImagesButton.clicked.connect(self.onDeleteImagesButton)
-    self.overlayColorButton.connect('clicked(bool)', self.onOverlayColorPicker)
     self.overlayThicknessSlider.connect("valueChanged(double)", self.onOverlayThicknessChange)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
@@ -716,6 +736,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            self.customParamNode.opacity,
                            self.customParamNode.overlayAsOutline,
                            self.customParamNode.overlayThickness,
+                           show=False,
                            customParamNode=self.customParamNode)
       self.editSliceView(imageDict)
                            
@@ -735,7 +756,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._updatingGUIFromParameterNode = False
     
     # Disable the "Apply Transformation" button to assure the user the Transformation is applied
-    self.applyTransformButton.enabled = False
+    self.applyTransformButton.enabled = True
   def updateParameterNodeFromGUI(self, caller=None, event=None):
     """
     This method is called when the user makes any change in the GUI.
@@ -753,12 +774,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if caller == "selector2DImagesFiles" and event == "pathsChanged":
       # Remember if all inputs were previously provided
       inputsProvided = self.selector3DSegmentation.currentPath != '' or self.selectorTransformsFile.currentPath != ''
-      # Since the transformation information is relative to the 2D images loaded into 3D Slicer,
-      # if the path changes, we want to remove any transforms related information. The user should
-      # reselect the transforms file they wish to use with the 2D images.
-      if self.customParamNode.transformsFilePath:
-        self.customParamNode.transformsFilePath = ""
-        self.customParamNode.sequenceNodeTransforms = None
+
 
       if len(self.selector2DImagesFiles.paths) == 0:
         # Remove the Images folder stored in customParamNode
@@ -1084,32 +1100,62 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         segmentationNode = slicer.util.loadVolume(self.selector3DSegmentation.currentPath,
                                                   {"singleFile": True, "show": False})
         
-        # Check if Segmentation file is a binary mask
-        if np.unique(slicer.util.arrayFromVolume(segmentationNode)).size == 2:
-          self.logic.clearSliceForegrounds()
-          segmentationNode.SetName("3D Segmentation")
-          # Set a param to hold the 3D segmentation node ID
-          nodeID = shNode.GetItemByDataNode(segmentationNode)
-          self.customParamNode.node3DSegmentation = nodeID
+        # Check if Segmentation file has less than 30 values:
+        if np.unique(slicer.util.arrayFromVolume(segmentationNode)).size > 30:
+           slicer.util.warningDisplay("This file contains more than 30 unique values. ")
+        self.selector3DSegmentation.currentPath = ''
+           
+           
+  
+        # Get array from volume
+        segArray = arrayFromVolume(segmentationNode)
+        uniqueLabels = np.unique(segArray)
 
-          # Create a label map of the 3D segmentation that will be used to define the mask overlayed
-          # on the 2D images during playback
-          volumesModuleLogic = slicer.modules.volumes.logic()
-          segmentationLabelMap = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode',
-                                                                    "3D Segmentation Label Map")
-          volumesModuleLogic.CreateLabelVolumeFromVolume(slicer.mrmlScene, segmentationLabelMap,
-                                                        segmentationNode)
-          # Set a param to hold the 3D segmentation label map ID
-          labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
-          self.customParamNode.node3DSegmentationLabelMap = labelMapID
-        else:
-          # If the segmentation file is not binary, remove the nodes created
-          slicer.util.warningDisplay("The segmentation file is not binary. The file was not loaded into 3D Slicer.", "Input Error")
-          slicer.mrmlScene.RemoveNode(segmentationNode)
-          self.customParamNode.node3DSegmentation = 0
-          self.customParamNode.node3DSegmentationLabelMap = 0
-          self.selector3DSegmentation.currentPath = ''
-          self.customParamNode.path3DSegmentation = ''
+        # Check for multi-label (more than just 0 and 1)
+        nonZeroLabels = uniqueLabels[uniqueLabels != 0]
+
+        if len(nonZeroLabels) > 1:
+            # Remap to consecutive label values (e.g., 1, 2, 3, ...)
+            remapDict = {label: i+1 for i, label in enumerate(nonZeroLabels)}
+            for oldVal, newVal in remapDict.items():
+                
+                segArray[segArray == oldVal] = newVal
+
+            # Push updated array back into the segmentation node
+            updateVolumeFromArray(segmentationNode, segArray)
+
+        #  Debug: Check what label values actually exist
+        segArray = arrayFromVolume(segmentationNode)
+        uniqueLabels = np.unique(segArray)
+        
+        for val in uniqueLabels:
+            count = np.sum(segArray == val)
+
+
+
+        remappedLabels = list(range(1, len(nonZeroLabels) + 1))
+        self.addAdditionalOverlayColorButtons(remappedLabels, segmentationNode)
+
+
+
+        # Continue with existing logic
+        self.logic.clearSliceForegrounds()
+        segmentationNode.SetName("3D Segmentation")
+
+        nodeID = shNode.GetItemByDataNode(segmentationNode)
+        self.customParamNode.node3DSegmentation = nodeID
+
+        volumesModuleLogic = slicer.modules.volumes.logic()
+        segmentationLabelMap = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode', "3D Segmentation Label Map")
+        volumesModuleLogic.CreateLabelVolumeFromVolume(slicer.mrmlScene, segmentationLabelMap, segmentationNode)
+
+        labelMapID = shNode.GetItemByDataNode(segmentationLabelMap)
+        self.customParamNode.node3DSegmentationLabelMap = labelMapID
+
+        # Apply any pending colors that were stored before the label map was created
+        self.applyPendingLabelColors()
+
+
       else:
         # Remove filepath for the Segmentation File in the `Inputs` section
         self.customParamNode.path3DSegmentation = ''
@@ -1121,19 +1167,30 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                            
     if caller == "applyTransformsButton" and event == "clicked":
+
+
       # Set a param to hold the path to the transformations .csv file
-      self.customParamNode.transformsFilePath = self.selectorTransformsFile.currentPath
 
       numImages = self.customParamNode.totalImages
-      # If even one line cannot be read correctly/is missing our playback cannot be successful. We
-      # will validate the tranformations input first. If the input is valid, we get a list
-      # containing all of the transformations read from the file.
-      headers = []
-      headers.append(self.columnXSelector.currentText)
-      headers.append(self.columnYSelector.currentText)
-      headers.append(self.columnZSelector.currentText)
-      transformsList = \
-        self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages,headers)
+
+
+      if self.selectorTransformsFile.currentPath:
+        
+
+        # If even one line cannot be read correctly/is missing our playback cannot be successful. We
+        # will validate the tranformations input first. If the input is valid, we get a list
+        # containing all of the transformations read from the file.
+        headers = []
+        headers.append(self.columnXSelector.currentText)
+        headers.append(self.columnYSelector.currentText)
+        headers.append(self.columnZSelector.currentText)
+        transformsList = \
+          self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages,headers)
+        
+      else:
+        # No file provided — use identity transform (0,0,0) for each frame
+        self.customParamNode.transformsFilePath = ""
+        transformsList = [[0.0, 0.0, 0.0] for _ in range(numImages)]
 
       if transformsList:
         # Create transform nodes from the transform data and place them into a sequence node
@@ -1257,7 +1314,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.transformationAppliedLabel.setVisible(False)
       self.applyTransformButton.enabled = True
 
-    def onSequenceChange(self):
+    def onSequenceChange():
       """
       Allows for the reuploading of transforms file during active sequence
       """
@@ -1285,7 +1342,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         for node in nodes:
             slicer.mrmlScene.RemoveNode(node)
 
-    onSequenceChange(self)
+    onSequenceChange()
 
     clearColumnSeletors(self)
       
@@ -1337,6 +1394,470 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # if we are not playing, click this button will start the playback
       self.customParamNode.sequenceBrowserNode.SetPlaybackRateFps(self.customParamNode.fps/2)
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(True)
+ 
+  
+  def applyInitialColorToLabel(self, labelValue, colorHex, segmentationNode):
+    """Apply an initial color to a specific label in the color table"""
+   
+    
+    # Convert hex color to RGB values (0-1 range)
+    color = qt.QColor(colorHex)
+    r = color.red() / 255.0
+    g = color.green() / 255.0
+    b = color.blue() / 255.0
+    
+    
+    # Check if the label map has been created yet
+    if not hasattr(self.customParamNode, 'node3DSegmentationLabelMap') or not self.customParamNode.node3DSegmentationLabelMap:
+   
+        # Store the color to apply later when the label map is created
+        if not hasattr(self, 'pendingLabelColors'):
+            self.pendingLabelColors = {}
+        self.pendingLabelColors[labelValue] = (r, g, b)
+        return
+    
+    # Get the label map node that's actually being displayed
+    shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+    labelMapNode = shNode.GetItemDataNode(self.customParamNode.node3DSegmentationLabelMap)
+    
+    if not labelMapNode:
+        
+        # Store the color to apply later
+        if not hasattr(self, 'pendingLabelColors'):
+            self.pendingLabelColors = {}
+        self.pendingLabelColors[labelValue] = (r, g, b)
+        return
+        
+    displayNode = labelMapNode.GetDisplayNode()
+    
+    if displayNode:
+        colorNode = displayNode.GetColorNode()
+
+        # Clone the color node if it's not editable
+        if colorNode.GetType() != slicer.vtkMRMLColorTableNode.User:
+  
+
+            colorNodeCopy = slicer.vtkMRMLColorTableNode()
+            colorNodeCopy.SetTypeToUser()
+
+            originalCount = colorNode.GetNumberOfColors()
+            colorNodeCopy.SetNumberOfColors(originalCount)
+
+            for i in range(originalCount):
+                rgba = [0, 0, 0, 0]
+                colorNode.GetColor(i, rgba)
+                colorNodeCopy.SetColor(i, f"Label {i}", *rgba)
+
+            slicer.mrmlScene.AddNode(colorNodeCopy)
+            displayNode.SetAndObserveColorNodeID(colorNodeCopy.GetID())
+            colorNode = colorNodeCopy
+
+        # Ensure color table is big enough
+        if labelValue >= colorNode.GetNumberOfColors():
+            colorNode.SetNumberOfColors(labelValue + 1)
+
+        # Set the initial color
+        colorNode.SetColor(labelValue, f"Label {labelValue}", r, g, b, 1.0)
+  
+
+        # Force apply the color table to the display node
+        displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+        displayNode.Modified()
+        colorNode.Modified()
+
+  def applyPendingLabelColors(self):
+    """Apply any colors that were stored before the label map was created"""
+    if not hasattr(self, 'pendingLabelColors') or not self.pendingLabelColors:
+        return
+        
+    
+    # Get the label map node
+    shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+    labelMapNode = shNode.GetItemDataNode(self.customParamNode.node3DSegmentationLabelMap)
+    
+    if not labelMapNode:
+       return
+        
+    displayNode = labelMapNode.GetDisplayNode()
+    if not displayNode:
+        return
+        
+    colorNode = displayNode.GetColorNode()
+
+    # Clone the color node if it's not editable
+    if colorNode.GetType() != slicer.vtkMRMLColorTableNode.User:
+
+        colorNodeCopy = slicer.vtkMRMLColorTableNode()
+        colorNodeCopy.SetTypeToUser()
+
+        originalCount = colorNode.GetNumberOfColors()
+        colorNodeCopy.SetNumberOfColors(originalCount)
+
+        for i in range(originalCount):
+            rgba = [0, 0, 0, 0]
+            colorNode.GetColor(i, rgba)
+            colorNodeCopy.SetColor(i, f"Label {i}", *rgba)
+
+        slicer.mrmlScene.AddNode(colorNodeCopy)
+        displayNode.SetAndObserveColorNodeID(colorNodeCopy.GetID())
+        colorNode = colorNodeCopy
+
+    # Apply all pending colors
+    maxLabel = max(self.pendingLabelColors.keys()) if self.pendingLabelColors else 0
+    if maxLabel >= colorNode.GetNumberOfColors():
+        colorNode.SetNumberOfColors(maxLabel + 1)
+
+    for labelValue, (r, g, b) in self.pendingLabelColors.items():
+
+        colorNode.SetColor(labelValue, f"Label {labelValue}", r, g, b, 1.0)
+
+    # Force apply the color table to the display node
+    displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+    displayNode.Modified()
+    colorNode.Modified()
+    
+    # Clear the pending colors since they've been applied
+    self.pendingLabelColors = {}
+
+
+  def changeLabelColor(self, labelValue, segmentationNode, checked=None):
+    
+      currentColor = qt.QColor(0, 179, 0)
+
+      colorDialog = qt.QColorDialog()
+      colorDialog.setCurrentColor(currentColor)
+      colorDialog.setOption(qt.QColorDialog.ShowAlphaChannel, False)
+
+      if colorDialog.exec_() == qt.QDialog.Accepted:
+          selected = colorDialog.selectedColor()
+          if selected.isValid():
+              rgb = [selected.redF(), selected.greenF(), selected.blueF()]
+
+              button = self.labelColorButtons.get(labelValue)
+              if button:
+                  button.setStyleSheet(f"background-color: {selected.name()};")
+                  
+
+
+              # Get the label map node that's actually being displayed
+              shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+              labelMapNode = shNode.GetItemDataNode(self.customParamNode.node3DSegmentationLabelMap)
+              displayNode = labelMapNode.GetDisplayNode()
+              
+              if displayNode:
+                  colorNode = displayNode.GetColorNode()
+
+                  # Clone the color node if it's not editable
+                  if colorNode.GetType() != slicer.vtkMRMLColorTableNode.User:
+
+
+                      colorNodeCopy = slicer.vtkMRMLColorTableNode()
+                      colorNodeCopy.SetTypeToUser()
+
+                      originalCount = colorNode.GetNumberOfColors()
+                      colorNodeCopy.SetNumberOfColors(originalCount)
+
+                      for i in range(originalCount):
+                          rgba = [0, 0, 0, 0]
+                          colorNode.GetColor(i, rgba)
+                          colorNodeCopy.SetColor(i, f"Label {i}", *rgba)
+
+                      slicer.mrmlScene.AddNode(colorNodeCopy)
+                      displayNode.SetAndObserveColorNodeID(colorNodeCopy.GetID())
+                      colorNode = colorNodeCopy
+
+                  # Ensure color table is big enough
+                  if labelValue >= colorNode.GetNumberOfColors():
+                      colorNode.SetNumberOfColors(labelValue + 1)
+
+
+
+                  # Set the color
+                  #  Get the current color for this label before changing
+                  rgba_before = [0, 0, 0, 0]
+                  colorNode.GetColor(labelValue, rgba_before)
+
+
+                  # Set the new color
+                  colorNode.SetColor(labelValue, f"Label {labelValue}", *rgb, 1.0)
+
+                  # Get the updated color after setting
+                  rgba_after = [0, 0, 0, 0]
+                  colorNode.GetColor(labelValue, rgba_after)
+
+                  # Force apply the color table to the display node
+                  displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+
+
+
+                  # Force the display node to update its lookup table
+                  displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+                  
+                  # Label map display nodes don't have SetWindow/SetLevel methods
+                  # Instead, force update by modifying the display node
+                  displayNode.Modified()
+                  
+                  # Debug: Check the actual voxel values in the label map
+                  labelMapImageData = labelMapNode.GetImageData()
+                  if labelMapImageData:
+                      scalarRange = labelMapImageData.GetScalarRange()
+
+                      
+                      # Check if our target label value actually exists in the volume
+                      import numpy as np
+                      array = slicer.util.arrayFromVolume(labelMapNode)
+                      unique_labels = np.unique(array)
+
+
+                  # Force the color node to be recomputed
+                  colorNode.Modified()
+                  
+                  # Force refresh all slice composite nodes to pick up the new color
+                  layoutManager = slicer.app.layoutManager()
+                  for sliceViewName in layoutManager.sliceViewNames():
+                      sliceWidget = layoutManager.sliceWidget(sliceViewName)
+                      if sliceWidget:
+                          sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+                          if sliceCompositeNode and sliceCompositeNode.GetLabelVolumeID() == labelMapNode.GetID():
+                              # Force the slice composite node to refresh the label display
+
+                              # Reset the label volume ID to force a refresh
+                              oldLabelVolumeID = sliceCompositeNode.GetLabelVolumeID()
+                              sliceCompositeNode.SetLabelVolumeID(None)
+                              sliceCompositeNode.SetLabelVolumeID(oldLabelVolumeID)
+                              sliceCompositeNode.Modified()
+                  
+                  # Force update the 3D viewer display
+                  # Refresh the 3D view by ensuring the labelMapNode's display node is properly updated
+                  threeDViewNode = slicer.app.layoutManager().activeMRMLThreeDViewNode()
+                  if threeDViewNode:
+                      # Force refresh the 3D view display
+                      shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+                      
+                      # Get the subject hierarchy item for the labelMapNode
+                      shItemID = shNode.GetItemByDataNode(labelMapNode)
+                      if shItemID != slicer.vtkMRMLSubjectHierarchyNode.GetInvalidItemID():
+                          # Hide and then show again to force refresh in 3D view
+                          shNode.SetItemDisplayVisibility(shItemID, False)
+                          shNode.SetItemDisplayVisibility(shItemID, True)
+                      
+                      # Also update any volume rendering display nodes if they exist
+                      for displayNodeIndex in range(labelMapNode.GetNumberOfDisplayNodes()):
+                          volumeDisplayNode = labelMapNode.GetNthDisplayNode(displayNodeIndex)
+                          if volumeDisplayNode and volumeDisplayNode.IsA("vtkMRMLVolumeRenderingDisplayNode"):
+                              volumeDisplayNode.Modified()
+                              # Force the volume property to update
+                              volumeProperty = volumeDisplayNode.GetVolumePropertyNode()
+                              if volumeProperty:
+                                  volumeProperty.Modified()
+                  
+                  # Update display nodes to use the new color table
+                  displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+                  
+                  # Force the display node to update immediately
+                  displayNode.Modified()
+                  
+                  # Update the scalar range and window/level to ensure proper color mapping
+                  displayNode.UpdateImageDataPipeline()
+                  
+                  # Force re-visualization to apply the new colors
+                  if hasattr(self, 'customParamNode') and self.customParamNode.sequenceBrowserNode:
+                      # Ensure the color table is properly set before calling visualize
+                      displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+                      displayNode.Modified()
+                      
+                      # Force the label map node to update its display
+                      labelMapNode.Modified()
+                      
+                      # CRITICAL: Force 3D volume rendering to reload color table
+                      # This is the key fix for 3D volume rendering not updating colors
+                      layoutManager = slicer.app.layoutManager()
+                      if layoutManager:
+                          # Get the 3D view and force volume rendering refresh
+                          threeDWidget = layoutManager.threeDWidget(0)
+                          if threeDWidget:
+                              threeDViewNode = threeDWidget.mrmlViewNode()
+                              if threeDViewNode:
+                                  # Force volume rendering to be disabled and re-enabled to reload colors
+                                  volumeRenderingLogic = slicer.modules.volumerendering.logic()
+                                  volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(labelMapNode)
+                                  
+                                  if volumeRenderingDisplayNode:
+                                      # Temporarily disable volume rendering
+                                      volumeRenderingDisplayNode.SetVisibility(False)
+                                      slicer.app.processEvents()
+                                      
+                                      # Force the volume property to reload with new colors
+                                      volumePropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode()
+                                      if volumePropertyNode:
+                                          volumePropertyNode.Modified()
+                                      
+                                      # Re-enable volume rendering with updated colors
+                                      volumeRenderingDisplayNode.SetVisibility(True)
+                                      volumeRenderingDisplayNode.Modified()
+                                  else:
+                                      # If no volume rendering display node exists, create one
+                                      volumeRenderingDisplayNode = volumeRenderingLogic.CreateDefaultVolumeRenderingNodes(labelMapNode)
+                                      if volumeRenderingDisplayNode:
+                                          volumeRenderingDisplayNode.SetVisibility(True)
+                      
+                      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
+                                           self.customParamNode.sequenceNode2DImages,
+                                           self.customParamNode.node3DSegmentationLabelMap,
+                                           self.customParamNode.sequenceNodeTransforms,
+                                           self.customParamNode.opacity,
+                                           self.customParamNode.overlayAsOutline,
+                                           self.customParamNode.overlayThickness,
+                                           show=False,
+                                           customParamNode=self.customParamNode)
+                  
+                  # Force all views to render with new color information
+                  slicer.util.forceRenderAllViews()
+                  
+                  # Additional specific updates for 3D view
+                  labelMapNode.Modified()
+                  
+                  # CRITICAL FIX: Update volume rendering transfer functions
+                  # This ensures that the 3D volume rendering uses the new color table
+                  volumeRenderingLogic = slicer.modules.volumerendering.logic()
+                  volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(labelMapNode)
+                  
+                  if volumeRenderingDisplayNode:
+                      # Force the volume rendering to use the updated color table
+                      volumePropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode()
+                      if volumePropertyNode:
+                          # Update color transfer function with new colors
+                          colorTransferFunction = volumePropertyNode.GetColor()
+                          if colorTransferFunction:
+                              # Clear existing color points and rebuild from color table
+                              colorTransferFunction.RemoveAllPoints()
+                              
+                              # Add color points based on the updated color table
+                              for i in range(colorNode.GetNumberOfColors()):
+                                  rgba = [0, 0, 0, 0]
+                                  colorNode.GetColor(i, rgba)
+                                  if rgba[3] > 0:  # Only add non-transparent colors
+                                      colorTransferFunction.AddRGBPoint(i, rgba[0], rgba[1], rgba[2])
+                              
+                              # Force the volume property to update
+                              volumePropertyNode.Modified()
+                          
+                          # Also update opacity transfer function to ensure visibility
+                          opacityTransferFunction = volumePropertyNode.GetScalarOpacity()
+                          if opacityTransferFunction:
+                              # Ensure non-zero labels are visible
+                              for i in range(1, colorNode.GetNumberOfColors()):
+                                  if i <= colorNode.GetNumberOfColors():
+                                      opacityTransferFunction.AddPoint(i, 0.8)  # Make labels visible
+                      
+                      # Force the volume rendering display node to update
+                      volumeRenderingDisplayNode.Modified()
+                  
+                  # Clear and rebuild display pipeline to ensure color changes take effect
+                  # This forces Slicer to rebuild its internal color mapping
+                  layoutManager = slicer.app.layoutManager()
+                  if layoutManager:
+                      # Temporarily disable and re-enable the label display to force refresh
+                      for sliceViewName in layoutManager.sliceViewNames():
+                          sliceWidget = layoutManager.sliceWidget(sliceViewName)
+                          if sliceWidget:
+                              sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+                              if sliceCompositeNode and sliceCompositeNode.GetLabelVolumeID() == labelMapNode.GetID():
+                                  currentOpacity = sliceCompositeNode.GetLabelOpacity()
+                                  sliceCompositeNode.SetLabelOpacity(0)
+                                  slicer.app.processEvents()
+                                  sliceCompositeNode.SetLabelOpacity(currentOpacity)
+                  
+                  # Make sure the 3D view gets updated
+                  if layoutManager:
+                      # Update all 3D views
+                      for threeDViewIndex in range(layoutManager.threeDViewCount):
+                          threeDWidget = layoutManager.threeDWidget(threeDViewIndex)
+                          if threeDWidget and threeDWidget.threeDView():
+                              # Reset the camera to ensure the view updates
+                              renderWindow = threeDWidget.threeDView().renderWindow()
+                              if renderWindow:
+                                  renderWindow.Render()
+                              threeDWidget.threeDView().forceRender()
+                  
+                  # Also force refresh of all slice views
+                  sliceViewNames = ['Red', 'Yellow', 'Green']
+                  for sliceViewName in sliceViewNames:
+                      sliceWidget = layoutManager.sliceWidget(sliceViewName)
+                      if sliceWidget:
+                          sliceView = sliceWidget.sliceView()
+                          if sliceView:
+                              sliceView.forceRender()
+
+
+  def addAdditionalOverlayColorButtons(self, labelValues, segmentationNode):
+    # Initialize the labelColorButtons dictionary if it doesn't exist
+    if not hasattr(self, 'labelColorButtons'):
+        self.labelColorButtons = {}
+    
+    # Define unique colors for each label
+    predefinedColors = [
+        "#00B300",  # Green (label 1)
+        "#FF4500",  # Red-Orange (label 2)
+        "#1E90FF",  # Dodger Blue (label 3)
+        "#FFD700",  # Gold (label 4)
+        "#FF1493",  # Deep Pink (label 5)
+        "#ADFF2F",  # Green Yellow (label 6)
+        "#B8860B",  # Dark Goldenrod (label 7)
+        "#FF6347",  # Tomato (label 8)
+        "#40E0D0",  # Turquoise (label 9)
+        "#8A2BE2",  # Blue Violet (label 10)
+        "#DC143C",  # Crimson (label 11)
+        "#7CFC00",  # Lawn Green (label 12)
+        "#20B2AA",  # Light Sea Green (label 13)
+        "#FF8C00",  # Dark Orange (label 14)
+        "#C71585",  # Medium Violet Red (label 15)
+        "#4682B4",  # Steel Blue (label 16)
+        "#D2691E",  # Chocolate (label 17)
+        "#9ACD32",  # Yellow Green (label 18)
+        "#BA55D3",  # Medium Orchid (label 19)
+        "#00CED1",  # Dark Turquoise (label 20)
+        "#FF69B4",  # Hot Pink (label 21)
+        "#556B2F",  # Dark Olive Green (label 22)
+        "#5F9EA0",  # Cadet Blue (label 23)
+        "#A0522D",  # Sienna (label 24)
+        "#6A5ACD",  # Slate Blue (label 25)
+        "#00FA9A",  # Medium Spring Green (label 26)
+        "#FFB6C1",  # Light Pink (label 27)
+        "#9932CC",  # Dark Orchid (label 28)
+        "#FA8072",  # Salmon (label 29)
+        "#2E8B57",  # Sea Green (label 30)        
+
+    ]
+    
+    
+    
+    for label in labelValues:
+        
+        i = label - 1  # index for layout math
+        row = i // 5 # 5 buttons per row
+        col = (i % 5) * 2  # label and button side by side
+
+        labelText = qt.QLabel(f"Label {label} Color:")
+        labelText.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
+        self.overlayColoursLayout.addWidget(labelText, row, col)
+
+        button = qt.QPushButton()
+        button.setFixedSize(24, 24)
+        
+        # Assign unique color based on label index
+        colorIndex = (label - 1) % len(predefinedColors)
+        color = predefinedColors[colorIndex]
+        button.setStyleSheet(f"background-color: {color};")
+        
+        button.clicked.connect(functools.partial(self.changeLabelColor, label, segmentationNode))
+        self.overlayColoursLayout.addWidget(button, row, col + 1)
+
+        self.labelColorButtons[label] = button
+        
+        # Apply this color to the color table immediately
+        self.applyInitialColorToLabel(label, color, segmentationNode)
+
 
   def onStopButton(self):
     """
@@ -1426,59 +1947,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     displayNode = labelMapNode.GetDisplayNode()
     displayNode.SetSliceIntersectionThickness(self.customParamNode.overlayThickness)
 
-  def onOverlayColorPicker(self):
-    currentColor = qt.QColor()
-    currentColor.setRgbF(*self.customParamNode.overlayColor)
-
-    # Open color dialog with the currently selected color
-    colorDialog = qt.QColorDialog()
-    colorDialog.setCurrentColor(currentColor)
-    colorDialog.setOption(qt.QColorDialog.ShowAlphaChannel, False)
-
-    if colorDialog.exec_() == qt.QDialog.Accepted:
-      color = colorDialog.selectedColor()
-      if color.isValid():
-        self.overlayColorButton.setStyleSheet(f"background-color: {color.name()};")
-        self.customParamNode.overlayColor = [color.redF(), color.greenF(), color.blueF()]
-
-        # Update segmentation node color
-        if self.customParamNode.node3DSegmentation:
-          segmentationNode = slicer.mrmlScene.GetNodeByID(str(self.customParamNode.node3DSegmentation))
-          if segmentationNode:
-            displayNode = segmentationNode.GetDisplayNode()
-            if displayNode:
-              # Update color for all segments
-              for segmentIndex in range(segmentationNode.GetSegmentation().GetNumberOfSegments()):
-                displayNode.SetSegmentColor(segmentIndex, *self.customParamNode.overlayColor)
-
-        # Update 3D view colour
-        volumeRenderingDisplayNodes = slicer.util.getNodesByClass("vtkMRMLVolumeRenderingDisplayNode")
-        for vrDisplayNode in volumeRenderingDisplayNodes:
-          volumeProperty = vrDisplayNode.GetVolumePropertyNode()
-          if volumeProperty:
-            colorTransferFunction = volumeProperty.GetColor()
-            if colorTransferFunction:
-              colorTransferFunction.RemoveAllPoints()
-              colorTransferFunction.AddRGBPoint(0, 0, 0, 0)
-              colorTransferFunction.AddRGBPoint(1, *self.customParamNode.overlayColor)
-
-        # Update all views
-        if self.customParamNode.sequenceBrowserNode:
-          currentItemNumber = self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber()
-          self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                               self.customParamNode.sequenceNode2DImages,
-                               self.customParamNode.node3DSegmentationLabelMap,
-                               self.customParamNode.sequenceNodeTransforms,
-                               self.customParamNode.opacity,
-                               self.customParamNode.overlayAsOutline,
-                               self.customParamNode.overlayThickness,
-                               customParamNode=self.customParamNode,
-                               )
-          self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(currentItemNumber)
-
-        # Final render to ensure all changes are visible
-        slicer.util.forceRenderAllViews()
-
+  
   def onViewMoreClicked(self):
     # Opens up a dialog displaying selected files when the user clicks "View More"
     dialog = qt.QDialog()
@@ -1538,7 +2007,32 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
       self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
     self.customParamNode.overlayColor = [0, 0.7, 0]
-    self.overlayColorButton.setStyleSheet("background-color: green;")
+
+    
+
+    if hasattr(self.customParamNode, 'node3DSegmentationLabelMap') and self.customParamNode.node3DSegmentationLabelMap:
+        shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+        labelMapNode = shNode.GetItemDataNode(self.customParamNode.node3DSegmentationLabelMap)
+      
+    
+    # Clear all additional overlay color buttons
+    if hasattr(self, 'labelColorButtons'):
+        # Remove ALL buttons and labels from layout
+        while self.overlayColoursLayout.count():
+            item = self.overlayColoursLayout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+        self.labelColorButtons = {}
+
+        # Clear the labelColorButtons dictionary
+        self.labelColorButtons = {}
+
+    
+    # Clear any pending label colors
+    if hasattr(self, 'pendingLabelColors'):
+        self.pendingLabelColors = {}
+    
     self.overlayThicknessSlider.value = 4
     self.customParamNode.overlayThickness = 4
     self.overlayThicknessSlider.enabled = False
@@ -1771,7 +2265,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.totalFrameLabel.enabled = False
       self.playbackSpeedBox.enabled = False
       self.transformationAppliedLabel.setVisible(False)
-      self.applyTransformButton.enabled = False
+      self.applyTransformButton.enabled = True
 
       # Add empty frame input box value
       self.currentFrameInputBox.setSpecialValueText(' ')
@@ -1876,6 +2370,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                  self.customParamNode.opacity,
                                  self.customParamNode.overlayAsOutline,
                                  self.customParamNode.overlayThickness,
+                                 show=False,
                                  customParamNode=self.customParamNode)
       # center 3D images on segmentation
       if self.customParamNode.sequenceNode2DImages.GetDataNodeAtValue("0").GetImageData().GetDataDimension() == 3:
@@ -1889,13 +2384,10 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
           sliceNode = slicer.mrmlScene.GetNodeByID(f'vtkMRMLSliceNode{name}')
           sliceNode.JumpSlice(center[0], center[1], center[2])
     
-    self.applyTransformButton.enabled = False
+    self.applyTransformButton.enabled = True
 
     slicer.util.forceRenderAllViews()
     slicer.app.processEvents()
-
-
-
 
 
 #
