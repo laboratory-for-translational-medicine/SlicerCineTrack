@@ -27,6 +27,7 @@ import functools
 import ctk
 import qt
 import vtk
+import SimpleITK as sitk
 
 import slicer
 from slicer.ScriptedLoadableModule import *
@@ -36,9 +37,6 @@ from slicer import vtkMRMLSequenceNode
 from slicer import vtkMRMLSequenceBrowserNode
 from utils.Helper import SpinBox, Slider
 from utils.TrackLogic import TrackLogic
-
-import numpy as np
-import slicer
 from slicer.util import arrayFromVolume, updateVolumeFromArray
 import functools
 
@@ -67,6 +65,7 @@ class Track(ScriptedLoadableModule):
                                 "Jacqueline Banh (laboratory-for-translational-medicine)",
                                 "Nicholas Caro Lopez (laboratory-for-translational-medicine)",
                                 "Venkat Guru Prasad (laboratory-for-translational-medicine)",
+                                "Filomena Ianniello (laboratory-for-translational-medicine)"
                                 ]
     self.parent.helpText = """From the input dropdown, select valid 2D cine images in the Cine
     Images Folder, a target to track in the 3D Segmentation File, and a transforms file containing information
@@ -97,6 +96,8 @@ class CustomParameterNode:
   overlayAsOutline: bool
   overlayColor: list # [r, g, b] values from 0 to 1
   overlayThickness: int = 4
+  deformedMaskSequenceNode: vtkMRMLSequenceNode = None
+
   
 
 
@@ -245,6 +246,55 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     browseButton = self.selector3DSegmentation.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
 
+    #  Dropdown: Transform Type 
+
+    self.transformTypeDropdown = qt.QComboBox()
+    self.transformTypeDropdown.addItems(["Translation", "Displacement Field"])
+    self.inputsFormLayout.addRow("Transform Type: ", self.transformTypeDropdown)
+
+    # when changed selection signal to run onTransformTypeChanged
+    self.transformTypeDropdown.currentTextChanged.connect(self.onTransformTypeChanged)
+
+
+   # Deformation field file Selector 
+
+    self.deformationFileSelector = ctk.ctkPathListWidget()
+    self.deformationFileSelector.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Fixed)
+    self.deformationFileSelector.setMaximumHeight(100)
+    self.deformationFileSelector.setToolTip("Select one .h5/.hdf5 file for each cine image.")
+
+   
+    # Buttons to browse and delete deformation files
+    self.browseDeformationFilesButton = qt.QPushButton("...")
+    self.browseDeformationFilesButton.setFixedSize(qt.QSize(26, 21))
+    self.browseDeformationFilesButton.setToolTip("Browse and add deformation field files")
+    self.deleteDeformationFilesButton = qt.QPushButton("X")
+    self.deleteDeformationFilesButton.setFixedSize(qt.QSize(25, 25))
+    self.deleteDeformationFilesButton.setToolTip("Remove selected deformation field files")
+
+    # Button click functions 
+    self.browseDeformationFilesButton.clicked.connect(self.onBrowseDeformationFiles)
+    self.deleteDeformationFilesButton.clicked.connect(lambda: self.deformationFileSelector.clear())
+
+    # Layout for the deformation file selector + buttons
+    self.deformationFilesLayout = qt.QHBoxLayout()
+    self.deformationFilesLayout.setSpacing(0)
+    self.deformationFilesLayout.setContentsMargins(0, 0, 0, 2)
+    self.deformationFilesLayout.setAlignment(qt.Qt.AlignLeft)
+    self.deformationFilesLayout.addWidget(self.deformationFileSelector)
+    self.deformationFilesLayout.addWidget(self.browseDeformationFilesButton)
+    self.deformationFilesLayout.addWidget(self.deleteDeformationFilesButton)
+
+    self.inputsFormLayout.addRow("Deformation Field Files: ", self.deformationFilesLayout)
+    self.deformationFieldLabel = self.inputsFormLayout.labelForField(self.deformationFilesLayout)
+    self.deformationFileSelector.hide()
+    self.browseDeformationFilesButton.hide()
+    self.deleteDeformationFilesButton.hide()
+    self.deformationFieldLabel.hide()
+
+    self.transformTypeDropdown.currentTextChanged.connect(self.onTransformTypeChanged)
+
+
     # Transforms file selector + delete button
     self.selectorTransformsFile = ctk.ctkPathLineEdit()
     self.selectorTransformsFile.filters = ctk.ctkPathLineEdit.Files | ctk.ctkPathLineEdit.NoDot | ctk.ctkPathLineEdit.NoDotDot | ctk.ctkPathLineEdit.Readable
@@ -262,6 +312,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.selectorTransformsLayout.addWidget(self.selectorTransformsFile)
     self.selectorTransformsLayout.addWidget(self.deleteTransformsButton)
     self.inputsFormLayout.addRow("Transforms File: ", self.selectorTransformsLayout)
+#assign label variable to call later :
+    self.transformsFileLabel = self.inputsFormLayout.labelForField(self.selectorTransformsLayout)
+
 
     tooltipText = "Insert a Transforms file. Valid filetypes: .csv, .xls, .xlsx"
     self.selectorTransformsFile.setToolTip(tooltipText)
@@ -304,7 +357,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.columnSelectorsLayout.addWidget(self.columnZSelector)
     
     self.inputsFormLayout.addRow('Translations: ',self.columnSelectorsLayout)
-    
+    #assign label variable to call later :
+    self.translationsLabel = self.inputsFormLayout.labelForField(self.columnSelectorsLayout)
+
+
+
     # Layout for apply transformation button
     self.applyTransformButton = qt.QPushButton("Apply")
     self.applyTransformButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
@@ -375,7 +432,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Playback control layout
     self.controlWidget = qt.QWidget()
-    self.controlWidget.setMinimumHeight(30)
+    self.controlWidget.setMinimumHeight(70)
     self.controlLayout = qt.QHBoxLayout()
     self.controlLayout.setAlignment(qt.Qt.AlignLeft)
     self.controlWidget.setLayout(self.controlLayout)
@@ -439,7 +496,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.playbackSpeedBox.maximum = 30.0
     self.playbackSpeedBox.value = 5.0
     self.playbackSpeedBox.setSingleStep(0.5)
-    self.playbackSpeedBox.suffix = " fps"
+    #self.playbackSpeedBox.suffix = " fps"
     self.playbackSpeedBox.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.controlLayout.addWidget(self.playbackSpeedBox)
     self.playbackSpeedBox.setToolTip("Modify playback speed using the arrows on the right.")
@@ -609,6 +666,60 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
 
+  def onTransformTypeChanged(self, value):
+    self.transformType = value
+
+
+    if value == "Displacement Field":
+        self.deformationFileSelector.show()
+        self.browseDeformationFilesButton.show()
+        self.deleteDeformationFilesButton.show()
+        self.deformationFieldLabel.show()
+
+        self.selectorTransformsFile.hide()
+        self.deleteTransformsButton.hide()
+        self.transformsFileLabel.hide()
+        
+
+        self.columnXSelector.hide()
+        self.columnXSelectorLabel.hide()
+        self.columnYSelector.hide()
+        self.columnYSelectorLabel.hide()
+        self.columnZSelector.hide()
+        self.columnZSelectorLabel.hide()
+        self.translationsLabel.hide()
+
+        
+    else:
+        self.deformationFileSelector.hide()
+        self.browseDeformationFilesButton.hide()
+        self.deleteDeformationFilesButton.hide()
+        self.deformationFieldLabel.hide()
+
+        self.selectorTransformsFile.show()
+        self.deleteTransformsButton.show()
+        self.transformsFileLabel.show()
+
+        self.columnXSelector.show()
+        self.columnXSelectorLabel.show()
+        self.columnYSelector.show()
+        self.columnYSelectorLabel.show()
+        self.columnZSelector.show()
+        self.columnZSelectorLabel.show()
+        self.translationsLabel.show()
+
+
+  def onBrowseDeformationFiles(self):
+      fileDialog = qt.QFileDialog()
+      fileDialog.setFileMode(qt.QFileDialog.ExistingFiles)
+      fileDialog.setNameFilter("Deformation Fields (*.h5 *.hdf5)")
+
+      if fileDialog.exec():
+          selectedFiles = fileDialog.selectedFiles()
+          selectedFiles = sorted(list(selectedFiles))
+          self.deformationFileSelector.addPaths(selectedFiles)
+          self.deformationFieldPaths = selectedFiles
+
   def cleanup(self):
     """
     Called when the application closes and the module widget is destroyed.
@@ -716,8 +827,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # True if the 2D images, transforms and 3D segmentation have been provided
     inputsProvided = self.customParamNode.sequenceNode2DImages and \
-                     self.customParamNode.sequenceNodeTransforms and \
-                     self.customParamNode.node3DSegmentation
+                 (self.customParamNode.sequenceNodeTransforms or self.customParamNode.deformedMaskSequenceNode) and \
+                 self.customParamNode.node3DSegmentation
+
 
     self.updatePlaybackButtons(inputsProvided)
 
@@ -729,15 +841,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.sequenceSlider.setValue(imageNum)
       self.currentFrameInputBox.setValue(imageNum)
       
-      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                           self.customParamNode.sequenceNode2DImages,
-                           self.customParamNode.node3DSegmentationLabelMap,
-                           self.customParamNode.sequenceNodeTransforms,
-                           self.customParamNode.opacity,
-                           self.customParamNode.overlayAsOutline,
-                           self.customParamNode.overlayThickness,
-                           show=False,
-                           customParamNode=self.customParamNode)
+      self.logic.visualize(
+          sequenceBrowser=self.customParamNode.sequenceBrowserNode,
+          sequenceNode2DImages=self.customParamNode.sequenceNode2DImages,
+          segmentationLabelMapID=self.customParamNode.node3DSegmentationLabelMap,
+          sequenceNodeTransforms=self.customParamNode.sequenceNodeTransforms,
+          opacity=self.customParamNode.opacity,
+          overlayAsOutline=self.customParamNode.overlayAsOutline,
+          overlayThickness=self.customParamNode.overlayThickness,
+          show=False,
+          customParamNode=self.customParamNode,
+          deformedMaskSequenceNode=self.customParamNode.deformedMaskSequenceNode,
+          transformType=self.transformTypeDropdown.currentText
+      )
       self.editSliceView(imageDict)
                            
     elif not self.customParamNode.sequenceBrowserNode:
@@ -1168,125 +1284,229 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                            
     if caller == "applyTransformsButton" and event == "clicked":
 
-
-      # Set a param to hold the path to the transformations .csv file
-
-      numImages = self.customParamNode.totalImages
+      if self.transformTypeDropdown.currentText == "Translation":
 
 
-      if self.selectorTransformsFile.currentPath:
-        
+        # Set a param to hold the path to the transformations .csv file
 
-        # If even one line cannot be read correctly/is missing our playback cannot be successful. We
-        # will validate the tranformations input first. If the input is valid, we get a list
-        # containing all of the transformations read from the file.
-        headers = []
-        headers.append(self.columnXSelector.currentText)
-        headers.append(self.columnYSelector.currentText)
-        headers.append(self.columnZSelector.currentText)
-        transformsList = \
-          self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages,headers)
-        
-      else:
-        # No file provided — use identity transform (0,0,0) for each frame
-        self.customParamNode.transformsFilePath = ""
-        transformsList = [[0.0, 0.0, 0.0] for _ in range(numImages)]
+        numImages = self.customParamNode.totalImages
 
-      if transformsList:
-        # Create transform nodes from the transform data and place them into a sequence node
-        transformsSequenceNode = \
-           self.logic.createTransformNodesFromTransformData(shNode, transformsList, numImages)
 
-        if not transformsSequenceNode:
-          # If cancelled unset param to hold path to the transformations .csv file
-          self.customParamNode.transformsFilePath = ""
+        if self.selectorTransformsFile.currentPath:
+          
+
+          # If even one line cannot be read correctly/is missing our playback cannot be successful. We
+          # will validate the tranformations input first. If the input is valid, we get a list
+          # containing all of the transformations read from the file.
+          headers = []
+          headers.append(self.columnXSelector.currentText)
+          headers.append(self.columnYSelector.currentText)
+          headers.append(self.columnZSelector.currentText)
+          transformsList = \
+            self.logic.validateTransformsInput(self.selectorTransformsFile.currentPath, numImages,headers)
+          
         else:
-          # Set a param to hold the sequence node which holds the transform nodes
-          self.customParamNode.sequenceNodeTransforms = transformsSequenceNode
-          # Create a sequence browser node
-          sequenceBrowserNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode", \
-                                                                   "Sequence Browser")
-          sequenceBrowserNode.AddSynchronizedSequenceNode(self.customParamNode.sequenceNode2DImages)
-          sequenceBrowserNode.AddSynchronizedSequenceNode(self.customParamNode.sequenceNodeTransforms)
-          # We need to observe the changes to the sequence browser so that our GUI will update as
-          # the sequence progresses
-          self.addObserver(sequenceBrowserNode, vtk.vtkCommand.ModifiedEvent, \
-                           self.updateGUIFromParameterNode)
-          # Set a param to hold the sequence browser node
-          self.customParamNode.sequenceBrowserNode = sequenceBrowserNode
-          
-          # Since the code above added another set of image nodes, transforms nodes and
-          # sequence browser nodes, remove the unused sequence browser node, image nodes,
-          # and transforms nodes, if they exist
-          nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
-          nodes.UnRegister(None)
-          # Ensure that there is an extra sequence browser node, since we need exactly
-          # one sequence browser node at a time
-          if nodes.GetNumberOfItems() == 2:
-            sequenceBrowserNodeToDelete = nodes.GetItemAsObject(0)
-              
-            # Remove the unused sequence browser node
-            slicer.mrmlScene.RemoveNode(sequenceBrowserNodeToDelete)
+          # No file provided — use identity transform (0,0,0) for each frame
+          self.customParamNode.transformsFilePath = ""
+          transformsList = [[0.0, 0.0, 0.0] for _ in range(numImages)]
 
-            # Remove the unused Transforms Nodes Sequence, if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
-            nodes.UnRegister(None)
-            if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
+        if transformsList:
+          # Create transform nodes from the transform data and place them into a sequence node
+          transformsSequenceNode = \
+            self.logic.createTransformNodesFromTransformData(shNode, transformsList, numImages)
+
+          if not transformsSequenceNode:
+            # If cancelled unset param to hold path to the transformations .csv file
+            self.customParamNode.transformsFilePath = ""
+          else:
+            # Set a param to hold the sequence node which holds the transform nodes
+            self.customParamNode.sequenceNodeTransforms = transformsSequenceNode
+            # Create a sequence browser node
+            sequenceBrowserNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode", \
+                                                                    "Sequence Browser")
+            sequenceBrowserNode.AddSynchronizedSequenceNode(self.customParamNode.sequenceNode2DImages)
+            sequenceBrowserNode.AddSynchronizedSequenceNode(self.customParamNode.sequenceNodeTransforms)
+            # We need to observe the changes to the sequence browser so that our GUI will update as
+            # the sequence progresses
+            self.addObserver(sequenceBrowserNode, vtk.vtkCommand.ModifiedEvent, \
+                            self.updateGUIFromParameterNode)
+            # Set a param to hold the sequence browser node
+            self.customParamNode.sequenceBrowserNode = sequenceBrowserNode
             
-            # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+            # Since the code above added another set of image nodes, transforms nodes and
+            # sequence browser nodes, remove the unused sequence browser node, image nodes,
+            # and transforms nodes, if they exist
+            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
             nodes.UnRegister(None)
+            # Ensure that there is an extra sequence browser node, since we need exactly
+            # one sequence browser node at a time
             if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
-          
-            # Remove the unused Image Nodes Sequence, containing each image node, if it exists
-            nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
-            nodes.UnRegister(None)
-            if nodes.GetNumberOfItems() == 2:
-              nodeToRemove = nodes.GetItemAsObject(0)
-              slicer.mrmlScene.RemoveNode(nodeToRemove)
+              sequenceBrowserNodeToDelete = nodes.GetItemAsObject(0)
+                
+              # Remove the unused sequence browser node
+              slicer.mrmlScene.RemoveNode(sequenceBrowserNodeToDelete)
+
+              # Remove the unused Transforms Nodes Sequence, if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
               
-            # Remove the image nodes of each slice view used to preserve the slice views
-            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
-            nodes.UnRegister(None)
-            for node in nodes:
-              if node.GetName() == 'Image Nodes Sequence':
-                 break
-              if node.GetName() == node.GetAttribute('Sequences.BaseName'):
-                slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
-                slicer.mrmlScene.RemoveNode(node)
-          self.overlayThicknessSlider.enabled = True
+              # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
+            
+              # Remove the unused Image Nodes Sequence, containing each image node, if it exists
+              nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+              nodes.UnRegister(None)
+              if nodes.GetNumberOfItems() == 2:
+                nodeToRemove = nodes.GetItemAsObject(0)
+                slicer.mrmlScene.RemoveNode(nodeToRemove)
+                
+              # Remove the image nodes of each slice view used to preserve the slice views
+              nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+              nodes.UnRegister(None)
+              for node in nodes:
+                if node.GetName() == 'Image Nodes Sequence':
+                  break
+                if node.GetName() == node.GetAttribute('Sequences.BaseName'):
+                  slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
+                  slicer.mrmlScene.RemoveNode(node)
+            self.overlayThicknessSlider.enabled = True
 
-          # Load first image of the sequence when all required inputs are satisfied
-          self.resetVisuals()
+            # Load first image of the sequence when all required inputs are satisfied
+            self.resetVisuals()
+            
+        else:
+          # If the user inputted file in the Tranforms File input is not accepted, remove the nodes created
+          # from the previously inputted transforms file, if it exists. Also, remove filepath in Transforms
+          # File in the `Inputs` section since the input is invalid.
+
+          # Remove the unused Transforms Nodes Sequence, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
           
+          # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
+          nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+          nodes.UnRegister(None)
+          if nodes.GetNumberOfItems() == 1:
+            nodeToRemove = nodes.GetItemAsObject(0)
+            slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
+            slicer.mrmlScene.RemoveNode(nodeToRemove)
+
+          # Remove filepath for the Transforms File in the `Inputs` section
+          self.customParamNode.transformsFilePath = ''
+          self.selectorTransformsFile.currentPath = ''
+
+      #Deformation Field
       else:
-        # If the user inputted file in the Tranforms File input is not accepted, remove the nodes created
-        # from the previously inputted transforms file, if it exists. Also, remove filepath in Transforms
-        # File in the `Inputs` section since the input is invalid.
+        if len(self.deformationFieldPaths) != self.customParamNode.totalImages:
+            slicer.util.errorDisplay("Number of deformation field files must match number of cine images.", "Input Error")
+            return
 
-        # Remove the unused Transforms Nodes Sequence, if it exists
-        nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
-        nodes.UnRegister(None)
-        if nodes.GetNumberOfItems() == 1:
-          nodeToRemove = nodes.GetItemAsObject(0)
-          slicer.mrmlScene.RemoveNode(nodeToRemove)
-        
-        # Remove the unused Transforms Nodes Sequence containing each linear transform node, if it exists
-        nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
-        nodes.UnRegister(None)
-        if nodes.GetNumberOfItems() == 1:
-          nodeToRemove = nodes.GetItemAsObject(0)
-          slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
-          slicer.mrmlScene.RemoveNode(nodeToRemove)
+        # Create the SequenceNode to store the masks
+        deformedMaskSequenceNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode", "Deformed Mask Sequence")
+        self.customParamNode.deformedMaskSequenceNode = deformedMaskSequenceNode
 
-        # Remove filepath for the Transforms File in the `Inputs` section
-        self.customParamNode.transformsFilePath = ''
-        self.selectorTransformsFile.currentPath = ''
+        mask = sitk.ReadImage(self.customParamNode.path3DSegmentation)
+
+        for i, path in enumerate(self.deformationFieldPaths):
+            try:
+                print(f"Frame {i} — Reading transform from: {path}")
+                tx = sitk.ReadTransform(path)
+
+                toDisplacementFilter = sitk.TransformToDisplacementFieldFilter()
+                toDisplacementFilter.SetReferenceImage(mask)
+                displacementField = toDisplacementFilter.Execute(tx)
+
+                displacementField = sitk.InvertDisplacementField(displacementField)
+                tx = sitk.DisplacementFieldTransform(displacementField)
+                deformedMask = sitk.Resample(mask, mask, tx)
+
+                print(f"DeformedMask[{i}] unique values:", np.unique(sitk.GetArrayFromImage(deformedMask)))
+
+                # Create volume node directly in memory without saving to disk
+                volumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", f"DeformedMask_{i}")
+                
+                # Convert SimpleITK image to numpy array and update the volume node
+                deformedMaskArray = sitk.GetArrayFromImage(deformedMask)
+                slicer.util.updateVolumeFromArray(volumeNode, deformedMaskArray)
+                
+                # Copy the image properties from the original mask
+                volumeNode.SetOrigin(mask.GetOrigin())
+                volumeNode.SetSpacing(mask.GetSpacing())
+                
+                # Set the image direction
+                direction = mask.GetDirection()
+                vtkMatrix = vtk.vtkMatrix4x4()
+                for row in range(3):
+                    for col in range(3):
+                        vtkMatrix.SetElement(row, col, direction[row * 3 + col])
+                volumeNode.SetIJKToRASDirectionMatrix(vtkMatrix)
+                
+                deformedMaskSequenceNode.SetDataNodeAtValue(volumeNode, str(i))
+
+            except Exception as e:
+                slicer.util.errorDisplay(f"Failed to apply deformation field to mask {i}: {e}")
+                return
+
+        # Playback setup
+        sequenceBrowserNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceBrowserNode", "Sequence Browser")
+        sequenceBrowserNode.AddSynchronizedSequenceNode(self.customParamNode.sequenceNode2DImages)
+        sequenceBrowserNode.AddSynchronizedSequenceNode(deformedMaskSequenceNode)
+
+        sequenceBrowserNode.SetRecording(deformedMaskSequenceNode, False)
+        sequenceBrowserNode.SetPlayback(deformedMaskSequenceNode, True)
+        sequenceBrowserNode.SetSelectedItemNumber(0)
+        sequenceBrowserNode.SetPlaybackRateFps(10)
+
+        layoutManager = slicer.app.layoutManager()
+        for name in layoutManager.sliceViewNames():
+            sliceWidget = layoutManager.sliceWidget(name)
+            sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+
+            currentItemIndex = sequenceBrowserNode.GetSelectedItemNumber()
+            currentLabelNode = deformedMaskSequenceNode.GetDataNodeAtValue(str(currentItemIndex))
+
+            if currentLabelNode:
+                sliceCompositeNode.SetLabelVolumeID(currentLabelNode.GetID())
+                sliceCompositeNode.SetLabelOpacity(self.customParamNode.opacity)
+                sliceWidget.mrmlSliceNode().SetUseLabelOutline(self.customParamNode.overlayAsOutline)
+
+        self.addObserver(sequenceBrowserNode, vtk.vtkCommand.ModifiedEvent, self.updateGUIFromParameterNode)
+
+        # Register sequence browser (for playback control in the UI)
+        self.customParamNode.sequenceBrowserNode = sequenceBrowserNode
+
+        # Done—reset visuals to show new playback
+        self.resetVisuals()
+
+        self.updateGUIFromParameterNode()
+
+        self.logic.visualize(
+    sequenceBrowser=self.customParamNode.sequenceBrowserNode,
+    sequenceNode2DImages=self.customParamNode.sequenceNode2DImages,
+    segmentationLabelMapID=self.customParamNode.node3DSegmentationLabelMap,
+    sequenceNodeTransforms=self.customParamNode.sequenceNodeTransforms,  # This is still required by the function signature
+    opacity=self.customParamNode.opacity,
+    overlayAsOutline=self.customParamNode.overlayAsOutline,
+    overlayThickness=self.customParamNode.overlayThickness,
+    show=False,
+    customParamNode=self.customParamNode,
+    deformedMaskSequenceNode=self.customParamNode.deformedMaskSequenceNode,
+    transformType="Deformation Field"
+)
+
+
+
     self.customParamNode.EndModify(wasModified)
   def onTransformsFilePathChange(self):
     
@@ -1355,7 +1575,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     layoutManager = slicer.app.layoutManager()
     self.customParamNode.sequenceBrowserNode.SetPlaybackItemSkippingEnabled(False) # Fixes image skipping bug on slower machines
     proxy2DImageNode = self.customParamNode.sequenceBrowserNode.GetProxyNode(self.customParamNode.sequenceNode2DImages)
-    sliceWidget = TrackLogic().getSliceWidget(layoutManager, proxy2DImageNode)
+    sliceWidget = self.logic.getSliceWidget(layoutManager, proxy2DImageNode)
     sliceView = sliceWidget.sliceView()
     
     ## Pause sequence
@@ -1512,7 +1732,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         colorNode.SetColor(labelValue, f"Label {labelValue}", r, g, b, 1.0)
 
     # Force apply the color table to the display node
-    displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+    
     displayNode.Modified()
     colorNode.Modified()
     
@@ -1521,273 +1741,185 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
   def changeLabelColor(self, labelValue, segmentationNode, checked=None):
-    
-      currentColor = qt.QColor(0, 179, 0)
+    currentColor = qt.QColor(0, 179, 0)
 
-      colorDialog = qt.QColorDialog()
-      colorDialog.setCurrentColor(currentColor)
-      colorDialog.setOption(qt.QColorDialog.ShowAlphaChannel, False)
+    colorDialog = qt.QColorDialog()
+    colorDialog.setCurrentColor(currentColor)
+    colorDialog.setOption(qt.QColorDialog.ShowAlphaChannel, False)
 
-      if colorDialog.exec_() == qt.QDialog.Accepted:
-          selected = colorDialog.selectedColor()
-          if selected.isValid():
-              rgb = [selected.redF(), selected.greenF(), selected.blueF()]
+    if colorDialog.exec_() == qt.QDialog.Accepted:
+        selected = colorDialog.selectedColor()
+        if selected.isValid():
+            rgb = [selected.redF(), selected.greenF(), selected.blueF()]
 
-              button = self.labelColorButtons.get(labelValue)
-              if button:
-                  button.setStyleSheet(f"background-color: {selected.name()};")
-                  
+            button = self.labelColorButtons.get(labelValue)
+            if button:
+                button.setStyleSheet(f"background-color: {selected.name()};")
 
+            # Get the label map node actually being displayed
+            shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+            labelMapNode = shNode.GetItemDataNode(self.customParamNode.node3DSegmentationLabelMap)
+            displayNode = labelMapNode.GetDisplayNode()
 
-              # Get the label map node that's actually being displayed
-              shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-              labelMapNode = shNode.GetItemDataNode(self.customParamNode.node3DSegmentationLabelMap)
-              displayNode = labelMapNode.GetDisplayNode()
-              
-              if displayNode:
-                  colorNode = displayNode.GetColorNode()
+            if displayNode:
+                colorNode = displayNode.GetColorNode()
 
-                  # Clone the color node if it's not editable
-                  if colorNode.GetType() != slicer.vtkMRMLColorTableNode.User:
+                # Clone color node if not editable
+                if colorNode.GetType() != slicer.vtkMRMLColorTableNode.User:
+                    colorNodeCopy = slicer.vtkMRMLColorTableNode()
+                    colorNodeCopy.SetTypeToUser()
 
+                    originalCount = colorNode.GetNumberOfColors()
+                    colorNodeCopy.SetNumberOfColors(originalCount)
 
-                      colorNodeCopy = slicer.vtkMRMLColorTableNode()
-                      colorNodeCopy.SetTypeToUser()
+                    for i in range(originalCount):
+                        rgba = [0, 0, 0, 0]
+                        colorNode.GetColor(i, rgba)
+                        colorNodeCopy.SetColor(i, f"Label {i}", *rgba)
 
-                      originalCount = colorNode.GetNumberOfColors()
-                      colorNodeCopy.SetNumberOfColors(originalCount)
+                    slicer.mrmlScene.AddNode(colorNodeCopy)
+                    displayNode.SetAndObserveColorNodeID(colorNodeCopy.GetID())
+                    colorNode = colorNodeCopy
 
-                      for i in range(originalCount):
-                          rgba = [0, 0, 0, 0]
-                          colorNode.GetColor(i, rgba)
-                          colorNodeCopy.SetColor(i, f"Label {i}", *rgba)
+                # Ensure color table is big enough
+                if labelValue >= colorNode.GetNumberOfColors():
+                    colorNode.SetNumberOfColors(labelValue + 1)
 
-                      slicer.mrmlScene.AddNode(colorNodeCopy)
-                      displayNode.SetAndObserveColorNodeID(colorNodeCopy.GetID())
-                      colorNode = colorNodeCopy
+                # Set the new color
+                colorNode.SetColor(labelValue, f"Label {labelValue}", *rgb, 1.0)
 
-                  # Ensure color table is big enough
-                  if labelValue >= colorNode.GetNumberOfColors():
-                      colorNode.SetNumberOfColors(labelValue + 1)
-
-
-
-                  # Set the color
-                  #  Get the current color for this label before changing
-                  rgba_before = [0, 0, 0, 0]
-                  colorNode.GetColor(labelValue, rgba_before)
-
-
-                  # Set the new color
-                  colorNode.SetColor(labelValue, f"Label {labelValue}", *rgb, 1.0)
-
-                  # Get the updated color after setting
-                  rgba_after = [0, 0, 0, 0]
-                  colorNode.GetColor(labelValue, rgba_after)
-
-                  # Force apply the color table to the display node
-                  displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+                displayNode.SetAndObserveColorNodeID(colorNode.GetID())
 
 
 
-                  # Force the display node to update its lookup table
-                  displayNode.SetAndObserveColorNodeID(colorNode.GetID())
-                  
-                  # Label map display nodes don't have SetWindow/SetLevel methods
-                  # Instead, force update by modifying the display node
-                  displayNode.Modified()
-                  
-                  # Debug: Check the actual voxel values in the label map
-                  labelMapImageData = labelMapNode.GetImageData()
-                  if labelMapImageData:
-                      scalarRange = labelMapImageData.GetScalarRange()
+                # Update nodes
+                colorNode.Modified()
+                displayNode.Modified()
+                segmentationNode.Modified()
 
-                      
-                      # Check if our target label value actually exists in the volume
-                      import numpy as np
-                      array = slicer.util.arrayFromVolume(labelMapNode)
-                      unique_labels = np.unique(array)
+                # Refresh all slice views
+                layoutManager = slicer.app.layoutManager()
+                for sliceViewName in layoutManager.sliceViewNames():
+                    sliceWidget = layoutManager.sliceWidget(sliceViewName)
+                    if sliceWidget:
+                        sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
+                        if sliceCompositeNode and sliceCompositeNode.GetLabelVolumeID() == labelMapNode.GetID():
+                            oldLabelVolumeID = sliceCompositeNode.GetLabelVolumeID()
+                            sliceCompositeNode.SetLabelVolumeID(None)
+                            sliceCompositeNode.SetLabelVolumeID(oldLabelVolumeID)
+                            sliceCompositeNode.Modified()
+
+                # --- Fix: Update existing 3D rendering transfer functions to match new label colors ---
+                volumeRenderingLogic = slicer.modules.volumerendering.logic()
+                volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(labelMapNode)
+
+                if volumeRenderingDisplayNode:
+                    volumePropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode()
+                    if volumePropertyNode:
+                        # Create new transfer functions
+                        ctf = vtk.vtkColorTransferFunction()
+                        otf = vtk.vtkPiecewiseFunction()
+                        gtf = vtk.vtkPiecewiseFunction()  # Gradient opacity
+
+                        # Get unique labels from the volume to know which labels actually exist
+                        labelArray = slicer.util.arrayFromVolume(labelMapNode)
+                        uniqueLabels = np.unique(labelArray)
+                        
+                        # Add background (transparent)
+                        ctf.AddRGBPoint(0, 0.0, 0.0, 0.0)  # black background
+                        otf.AddPoint(0, 0.0)  # completely transparent background
+                        gtf.AddPoint(0, 1.0)  # no gradient opacity effect for background
+                        
+                        for label in uniqueLabels:
+                            # Skip background (label 0) - already handled above
+                            if label == 0:
+                                continue
+                                
+                            labelInt = int(label)
+                            if labelInt < colorNode.GetNumberOfColors():
+                                rgba = [0, 0, 0, 0]
+                                colorNode.GetColor(labelInt, rgba)
+                                # Add color for this label
+                                ctf.AddRGBPoint(label, rgba[0], rgba[1], rgba[2])
+                                # Set full opacity for solid rendering
+                                otf.AddPoint(label, self.customParamNode.opacity)
+                                # Gradient opacity - set to 1.0 for solid rendering
+                                gtf.AddPoint(label, 1.0)
+                            else:
+                                # Use default color if not in color table
+                                ctf.AddRGBPoint(label, 1.0, 1.0, 1.0)  # white
+                                otf.AddPoint(label, self.customParamNode.opacity)
+                                gtf.AddPoint(label, 1.0)
+
+                        # Apply transfer functions to volume rendering
+                        volumePropertyNode.SetColor(ctf)
+                        volumePropertyNode.SetScalarOpacity(otf)
+                        volumePropertyNode.SetGradientOpacity(gtf)
+                        
+                        # Ensure solid rendering settings
+                        volumePropertyNode.SetInterpolationTypeToLinear()
+                        volumePropertyNode.ShadeOn()  # Enable shading for better 3D appearance
+                        volumePropertyNode.SetAmbient(0.3)
+                        volumePropertyNode.SetDiffuse(0.7)
+                        volumePropertyNode.SetSpecular(0.2)
+
+                        volumePropertyNode.Modified()
+                        volumeRenderingDisplayNode.Modified()
+                else:
+                    # Create volume rendering if it doesn't exist
+                    volumeRenderingDisplayNode = volumeRenderingLogic.CreateDefaultVolumeRenderingNodes(labelMapNode)
+                    if volumeRenderingDisplayNode:
+                        # Apply the same settings as above for new volume rendering node
+                        volumePropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode()
+                        if volumePropertyNode:
+                            ctf = vtk.vtkColorTransferFunction()
+                            otf = vtk.vtkPiecewiseFunction()
+                            gtf = vtk.vtkPiecewiseFunction()
+
+                            labelArray = slicer.util.arrayFromVolume(labelMapNode)
+                            uniqueLabels = np.unique(labelArray)
+                            
+                            ctf.AddRGBPoint(0, 0.0, 0.0, 0.0)
+                            otf.AddPoint(0, 0.0)
+                            gtf.AddPoint(0, 1.0)
+                            
+                            for label in uniqueLabels:
+                                if label == 0:
+                                    continue
+                                    
+                                labelInt = int(label)
+                                if labelInt < colorNode.GetNumberOfColors():
+                                    rgba = [0, 0, 0, 0]
+                                    colorNode.GetColor(labelInt, rgba)
+                                    ctf.AddRGBPoint(label, rgba[0], rgba[1], rgba[2])
+                                    otf.AddPoint(label, self.customParamNode.opacity)
+                                    gtf.AddPoint(label, 1.0)
+                                else:
+                                    ctf.AddRGBPoint(label, 1.0, 1.0, 1.0)
+                                    otf.AddPoint(label, self.customParamNode.opacity)
+                                    gtf.AddPoint(label, 1.0)
+
+                            volumePropertyNode.SetColor(ctf)
+                            volumePropertyNode.SetScalarOpacity(otf)
+                            volumePropertyNode.SetGradientOpacity(gtf)
+                            volumePropertyNode.SetInterpolationTypeToLinear()
+                            volumePropertyNode.ShadeOn()
+                            volumePropertyNode.SetAmbient(0.3)
+                            volumePropertyNode.SetDiffuse(0.7)
+                            volumePropertyNode.SetSpecular(0.2)
+
+                            volumePropertyNode.Modified()
+                            volumeRenderingDisplayNode.Modified()
+                        
+                        # Make sure volume rendering is visible
+                        volumeRenderingDisplayNode.SetVisibility(True)
+
+                # Force render updates
+                slicer.util.forceRenderAllViews()
+                labelMapNode.Modified()
 
 
-                  # Force the color node to be recomputed
-                  colorNode.Modified()
-                  
-                  # Force refresh all slice composite nodes to pick up the new color
-                  layoutManager = slicer.app.layoutManager()
-                  for sliceViewName in layoutManager.sliceViewNames():
-                      sliceWidget = layoutManager.sliceWidget(sliceViewName)
-                      if sliceWidget:
-                          sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
-                          if sliceCompositeNode and sliceCompositeNode.GetLabelVolumeID() == labelMapNode.GetID():
-                              # Force the slice composite node to refresh the label display
 
-                              # Reset the label volume ID to force a refresh
-                              oldLabelVolumeID = sliceCompositeNode.GetLabelVolumeID()
-                              sliceCompositeNode.SetLabelVolumeID(None)
-                              sliceCompositeNode.SetLabelVolumeID(oldLabelVolumeID)
-                              sliceCompositeNode.Modified()
-                  
-                  # Force update the 3D viewer display
-                  # Refresh the 3D view by ensuring the labelMapNode's display node is properly updated
-                  threeDViewNode = slicer.app.layoutManager().activeMRMLThreeDViewNode()
-                  if threeDViewNode:
-                      # Force refresh the 3D view display
-                      shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-                      
-                      # Get the subject hierarchy item for the labelMapNode
-                      shItemID = shNode.GetItemByDataNode(labelMapNode)
-                      if shItemID != slicer.vtkMRMLSubjectHierarchyNode.GetInvalidItemID():
-                          # Hide and then show again to force refresh in 3D view
-                          shNode.SetItemDisplayVisibility(shItemID, False)
-                          shNode.SetItemDisplayVisibility(shItemID, True)
-                      
-                      # Also update any volume rendering display nodes if they exist
-                      for displayNodeIndex in range(labelMapNode.GetNumberOfDisplayNodes()):
-                          volumeDisplayNode = labelMapNode.GetNthDisplayNode(displayNodeIndex)
-                          if volumeDisplayNode and volumeDisplayNode.IsA("vtkMRMLVolumeRenderingDisplayNode"):
-                              volumeDisplayNode.Modified()
-                              # Force the volume property to update
-                              volumeProperty = volumeDisplayNode.GetVolumePropertyNode()
-                              if volumeProperty:
-                                  volumeProperty.Modified()
-                  
-                  # Update display nodes to use the new color table
-                  displayNode.SetAndObserveColorNodeID(colorNode.GetID())
-                  
-                  # Force the display node to update immediately
-                  displayNode.Modified()
-                  
-                  # Update the scalar range and window/level to ensure proper color mapping
-                  displayNode.UpdateImageDataPipeline()
-                  
-                  # Force re-visualization to apply the new colors
-                  if hasattr(self, 'customParamNode') and self.customParamNode.sequenceBrowserNode:
-                      # Ensure the color table is properly set before calling visualize
-                      displayNode.SetAndObserveColorNodeID(colorNode.GetID())
-                      displayNode.Modified()
-                      
-                      # Force the label map node to update its display
-                      labelMapNode.Modified()
-                      
-                      # CRITICAL: Force 3D volume rendering to reload color table
-                      # This is the key fix for 3D volume rendering not updating colors
-                      layoutManager = slicer.app.layoutManager()
-                      if layoutManager:
-                          # Get the 3D view and force volume rendering refresh
-                          threeDWidget = layoutManager.threeDWidget(0)
-                          if threeDWidget:
-                              threeDViewNode = threeDWidget.mrmlViewNode()
-                              if threeDViewNode:
-                                  # Force volume rendering to be disabled and re-enabled to reload colors
-                                  volumeRenderingLogic = slicer.modules.volumerendering.logic()
-                                  volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(labelMapNode)
-                                  
-                                  if volumeRenderingDisplayNode:
-                                      # Temporarily disable volume rendering
-                                      volumeRenderingDisplayNode.SetVisibility(False)
-                                      slicer.app.processEvents()
-                                      
-                                      # Force the volume property to reload with new colors
-                                      volumePropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode()
-                                      if volumePropertyNode:
-                                          volumePropertyNode.Modified()
-                                      
-                                      # Re-enable volume rendering with updated colors
-                                      volumeRenderingDisplayNode.SetVisibility(True)
-                                      volumeRenderingDisplayNode.Modified()
-                                  else:
-                                      # If no volume rendering display node exists, create one
-                                      volumeRenderingDisplayNode = volumeRenderingLogic.CreateDefaultVolumeRenderingNodes(labelMapNode)
-                                      if volumeRenderingDisplayNode:
-                                          volumeRenderingDisplayNode.SetVisibility(True)
-                      
-                      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                                           self.customParamNode.sequenceNode2DImages,
-                                           self.customParamNode.node3DSegmentationLabelMap,
-                                           self.customParamNode.sequenceNodeTransforms,
-                                           self.customParamNode.opacity,
-                                           self.customParamNode.overlayAsOutline,
-                                           self.customParamNode.overlayThickness,
-                                           show=False,
-                                           customParamNode=self.customParamNode)
-                  
-                  # Force all views to render with new color information
-                  slicer.util.forceRenderAllViews()
-                  
-                  # Additional specific updates for 3D view
-                  labelMapNode.Modified()
-                  
-                  # CRITICAL FIX: Update volume rendering transfer functions
-                  # This ensures that the 3D volume rendering uses the new color table
-                  volumeRenderingLogic = slicer.modules.volumerendering.logic()
-                  volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(labelMapNode)
-                  
-                  if volumeRenderingDisplayNode:
-                      # Force the volume rendering to use the updated color table
-                      volumePropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode()
-                      if volumePropertyNode:
-                          # Update color transfer function with new colors
-                          colorTransferFunction = volumePropertyNode.GetColor()
-                          if colorTransferFunction:
-                              # Clear existing color points and rebuild from color table
-                              colorTransferFunction.RemoveAllPoints()
-                              
-                              # Add color points based on the updated color table
-                              for i in range(colorNode.GetNumberOfColors()):
-                                  rgba = [0, 0, 0, 0]
-                                  colorNode.GetColor(i, rgba)
-                                  if rgba[3] > 0:  # Only add non-transparent colors
-                                      colorTransferFunction.AddRGBPoint(i, rgba[0], rgba[1], rgba[2])
-                              
-                              # Force the volume property to update
-                              volumePropertyNode.Modified()
-                          
-                          # Also update opacity transfer function to ensure visibility
-                          opacityTransferFunction = volumePropertyNode.GetScalarOpacity()
-                          if opacityTransferFunction:
-                              # Ensure non-zero labels are visible
-                              for i in range(1, colorNode.GetNumberOfColors()):
-                                  if i <= colorNode.GetNumberOfColors():
-                                      opacityTransferFunction.AddPoint(i, 0.8)  # Make labels visible
-                      
-                      # Force the volume rendering display node to update
-                      volumeRenderingDisplayNode.Modified()
-                  
-                  # Clear and rebuild display pipeline to ensure color changes take effect
-                  # This forces Slicer to rebuild its internal color mapping
-                  layoutManager = slicer.app.layoutManager()
-                  if layoutManager:
-                      # Temporarily disable and re-enable the label display to force refresh
-                      for sliceViewName in layoutManager.sliceViewNames():
-                          sliceWidget = layoutManager.sliceWidget(sliceViewName)
-                          if sliceWidget:
-                              sliceCompositeNode = sliceWidget.mrmlSliceCompositeNode()
-                              if sliceCompositeNode and sliceCompositeNode.GetLabelVolumeID() == labelMapNode.GetID():
-                                  currentOpacity = sliceCompositeNode.GetLabelOpacity()
-                                  sliceCompositeNode.SetLabelOpacity(0)
-                                  slicer.app.processEvents()
-                                  sliceCompositeNode.SetLabelOpacity(currentOpacity)
-                  
-                  # Make sure the 3D view gets updated
-                  if layoutManager:
-                      # Update all 3D views
-                      for threeDViewIndex in range(layoutManager.threeDViewCount):
-                          threeDWidget = layoutManager.threeDWidget(threeDViewIndex)
-                          if threeDWidget and threeDWidget.threeDView():
-                              # Reset the camera to ensure the view updates
-                              renderWindow = threeDWidget.threeDView().renderWindow()
-                              if renderWindow:
-                                  renderWindow.Render()
-                              threeDWidget.threeDView().forceRender()
-                  
-                  # Also force refresh of all slice views
-                  sliceViewNames = ['Red', 'Yellow', 'Green']
-                  for sliceViewName in sliceViewNames:
-                      sliceWidget = layoutManager.sliceWidget(sliceViewName)
-                      if sliceWidget:
-                          sliceView = sliceWidget.sliceView()
-                          if sliceView:
-                              sliceView.forceRender()
 
 
   def addAdditionalOverlayColorButtons(self, labelValues, segmentationNode):
@@ -2089,6 +2221,93 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode.node3DSegmentationLabelMap = 0
     self.selector3DSegmentation.currentPath = ''
     self.customParamNode.path3DSegmentation = ''
+    self.deformationFileSelector.clear()
+
+
+
+    # Clear the parameter node references
+    self.customParamNode.sequenceBrowserNode = None
+    self.customParamNode.sequenceNode2DImages = None
+    self.customParamNode.sequenceNodeTransforms = None
+    self.customParamNode.deformedMaskSequenceNode = None
+
+    # Remove Sequence Browser Nodes
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
+    nodes.UnRegister(None)
+    for node in nodes:
+      slicer.mrmlScene.RemoveNode(node)
+
+    # Remove Transform Sequence Nodes
+    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
+    nodes.UnRegister(None)
+    for node in nodes:
+      slicer.mrmlScene.RemoveNode(node)
+
+    # Remove Linear Transform Nodes
+    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
+    nodes.UnRegister(None)
+    for node in nodes:
+      slicer.mrmlScene.RemoveNode(node)
+
+    # Remove Image Sequence Nodes
+    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
+    nodes.UnRegister(None)
+    for node in nodes:
+      slicer.mrmlScene.RemoveNode(node)
+
+    # Remove Scalar Volume Nodes named "Image Nodes Sequence"
+    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
+    nodes.UnRegister(None)
+    for node in nodes:
+      slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
+      slicer.mrmlScene.RemoveNode(node.GetStorageNode())
+      slicer.mrmlScene.RemoveNode(node)
+
+    # Remove Deformed Mask Sequence Nodes
+    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Deformed Mask Sequence")
+    nodes.UnRegister(None)
+    for node in nodes:
+      slicer.mrmlScene.RemoveNode(node)
+
+          # Remove deformation field transforms (transform nodes not in a sequence)
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLTransformNode")
+    nodes.UnRegister(None)
+    for node in nodes:
+      slicer.mrmlScene.RemoveNode(node)
+
+    # Remove all label map volume nodes (e.g., for deformed masks)
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
+    nodes.UnRegister(None)
+    for node in nodes:
+      if node.GetDisplayNode():
+        slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
+      if node.GetStorageNode():
+        slicer.mrmlScene.RemoveNode(node.GetStorageNode())
+      slicer.mrmlScene.RemoveNode(node)
+
+    # Remove scalar volume nodes related to masks or segmentations
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+    nodes.UnRegister(None)
+    for node in nodes:
+      name = node.GetName()
+      if "Mask" in name or "Segmentation" in name or "Image Nodes Sequence" in name:
+        if node.GetDisplayNode():
+          slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
+        if node.GetStorageNode():
+          slicer.mrmlScene.RemoveNode(node.GetStorageNode())
+        slicer.mrmlScene.RemoveNode(node)
+
+    # Clear all volumes from slice views (Red, Yellow, Blue, etc.)
+    layoutManager = slicer.app.layoutManager()
+    for viewName in layoutManager.sliceViewNames():
+      sliceWidget = layoutManager.sliceWidget(viewName)
+      if sliceWidget:
+        compositeNode = sliceWidget.mrmlSliceCompositeNode()
+        compositeNode.SetLabelVolumeID(None)
+        compositeNode.SetForegroundVolumeID(None)
+        compositeNode.SetBackgroundVolumeID(None)
+
+
     self.resetVisuals()
     self.updateGUIFromParameterNode()
 
@@ -2100,15 +2319,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode.sequenceBrowserNode.SelectNextItem()
     self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1)
     self.currentFrameInputBox.setValue(self.sequenceSlider.value)
-    self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                           self.customParamNode.sequenceNode2DImages,
-                           self.customParamNode.node3DSegmentationLabelMap,
-                           self.customParamNode.sequenceNodeTransforms,
-                           self.customParamNode.opacity,
-                           self.customParamNode.overlayAsOutline,
-                           self.customParamNode.overlayThickness,
-                           True, # True to indicate that current alignment should be displayed
-                           customParamNode=self.customParamNode)
+    self.logic.visualize(
+        sequenceBrowser=self.customParamNode.sequenceBrowserNode,
+        sequenceNode2DImages=self.customParamNode.sequenceNode2DImages,
+        segmentationLabelMapID=self.customParamNode.node3DSegmentationLabelMap,
+        sequenceNodeTransforms=self.customParamNode.sequenceNodeTransforms,
+        opacity=self.customParamNode.opacity,
+        overlayAsOutline=self.customParamNode.overlayAsOutline,
+        overlayThickness=self.customParamNode.overlayThickness,
+        show=False,
+        customParamNode=self.customParamNode,
+        deformedMaskSequenceNode=self.customParamNode.deformedMaskSequenceNode,
+        transformType=self.transformTypeDropdown.currentText
+    )
     self.editSliceView(imageDict)
 
   def onDecrement(self):
@@ -2119,15 +2342,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.customParamNode.sequenceBrowserNode.SelectNextItem(-1)
     self.sequenceSlider.setValue(self.customParamNode.sequenceBrowserNode.GetSelectedItemNumber() + 1)
     self.currentFrameInputBox.setValue(self.sequenceSlider.value)
-    self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                           self.customParamNode.sequenceNode2DImages,
-                           self.customParamNode.node3DSegmentationLabelMap,
-                           self.customParamNode.sequenceNodeTransforms,
-                           self.customParamNode.opacity,
-                           self.customParamNode.overlayAsOutline,
-                           self.customParamNode.overlayThickness,
-                           True, # True to indicate that current alignment should be displayed
-                           customParamNode=self.customParamNode)
+    self.logic.visualize(
+        sequenceBrowser=self.customParamNode.sequenceBrowserNode,
+        sequenceNode2DImages=self.customParamNode.sequenceNode2DImages,
+        segmentationLabelMapID=self.customParamNode.node3DSegmentationLabelMap,
+        sequenceNodeTransforms=self.customParamNode.sequenceNodeTransforms,
+        opacity=self.customParamNode.opacity,
+        overlayAsOutline=self.customParamNode.overlayAsOutline,
+        overlayThickness=self.customParamNode.overlayThickness,
+        show=False,
+        customParamNode=self.customParamNode,
+        deformedMaskSequenceNode=self.customParamNode.deformedMaskSequenceNode,
+        transformType=self.transformTypeDropdown.currentText
+    )
     self.editSliceView(imageDict)
 
   def onSkipImages(self):
@@ -2139,15 +2366,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.resetVisuals(False)
     self.sequenceSlider.setValue(num)
     self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(num - 1)
-    self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                         self.customParamNode.sequenceNode2DImages,
-                         self.customParamNode.node3DSegmentationLabelMap,
-                         self.customParamNode.sequenceNodeTransforms,
-                         self.customParamNode.opacity,
-                         self.customParamNode.overlayAsOutline,
-                         self.customParamNode.overlayThickness,
-                         True, # True to indicate that current alignment should be displayeds
-                         customParamNode=self.customParamNode)
+    self.logic.visualize(
+        sequenceBrowser=self.customParamNode.sequenceBrowserNode,
+        sequenceNode2DImages=self.customParamNode.sequenceNode2DImages,
+        segmentationLabelMapID=self.customParamNode.node3DSegmentationLabelMap,
+        sequenceNodeTransforms=self.customParamNode.sequenceNodeTransforms,
+        opacity=self.customParamNode.opacity,
+        overlayAsOutline=self.customParamNode.overlayAsOutline,
+        overlayThickness=self.customParamNode.overlayThickness,
+        show=False,
+        customParamNode=self.customParamNode,
+        deformedMaskSequenceNode=self.customParamNode.deformedMaskSequenceNode,
+        transformType=self.transformTypeDropdown.currentText
+    )
     self.editSliceView(imageDict)
     
     
@@ -2363,15 +2594,20 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # remove the currentFrameInputBox value
       self.currentFrameInputBox.setSpecialValueText('')
       
-      self.logic.visualize(self.customParamNode.sequenceBrowserNode,
-                                 self.customParamNode.sequenceNode2DImages,
-                                 self.customParamNode.node3DSegmentationLabelMap,
-                                 self.customParamNode.sequenceNodeTransforms,
-                                 self.customParamNode.opacity,
-                                 self.customParamNode.overlayAsOutline,
-                                 self.customParamNode.overlayThickness,
-                                 show=False,
-                                 customParamNode=self.customParamNode)
+      self.logic.visualize(
+                                  sequenceBrowser=self.customParamNode.sequenceBrowserNode,
+                                  sequenceNode2DImages=self.customParamNode.sequenceNode2DImages,
+                                  segmentationLabelMapID=self.customParamNode.node3DSegmentationLabelMap,
+                                  sequenceNodeTransforms=self.customParamNode.sequenceNodeTransforms,
+                                  opacity=self.customParamNode.opacity,
+                                  overlayAsOutline=self.customParamNode.overlayAsOutline,
+                                  overlayThickness=self.customParamNode.overlayThickness,
+                                  show=False,
+                                  customParamNode=self.customParamNode,
+                                  deformedMaskSequenceNode=self.customParamNode.deformedMaskSequenceNode,
+                                  transformType=self.transformTypeDropdown.currentText
+                              )
+
       # center 3D images on segmentation
       if self.customParamNode.sequenceNode2DImages.GetDataNodeAtValue("0").GetImageData().GetDataDimension() == 3:
         labelmap = slicer.mrmlScene.GetNodesByClass('vtkMRMLLabelMapVolumeNode').GetItemAsObject(0)

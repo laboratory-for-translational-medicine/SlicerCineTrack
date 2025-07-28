@@ -419,7 +419,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
   def visualize(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID,
-                    sequenceNodeTransforms, opacity, overlayAsOutline, overlayThickness, show=False, customParamNode=None):
+              sequenceNodeTransforms, opacity, overlayAsOutline, overlayThickness,
+              show=False, customParamNode=None, deformedMaskSequenceNode=None, transformType="Translation"):
+
     """
     Visualizes the image data (2D images and 3D segmentation overlay) within the slice views and
     enables the alignment of the 3D segmentation label map according to the transformation data.
@@ -488,8 +490,17 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
         # Translate the 3D segmentation label map using the transform data
-        if proxyTransformNode is not None:
-          labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        #test change
+        if transformType == "Translation":
+            if proxyTransformNode is not None:
+                labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        elif transformType == "Displacement Field":
+            if deformedMaskSequenceNode is not None:
+                proxyDeformedMaskNode = sequenceBrowser.GetProxyNode(deformedMaskSequenceNode)
+                if proxyDeformedMaskNode is not None:
+                    labelMapNode.SetAndObserveImageData(proxyDeformedMaskNode.GetImageData())
+                    labelMapNode.SetAndObserveTransformNodeID(None)
+
         
         sliceNode.SetSliceVisible(True)
 
@@ -508,17 +519,19 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           displayNode = labelMapNode.GetDisplayNode()
           if displayNode:
             displayNode.Modified()
-            
-          # CRITICAL: Force volume rendering to update colors
-          volumeRenderingLogic = slicer.modules.volumerendering.logic()
-          volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(labelMapNode)
-          
-          if volumeRenderingDisplayNode:
-            # Force volume rendering to refresh with new color table
-            volumeRenderingDisplayNode.Modified()
-            volumePropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode()
-            if volumePropertyNode:
-              volumePropertyNode.Modified()
+              
+            # UPDATE COLOUR
+            volumeRenderingLogic = slicer.modules.volumerendering.logic()
+            volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(segmentationNode)
+
+            if volumeRenderingDisplayNode is None:
+                volumeRenderingDisplayNode = volumeRenderingLogic.CreateDefaultVolumeRenderingNodes(segmentationNode)
+
+            # Toggle visibility to force Slicer to re-sync transfer functions from the updated color node
+            volumeRenderingDisplayNode.SetVisibility(False)
+            slicer.app.processEvents()
+            volumeRenderingDisplayNode.SetVisibility(True)
+
             
             # Force visibility update to trigger refresh
             wasVisible = volumeRenderingDisplayNode.GetVisibility()
@@ -602,8 +615,17 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
       # Enable alignment of the 3D segmentation label map according to the transform data so that
       # the 3D segmentation label map overlays upon the ROI of the 2D images
-      if proxyTransformNode is not None:
-        labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+      #test change
+      if transformType == "Translation":
+          if proxyTransformNode is not None:
+              labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+      elif transformType == "Displacement Field":
+          if deformedMaskSequenceNode is not None:
+              proxyDeformedMaskNode = sequenceBrowser.GetProxyNode(deformedMaskSequenceNode)
+              if proxyDeformedMaskNode is not None:
+                  labelMapNode.SetAndObserveImageData(proxyDeformedMaskNode.GetImageData())
+                  labelMapNode.SetAndObserveTransformNodeID(None)
+
 
       # Render changes
       # Force display node to update first
@@ -647,9 +669,17 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
           # Translate the 3D segmentation label map using the transform data
-          if proxyTransformNode is not None:
-            labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
-          
+          if transformType == "Translation":
+              if proxyTransformNode is not None:
+                  labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+          elif transformType == "Displacement Field":
+              if deformedMaskSequenceNode is not None:
+                  proxyDeformedMaskNode = sequenceBrowser.GetProxyNode(deformedMaskSequenceNode)
+                  if proxyDeformedMaskNode is not None:
+                      labelMapNode.SetAndObserveImageData(proxyDeformedMaskNode.GetImageData())
+                      labelMapNode.SetAndObserveTransformNodeID(None)
+
+                    
           sliceNode.SetSliceVisible(True)
 
         # Make the 3D segmentation visible in the 3D view
@@ -756,8 +786,17 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
         # Enable alignment of the 3D segmentation label map according to the transform data so that
         # the 3D segmentation label map overlays upon the ROI of the 2D images
-        if proxyTransformNode is not None:
-          labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        #test change
+        if transformType == "Translation":
+            if proxyTransformNode is not None:
+                labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        elif transformType == "Displacement Field":
+            if deformedMaskSequenceNode is not None:
+                proxyDeformedMaskNode = sequenceBrowser.GetProxyNode(deformedMaskSequenceNode)
+                if proxyDeformedMaskNode is not None:
+                    labelMapNode.SetAndObserveImageData(proxyDeformedMaskNode.GetImageData())
+                    labelMapNode.SetAndObserveTransformNodeID(None)
+
 
         # Render changes
         # Force display node to update first
