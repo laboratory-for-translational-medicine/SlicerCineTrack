@@ -419,7 +419,9 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       layoutManager.sliceWidget(viewName).mrmlSliceCompositeNode().SetForegroundVolumeID("None")
 
   def visualize(self, sequenceBrowser, sequenceNode2DImages, segmentationLabelMapID,
-                    sequenceNodeTransforms, opacity, overlayAsOutline, overlayThickness, show=False, customParamNode=None):
+              sequenceNodeTransforms, opacity, overlayAsOutline, overlayThickness,
+              show=False, customParamNode=None, deformedMaskSequenceNode=None, transformType="Translation"):
+
     """
     Visualizes the image data (2D images and 3D segmentation overlay) within the slice views and
     enables the alignment of the 3D segmentation label map according to the transformation data.
@@ -441,12 +443,20 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
     displayNode = labelMapNode.GetDisplayNode()
     if displayNode:
+      # Ensure the color node is properly set and updated
       colorNode = displayNode.GetColorNode()
-      if colorNode and customParamNode and hasattr(customParamNode, 'overlayColor'):
-        colorNode.SetColor(1, *customParamNode.overlayColor)
+      if colorNode:
+        # Force the color node to be re-applied
         displayNode.SetAndObserveColorNodeID(colorNode.GetID())
+        colorNode.Modified()
+        
+      # NOTE: Removed automatic override of label 1 color to prevent conflicts with user-selected colors
+      # The color buttons should control all label colors, including label 1
 
       displayNode.SetSliceIntersectionThickness(overlayThickness)
+      
+      # Force the display node to update
+      displayNode.Modified()
 
     if proxy2DImageNode.GetImageData().GetDataDimension() == 2:
       sliceWidget = self.getSliceWidget(layoutManager, proxy2DImageNode)
@@ -480,8 +490,17 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
         # Translate the 3D segmentation label map using the transform data
-        if proxyTransformNode is not None:
-          labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        #test change
+        if transformType == "Translation":
+            if proxyTransformNode is not None:
+                labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        elif transformType == "Displacement Field":
+            if deformedMaskSequenceNode is not None:
+                proxyDeformedMaskNode = sequenceBrowser.GetProxyNode(deformedMaskSequenceNode)
+                if proxyDeformedMaskNode is not None:
+                    labelMapNode.SetAndObserveImageData(proxyDeformedMaskNode.GetImageData())
+                    labelMapNode.SetAndObserveTransformNodeID(None)
+
         
         sliceNode.SetSliceVisible(True)
 
@@ -490,6 +509,57 @@ class TrackLogic(ScriptedLoadableModuleLogic):
       tmpIdList.InsertNextId(segmentationLabelMapID)
       threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
       shNode.ShowItemsInView(tmpIdList, threeDViewNode)
+      
+      # Ensure 3D viewer properly reflects any color table changes
+      if threeDViewNode:
+        # Force update any volume rendering display nodes for the 3D view
+        labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
+        if labelMapNode:
+          # Update the main display node
+          displayNode = labelMapNode.GetDisplayNode()
+          if displayNode:
+            displayNode.Modified()
+              
+            # UPDATE COLOUR
+            volumeRenderingLogic = slicer.modules.volumerendering.logic()
+            volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(segmentationNode)
+
+            if volumeRenderingDisplayNode is None:
+                volumeRenderingDisplayNode = volumeRenderingLogic.CreateDefaultVolumeRenderingNodes(segmentationNode)
+
+            # Toggle visibility to force Slicer to re-sync transfer functions from the updated color node
+            volumeRenderingDisplayNode.SetVisibility(False)
+            slicer.app.processEvents()
+            volumeRenderingDisplayNode.SetVisibility(True)
+
+            
+            # Force visibility update to trigger refresh
+            wasVisible = volumeRenderingDisplayNode.GetVisibility()
+            volumeRenderingDisplayNode.SetVisibility(False)
+            slicer.app.processEvents()
+            volumeRenderingDisplayNode.SetVisibility(wasVisible)
+            
+          # Update all display nodes including volume rendering
+          for displayNodeIndex in range(labelMapNode.GetNumberOfDisplayNodes()):
+            volumeDisplayNode = labelMapNode.GetNthDisplayNode(displayNodeIndex)
+            if volumeDisplayNode:
+              volumeDisplayNode.Modified()
+              if volumeDisplayNode.IsA("vtkMRMLVolumeRenderingDisplayNode"):
+                # Update volume rendering to reflect color changes
+                volumeProperty = volumeDisplayNode.GetVolumePropertyNode()
+                if volumeProperty:
+                  volumeProperty.Modified()
+          
+          # Force the label map node itself to update
+          labelMapNode.Modified()
+          
+          # Force 3D view to re-render
+          layoutManager = slicer.app.layoutManager()
+          if layoutManager:
+            for threeDViewIndex in range(layoutManager.threeDViewCount):
+              threeDWidget = layoutManager.threeDWidget(threeDViewIndex)
+              if threeDWidget and threeDWidget.threeDView():
+                threeDWidget.threeDView().forceRender()
 
       # If the sliceNode is now showing an image, fit the slice view to the current background image   
       if fitSlice:
@@ -545,10 +615,25 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           sliceView.cornerAnnotation().SetText(vtk.vtkCornerAnnotation.UpperLeft, "Current Alignment")
       # Enable alignment of the 3D segmentation label map according to the transform data so that
       # the 3D segmentation label map overlays upon the ROI of the 2D images
-      if proxyTransformNode is not None:
-        labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+      #test change
+      if transformType == "Translation":
+          if proxyTransformNode is not None:
+              labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+      elif transformType == "Displacement Field":
+          if deformedMaskSequenceNode is not None:
+              proxyDeformedMaskNode = sequenceBrowser.GetProxyNode(deformedMaskSequenceNode)
+              if proxyDeformedMaskNode is not None:
+                  labelMapNode.SetAndObserveImageData(proxyDeformedMaskNode.GetImageData())
+                  labelMapNode.SetAndObserveTransformNodeID(None)
+
 
       # Render changes
+      # Force display node to update first
+      displayNode = labelMapNode.GetDisplayNode()
+      if displayNode:
+        displayNode.Modified()
+      labelMapNode.Modified()
+      
       slicer.util.forceRenderAllViews()
       slicer.app.processEvents()
 
@@ -584,9 +669,17 @@ class TrackLogic(ScriptedLoadableModuleLogic):
           sliceCompositeNode.SetBackgroundVolumeID(proxy2DImageNode.GetID())
 
           # Translate the 3D segmentation label map using the transform data
-          if proxyTransformNode is not None:
-            labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
-          
+          if transformType == "Translation":
+              if proxyTransformNode is not None:
+                  labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+          elif transformType == "Displacement Field":
+              if deformedMaskSequenceNode is not None:
+                  proxyDeformedMaskNode = sequenceBrowser.GetProxyNode(deformedMaskSequenceNode)
+                  if proxyDeformedMaskNode is not None:
+                      labelMapNode.SetAndObserveImageData(proxyDeformedMaskNode.GetImageData())
+                      labelMapNode.SetAndObserveTransformNodeID(None)
+
+                    
           sliceNode.SetSliceVisible(True)
 
         # Make the 3D segmentation visible in the 3D view
@@ -594,6 +687,55 @@ class TrackLogic(ScriptedLoadableModuleLogic):
         tmpIdList.InsertNextId(segmentationLabelMapID)
         threeDViewNode = layoutManager.activeMRMLThreeDViewNode()
         shNode.ShowItemsInView(tmpIdList, threeDViewNode)
+
+        # Ensure 3D viewer properly reflects any color table changes
+        if threeDViewNode:
+          # Force update any volume rendering display nodes for the 3D view
+          labelMapNode = shNode.GetItemDataNode(segmentationLabelMapID)
+          if labelMapNode:
+            # Update the main display node
+            displayNode = labelMapNode.GetDisplayNode()
+            if displayNode:
+              displayNode.Modified()
+              
+            # CRITICAL: Force volume rendering to update colors
+            volumeRenderingLogic = slicer.modules.volumerendering.logic()
+            volumeRenderingDisplayNode = volumeRenderingLogic.GetFirstVolumeRenderingDisplayNode(labelMapNode)
+            
+            if volumeRenderingDisplayNode:
+              # Force volume rendering to refresh with new color table
+              volumeRenderingDisplayNode.Modified()
+              volumePropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode()
+              if volumePropertyNode:
+                volumePropertyNode.Modified()
+              
+              # Force visibility update to trigger refresh
+              wasVisible = volumeRenderingDisplayNode.GetVisibility()
+              volumeRenderingDisplayNode.SetVisibility(False)
+              slicer.app.processEvents()
+              volumeRenderingDisplayNode.SetVisibility(wasVisible)
+              
+            # Update all display nodes including volume rendering
+            for displayNodeIndex in range(labelMapNode.GetNumberOfDisplayNodes()):
+              volumeDisplayNode = labelMapNode.GetNthDisplayNode(displayNodeIndex)
+              if volumeDisplayNode:
+                volumeDisplayNode.Modified()
+                if volumeDisplayNode.IsA("vtkMRMLVolumeRenderingDisplayNode"):
+                  # Update volume rendering to reflect color changes
+                  volumeProperty = volumeDisplayNode.GetVolumePropertyNode()
+                  if volumeProperty:
+                    volumeProperty.Modified()
+            
+            # Force the label map node itself to update
+            labelMapNode.Modified()
+            
+            # Force 3D view to re-render
+            layoutManager = slicer.app.layoutManager()
+            if layoutManager:
+              for threeDViewIndex in range(layoutManager.threeDViewCount):
+                threeDWidget = layoutManager.threeDWidget(threeDViewIndex)
+                if threeDWidget and threeDWidget.threeDView():
+                  threeDWidget.threeDView().forceRender()
 
         # If the sliceNode is now showing an image, fit the slice view to the current background image   
         if fitSlice:
@@ -644,10 +786,25 @@ class TrackLogic(ScriptedLoadableModuleLogic):
 
         # Enable alignment of the 3D segmentation label map according to the transform data so that
         # the 3D segmentation label map overlays upon the ROI of the 2D images
-        if proxyTransformNode is not None:
-          labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        #test change
+        if transformType == "Translation":
+            if proxyTransformNode is not None:
+                labelMapNode.SetAndObserveTransformNodeID(proxyTransformNode.GetID())
+        elif transformType == "Displacement Field":
+            if deformedMaskSequenceNode is not None:
+                proxyDeformedMaskNode = sequenceBrowser.GetProxyNode(deformedMaskSequenceNode)
+                if proxyDeformedMaskNode is not None:
+                    labelMapNode.SetAndObserveImageData(proxyDeformedMaskNode.GetImageData())
+                    labelMapNode.SetAndObserveTransformNodeID(None)
+
 
         # Render changes
+        # Force display node to update first
+        displayNode = labelMapNode.GetDisplayNode()
+        if displayNode:
+          displayNode.Modified()
+        labelMapNode.Modified()
+        
         slicer.util.forceRenderAllViews()
         slicer.app.processEvents()
   
