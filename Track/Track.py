@@ -241,7 +241,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     tooltipText = "Remove Segmentation File."
     self.deleteSegmentationButton.setToolTip(tooltipText)
     self.inputsFormLayout.addRow("Segmentation File: ", self.selectorSegmentationLayout)
-    tooltipText = "Insert a Segmentation file in .mha format."
+    tooltipText = "Insert a Segmentation file."
     self.selector3DSegmentation.setToolTip(tooltipText)    
     browseButton = self.selector3DSegmentation.findChildren(qt.QToolButton)[0]
     browseButton.setToolTip(tooltipText)
@@ -362,33 +362,34 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
 
-    # Layout for apply transformation button
+   # Apply / Status / Reset (same row)
     self.applyTransformButton = qt.QPushButton("Apply")
     self.applyTransformButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    
+
     self.columnTransformsLayout = qt.QHBoxLayout()
+    self.columnTransformsLayout.setContentsMargins(0, 0, 0, 0)
+    self.columnTransformsLayout.setSpacing(6)
+
+    # Left: Apply
     self.columnTransformsLayout.addWidget(self.applyTransformButton)
-    self.inputsFormLayout.addRow(' ',self.columnTransformsLayout)
-    
-    # Playback speed label and spinbox
+
+    # Middle: status label
     self.transformationAppliedLabel = qt.QLabel("Transformation Applied")
     self.transformationAppliedLabel.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
     self.transformationAppliedLabel.setContentsMargins(20, 0, 10, 0)
     self.columnTransformsLayout.addWidget(self.transformationAppliedLabel)
-    
-    # Reset Button
+
+    # Push Reset to the far right
+    self.columnTransformsLayout.addStretch(1)
+
+    # Right: Reset
     self.resetButton = qt.QPushButton("Reset All")
     self.resetButton.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Fixed)
-    self.resetButtonLayout = qt.QGridLayout()
-    self.resetButtonLayout.addWidget(self.resetButton)
-    # Spacer to separate transformation button and reset button
-    spacer = qt.QSpacerItem(10, 20, qt.QSizePolicy.Minimum, qt.QSizePolicy.Fixed)
-    self.inputsFormLayout.addItem(spacer)
-    self.inputsFormLayout.addRow('',self.resetButtonLayout)
-    
-    # self.inputsFormLayout.addRow(' ',self.applyTranformButton)    
+    self.columnTransformsLayout.addWidget(self.resetButton)
 
-    ## Sequence Area
+    # One row on the form
+    self.inputsFormLayout.addRow('', self.columnTransformsLayout)
+
 
     sequenceCollapsibleButton = ctk.ctkCollapsibleButton()
     sequenceCollapsibleButton.text = "Sequence"
@@ -399,7 +400,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Sequence layout
     self.sliderWidget = qt.QWidget()
-    self.sliderWidget.setMinimumHeight(50)
+    self.sliderWidget.setMinimumHeight(20)
     self.sliderLayout = qt.QHBoxLayout()
     self.sliderWidget.setLayout(self.sliderLayout)
     self.sequenceFormLayout.addWidget(self.sliderWidget)
@@ -2135,181 +2136,126 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     dialog.exec()
       
   def onResetButton(self):
-    if self.customParamNode.sequenceBrowserNode:
-      self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
-      self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
-    self.customParamNode.overlayColor = [0, 0.7, 0]
-
+    print("Resetting the sequence browser to the first image")
     
+ 
+    """
+    Hard reset of UI + visuals without triggering Apply.
+    Also removes all dynamically-created color selection buttons.
+    """
 
-    if hasattr(self.customParamNode, 'node3DSegmentationLabelMap') and self.customParamNode.node3DSegmentationLabelMap:
-        shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-        labelMapNode = shNode.GetItemDataNode(self.customParamNode.node3DSegmentationLabelMap)
-      
-    
-    # Clear all additional overlay color buttons
-    if hasattr(self, 'labelColorButtons'):
-        # Remove ALL buttons and labels from layout
+    # 0) Stop playback safely
+    if getattr(self.customParamNode, "sequenceBrowserNode", None):
+        try:
+            self.customParamNode.sequenceBrowserNode.SetPlaybackActive(False)
+            self.customParamNode.sequenceBrowserNode.SetSelectedItemNumber(0)
+        except Exception:
+            pass
+
+    # 1) Block signals while we clear pickers (prevents handlers from firing)
+    widgets = []
+    for w in ["selector2DImagesFiles", "selector3DSegmentation", "selectorTransformsFile", "deformationFileSelector"]:
+        if hasattr(self, w) and getattr(self, w) is not None:
+            widgets.append(getattr(self, w))
+    prev_sig = [w.blockSignals(True) for w in widgets]
+
+    # 2) Clear inputs (pickers + derived UI)
+    if hasattr(self, "selector2DImagesFiles"): self.selector2DImagesFiles.clear()
+    if hasattr(self, "selector3DSegmentation"): self.selector3DSegmentation.setCurrentPath('')
+    if hasattr(self, "selectorTransformsFile"): self.selectorTransformsFile.setCurrentPath('')
+    if hasattr(self, "deformationFileSelector"): self.deformationFileSelector.clear()
+
+    # Column selectors off
+    if hasattr(self, "columnXSelector"):
+        self.columnXSelector.clear(); self.columnXSelector.enabled = False
+    if hasattr(self, "columnYSelector"):
+        self.columnYSelector.clear(); self.columnYSelector.enabled = False
+    if hasattr(self, "columnZSelector"):
+        self.columnZSelector.clear(); self.columnZSelector.enabled = False
+
+    # Status label + buttons
+    if hasattr(self, "transformationAppliedLabel"): self.transformationAppliedLabel.setVisible(False)
+    if hasattr(self, "applyTransformButton"): self.applyTransformButton.enabled = True
+
+    # 3) delete color selector buttons 
+
+    if hasattr(self, "overlayColoursLayout") and self.overlayColoursLayout is not None:
         while self.overlayColoursLayout.count():
             item = self.overlayColoursLayout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
-        self.labelColorButtons = {}
+            w = item.widget()
+            if w:
+                w.deleteLater()
+    # If you track them in a dict, clear it
+    if hasattr(self, "labelColorButtons") and isinstance(self.labelColorButtons, dict):
+        self.labelColorButtons.clear()
+    # Also clear any pending color cache
+    if hasattr(self, "pendingLabelColors") and isinstance(self.pendingLabelColors, dict):
+        self.pendingLabelColors.clear()
 
-        # Clear the labelColorButtons dictionary
-        self.labelColorButtons = {}
+    # 4) Wipe  state so next run is clean
+    if self.customParamNode:
+        self.customParamNode.files2DImages = []
+        self.customParamNode.totalImages = 0
+        self.customParamNode.path3DSegmentation = ""
+        self.customParamNode.node3DSegmentation = 0
+        self.customParamNode.node3DSegmentationLabelMap = 0
+        self.customParamNode.transformsFilePath = ""
+        self.customParamNode.sequenceNode2DImages = None
+        self.customParamNode.sequenceNodeTransforms = None
+        self.customParamNode.deformedMaskSequenceNode = None
+        self.customParamNode.sequenceBrowserNode = None
+        # reset overlay look
+        self.customParamNode.overlayAsOutline = True
+        self.customParamNode.overlayThickness = 4
+        self.customParamNode.opacity = 1.0
 
-    
-    # Clear any pending label colors
-    if hasattr(self, 'pendingLabelColors'):
-        self.pendingLabelColors = {}
-    
-    self.overlayThicknessSlider.value = 4
-    self.customParamNode.overlayThickness = 4
-    self.overlayThicknessSlider.enabled = False
-    self.selectorTransformsFile.currentPath = ''
-    self.updateParameterNodeFromGUI("applyTransformsButton", "clicked")
-    self.columnXSelector.clear()
-    self.columnXSelector.enabled = False
-    self.columnYSelector.clear()
-    self.columnYSelector.enabled = False
-    self.columnZSelector.clear()
-    self.columnZSelector.enabled = False
-    self.playbackSpeedBox.value = 5.0
-    self.overlayOutlineOnlyBox.checked = True
-    self.opacitySlider.value = 1
-    self.sequenceSlider.setValue(0)
-    self.currentFrameInputBox.setValue(0)
-    self.logic.clearSliceForegrounds()
-    self.customParamNode.files2DImages = []
-    self.selector2DImagesFiles.clear()
-    self.updateParameterNodeFromGUI("selector2DImagesFiles", "currentPathChanged")
-    self.totalFrameLabel.setText(f"of 0")
-
-    # Remove the image nodes of each slice view used to preserve the slice views
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
-    nodes.UnRegister(None)
-    for node in nodes:
-      if node.GetName() == node.GetAttribute('Sequences.BaseName'):
-        slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
-        slicer.mrmlScene.RemoveNode(node)
-        
-    # Remove the label map node and the nodes it referenced, all created by the previous node
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
-    nodes.UnRegister(None)
-    if nodes.GetNumberOfItems() == 1:
-      nodeToRemove = nodes.GetItemAsObject(0)
-      slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
-      if nodeToRemove.GetNumberOfDisplayNodes() == 1:
-        slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode().GetNodeReference('volumeProperty'))
-        slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
-      slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
-      slicer.mrmlScene.RemoveNode(nodeToRemove)
-    
-    # Remove the 3D segmentation node and the nodes it referenced, all created by the previous node
-    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "3D Segmentation")
-    nodes.UnRegister(None)
-    if nodes.GetNumberOfItems() == 1:
-      nodeToRemove = nodes.GetItemAsObject(0)
-      slicer.mrmlScene.RemoveNode(nodeToRemove.GetDisplayNode())
-      slicer.mrmlScene.RemoveNode(nodeToRemove.GetStorageNode())
-      slicer.mrmlScene.RemoveNode(nodeToRemove)
-    
-    # Remove previous node values stored in variables
-    self.customParamNode.node3DSegmentation = 0
-    self.customParamNode.node3DSegmentationLabelMap = 0
-    self.selector3DSegmentation.currentPath = ''
-    self.customParamNode.path3DSegmentation = ''
-    self.deformationFileSelector.clear()
-
-
-
-    # Clear the parameter node references
-    self.customParamNode.sequenceBrowserNode = None
-    self.customParamNode.sequenceNode2DImages = None
-    self.customParamNode.sequenceNodeTransforms = None
-    self.customParamNode.deformedMaskSequenceNode = None
-
-    # Remove Sequence Browser Nodes
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSequenceBrowserNode")
-    nodes.UnRegister(None)
-    for node in nodes:
-      slicer.mrmlScene.RemoveNode(node)
-
-    # Remove Transform Sequence Nodes
-    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Transform Nodes Sequence")
-    nodes.UnRegister(None)
-    for node in nodes:
-      slicer.mrmlScene.RemoveNode(node)
-
-    # Remove Linear Transform Nodes
-    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLLinearTransformNode", "Transform Nodes Sequence")
-    nodes.UnRegister(None)
-    for node in nodes:
-      slicer.mrmlScene.RemoveNode(node)
-
-    # Remove Image Sequence Nodes
-    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Image Nodes Sequence")
-    nodes.UnRegister(None)
-    for node in nodes:
-      slicer.mrmlScene.RemoveNode(node)
-
-    # Remove Scalar Volume Nodes named "Image Nodes Sequence"
-    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLScalarVolumeNode", "Image Nodes Sequence")
-    nodes.UnRegister(None)
-    for node in nodes:
-      slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
-      slicer.mrmlScene.RemoveNode(node.GetStorageNode())
-      slicer.mrmlScene.RemoveNode(node)
-
-    # Remove Deformed Mask Sequence Nodes
-    nodes = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", "Deformed Mask Sequence")
-    nodes.UnRegister(None)
-    for node in nodes:
-      slicer.mrmlScene.RemoveNode(node)
-
-          # Remove deformation field transforms (transform nodes not in a sequence)
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLTransformNode")
-    nodes.UnRegister(None)
-    for node in nodes:
-      slicer.mrmlScene.RemoveNode(node)
-
-    # Remove all label map volume nodes (e.g., for deformed masks)
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLLabelMapVolumeNode")
-    nodes.UnRegister(None)
-    for node in nodes:
-      if node.GetDisplayNode():
-        slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
-      if node.GetStorageNode():
-        slicer.mrmlScene.RemoveNode(node.GetStorageNode())
-      slicer.mrmlScene.RemoveNode(node)
-
-    # Remove scalar volume nodes related to masks or segmentations
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
-    nodes.UnRegister(None)
-    for node in nodes:
-      name = node.GetName()
-      if "Mask" in name or "Segmentation" in name or "Image Nodes Sequence" in name:
-        if node.GetDisplayNode():
-          slicer.mrmlScene.RemoveNode(node.GetDisplayNode())
-        if node.GetStorageNode():
-          slicer.mrmlScene.RemoveNode(node.GetStorageNode())
-        slicer.mrmlScene.RemoveNode(node)
-
-    # Clear all volumes from slice views (Red, Yellow, Blue, etc.)
+    # 5) Clear overlays/volumes in slice views (visual reset)
     layoutManager = slicer.app.layoutManager()
-    for viewName in layoutManager.sliceViewNames():
-      sliceWidget = layoutManager.sliceWidget(viewName)
-      if sliceWidget:
-        compositeNode = sliceWidget.mrmlSliceCompositeNode()
-        compositeNode.SetLabelVolumeID(None)
-        compositeNode.SetForegroundVolumeID(None)
-        compositeNode.SetBackgroundVolumeID(None)
+    for name in layoutManager.sliceViewNames():
+        sliceWidget = layoutManager.sliceWidget(name)
+        if not sliceWidget:
+            continue
+        comp = sliceWidget.mrmlSliceCompositeNode()
+        comp.SetLabelVolumeID(None)
+        comp.SetForegroundVolumeID(None)
+        # do not clear background here; we just reset UI — background will be set when user loads images
 
+    # remove any overlay foreground artifacts the logic might have added
+    if hasattr(self, "logic") and hasattr(self.logic, "clearSliceForegrounds"):
+        try:
+            self.logic.clearSliceForegrounds()
+        except Exception:
+            pass
+
+    # 6) Reset simple UI knobs
+    if hasattr(self, "overlayOutlineOnlyBox"): self.overlayOutlineOnlyBox.checked = True
+    if hasattr(self, "overlayThicknessSlider"):
+        self.overlayThicknessSlider.value = 4
+        self.overlayThicknessSlider.enabled = False
+    if hasattr(self, "opacitySlider"): self.opacitySlider.value = 1.0
+    if hasattr(self, "playbackSpeedBox"): self.playbackSpeedBox.value = 5.0
+    if hasattr(self, "sequenceSlider"): self.sequenceSlider.setValue(0)
+    if hasattr(self, "currentFrameInputBox"): self.currentFrameInputBox.setValue(0)
+    if hasattr(self, "totalFrameLabel"): self.totalFrameLabel.setText("of 0")
+
+    # 7) One-time fit so Red/Yellow/Green FOVs match (blank state is okay)
+    for name in layoutManager.sliceViewNames():
+        layoutManager.sliceWidget(name).fitSliceToBackground()
+    slicer.app.processEvents()
+
+    # 8) Unblock signals so browsing works again
+    for w, was in zip(widgets, prev_sig):
+        w.blockSignals(was)
+
+    # 9) Final UI refresh
+    if hasattr(self, "updatePlaybackButtons"):
+        self.updatePlaybackButtons(False)
+    if hasattr(self, "updateGUIFromParameterNode"):
+        self.updateGUIFromParameterNode()
 
     self.resetVisuals()
-    self.updateGUIFromParameterNode()
+
+
 
   def onIncrement(self):
     """
@@ -2607,6 +2553,11 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                   deformedMaskSequenceNode=self.customParamNode.deformedMaskSequenceNode,
                                   transformType=self.transformTypeDropdown.currentText
                               )
+            # Test: change view to center
+      layoutManager = slicer.app.layoutManager()
+      for name in layoutManager.sliceViewNames():
+          layoutManager.sliceWidget(name).fitSliceToBackground()
+      slicer.app.processEvents()
 
       # center 3D images on segmentation
       if self.customParamNode.sequenceNode2DImages.GetDataNodeAtValue("0").GetImageData().GetDataDimension() == 3:
