@@ -39,6 +39,7 @@ from utils.TrackLogic import TrackLogic
 #
 # Track
 #
+print("DEBUG: Track.py imported")
 
 
 class Track(ScriptedLoadableModule):
