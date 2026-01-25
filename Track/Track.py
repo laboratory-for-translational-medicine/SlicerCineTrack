@@ -553,8 +553,8 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
     self.selectorTransformsFile.connect("currentPathChanged(QString)", \
       self.onTransformsFilePathChange)
-    self.selector2DImagesFiles.connect("currentPathChanged(QString)", \
-       lambda: self.updateGUIFromParameterNode("selector2DImagesFiles", "currentPathChanged"))
+    #self.selector2DImagesFiles.connect("currentPathChanged(QString)", \
+    #   lambda: self.updateGUIFromParameterNode("selector2DImagesFiles", "currentPathChanged"))
 
     self.columnXSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
     self.columnYSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
@@ -577,7 +577,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       lambda: [self.selectorTransformsFile.setCurrentPath(''), self.updateParameterNodeFromGUI("applyTransformsButton", "clicked")])
 
     # These connections will reset the visuals when one of the main inputs are modified
-    self.selector2DImagesFiles.connect("currentPathChanged(QString)", self.resetVisuals)
+    #self.selector2DImagesFiles.connect("currentPathChanged(QString)", self.resetVisuals)
     self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
     
     
