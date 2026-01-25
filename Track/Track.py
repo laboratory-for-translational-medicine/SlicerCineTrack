@@ -175,7 +175,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # Initial colour of the icon
     self.updateViewMoreIcon()
-    slicer.app.paletteChanged.connect(self.updateViewMoreIcon)
+    #slicer.app.paletteChanged.connect(self.updateViewMoreIcon)
+    slicer.app.paletteChanged.connect(lambda *args: self.updateViewMoreIcon())
+
 
     # Create a layout for the buttons
     self.buttonsLayout = qt.QVBoxLayout()
