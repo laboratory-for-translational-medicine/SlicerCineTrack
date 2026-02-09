@@ -40,7 +40,6 @@ from typing import List
 #
 # Track
 #
-print(" Track.py imported")
 
 
 class Track(ScriptedLoadableModule):
@@ -126,13 +125,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Called when the user opens the module the first time and the widget is initialized.
     """
-    print("DEBUG: setup A - start")
     ScriptedLoadableModuleWidget.setup(self)
-    print("DEBUG: setup B - after base setup")    # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
+    # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
     # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
     # "setMRMLScene(vtkMRMLScene*)" slot.
     # uiWidget.setMRMLScene(slicer.mrmlScene)
-    print("DEBUG: setup milestone A - after base setup")
+   
 
     #
     # Begin GUI
@@ -516,7 +514,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #
     # End GUI
     #
-    print("DEBUG: setup C - GUI built")
+    
 
 
     #
@@ -526,12 +524,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
     self.logic = TrackLogic()
-    print("DEBUG: setup D - logic created")
+  
 
     # These connections ensure that we update parameter node when scene is closed
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
-    print("DEBUG: setup E - before connects")
+  
 
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
@@ -595,7 +593,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # These connections will reset the visuals when one of the main inputs are modified
     #self.selector2DImagesFiles.connect("currentPathChanged(QString)", self.resetVisuals)
     self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
-    print("DEBUG: setup F - after connects")
+    
 
 
     
@@ -603,7 +601,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #
     # End logic
     #
-    print("DEBUG: leaving setup()")
+    
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
