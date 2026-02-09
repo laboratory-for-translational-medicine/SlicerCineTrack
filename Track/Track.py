@@ -953,7 +953,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       currentPath = self.selector3DSegmentation.currentPath
       fileName = os.path.basename(currentPath)
       
-      if re.match('.*\.dcm', currentPath): # if getting a dcm -> try install dcmrtstruct2nii
+      if re.match('.*\\.dcm', currentPath): # if getting a dcm -> try install dcmrtstruct2nii
         try:
           from dcmrtstruct2nii import dcmrtstruct2nii, list_rt_structs
         except ModuleNotFoundError:
@@ -1087,7 +1087,7 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.customParamNode.node3DSegmentationLabelMap = 0
 
       # Loads segmentation files
-      fileFormats = ['.*\.mha', '.*\.dcm', '.*\.nrrd', '.*\.nii', '.*\.hdr', '.*\.img', '.*\.nhdr'] # Supported segmentation files
+      fileFormats = ['.*\\.mha', '.*\\.dcm', '.*\\.nrrd', '.*\\.nii', '.*\\.hdr', '.*\\.img', '.*\\.nhdr'] # Supported segmentation files
       validFormat = any(re.match(format, currentPath) for format in fileFormats)
       if validFormat:
         # If a 3D segmentation node already exists, delete it before we load the new one
