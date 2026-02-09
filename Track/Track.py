@@ -35,11 +35,12 @@ from slicer import vtkMRMLSequenceNode
 from slicer import vtkMRMLSequenceBrowserNode
 from utils.Helper import SpinBox, Slider
 from utils.TrackLogic import TrackLogic
+from typing import List
 
 #
 # Track
 #
-print("DEBUG: Track.py imported")
+print(" Track.py imported")
 
 
 class Track(ScriptedLoadableModule):
@@ -76,7 +77,7 @@ This extension was developed by the Laboratory for Translational Medicine.
 
 @parameterNodeWrapper
 class CustomParameterNode:
-  files2DImages: list
+  files2DImages: list[str] = []
   sequenceNode2DImages: vtkMRMLSequenceNode
   path3DSegmentation: str
   node3DSegmentation: int  # subject hierarchy id
@@ -88,7 +89,7 @@ class CustomParameterNode:
   fps: float
   opacity: float
   overlayAsOutline: bool
-  overlayColor: list # [r, g, b] values from 0 to 1
+  overlayColor: list[float] = [0.0, 1.0, 0.0] # [r, g, b] values from 0 to 1
   overlayThickness: int = 4
 
 #
@@ -119,17 +120,19 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.applyTransformButton.enabled = True
     self.transformationAppliedLabel.setVisible(False)
     
-    
+  
+
   def setup(self):
     """
     Called when the user opens the module the first time and the widget is initialized.
     """
+    print("DEBUG: setup A - start")
     ScriptedLoadableModuleWidget.setup(self)
-
-    # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
+    print("DEBUG: setup B - after base setup")    # Set scene in MRML widgets. Make sure that in Qt designer the top-level qMRMLWidget's
     # "mrmlSceneChanged(vtkMRMLScene*)" signal in is connected to each MRML widget's.
     # "setMRMLScene(vtkMRMLScene*)" slot.
     # uiWidget.setMRMLScene(slicer.mrmlScene)
+    print("DEBUG: setup milestone A - after base setup")
 
     #
     # Begin GUI
@@ -513,7 +516,9 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #
     # End GUI
     #
-    
+    print("DEBUG: setup C - GUI built")
+
+
     #
     # Begin logic
     #
@@ -521,10 +526,12 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Create logic class. Logic implements all computations that should be possible to run
     # in batch mode, without a graphical user interface.
     self.logic = TrackLogic()
+    print("DEBUG: setup D - logic created")
 
     # These connections ensure that we update parameter node when scene is closed
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
+    print("DEBUG: setup E - before connects")
 
     self.playSequenceButton.connect("clicked(bool)", self.onPlayButton)
     self.stopSequenceButton.connect("clicked(bool)", self.onStopButton)
@@ -588,12 +595,15 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # These connections will reset the visuals when one of the main inputs are modified
     #self.selector2DImagesFiles.connect("currentPathChanged(QString)", self.resetVisuals)
     self.selector3DSegmentation.connect("currentPathChanged(QString)", self.resetVisuals)
-    
+    print("DEBUG: setup F - after connects")
+
+
     
 
     #
     # End logic
     #
+    print("DEBUG: leaving setup()")
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
