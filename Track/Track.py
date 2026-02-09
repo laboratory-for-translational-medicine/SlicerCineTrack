@@ -563,14 +563,14 @@ class TrackWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved
     # in the MRML scene (in the selected parameter node).
-    #self.selector2DImagesFiles.connect("pathsChanged()", \
-    #  lambda: self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged"))
+    self.selector2DImagesFiles.connect("pathsChanged(QStringList,QStringList)", \
+      lambda *args: self.updateParameterNodeFromGUI("selector2DImagesFiles", "pathsChanged"))
     self.selector3DSegmentation.connect("currentPathChanged(QString)", \
       lambda: self.updateParameterNodeFromGUI("selector3DSegmentation", "currentPathChanged"))
     self.selectorTransformsFile.connect("currentPathChanged(QString)", \
       self.onTransformsFilePathChange)
-    #self.selector2DImagesFiles.connect("currentPathChanged(QString)", \
-    #   lambda: self.updateGUIFromParameterNode("selector2DImagesFiles", "currentPathChanged"))
+    self.selector2DImagesFiles.connect("currentPathChanged(QString,QString)", \
+       lambda *args: self.updateGUIFromParameterNode("selector2DImagesFiles", "currentPathChanged"))
 
     self.columnXSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
     self.columnYSelector.connect("currentTextChanged(QString)", self.onColumnXSelectorChange)
