@@ -112,7 +112,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     fileName = os.path.basename(filepath)
     fileExtension = os.path.splitext(filepath)[1]
 
-    if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
+    if re.match('.*\\.(csv|xls|xlsx|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
         encodings = ["utf-8-sig", "cp1252", "iso-8859-1", "latin1"]
@@ -232,7 +232,7 @@ class TrackLogic(ScriptedLoadableModuleLogic):
     headerX = headers[0]
     headerY = headers[1]
     headerZ = headers[2]
-    if re.match('.*\.(csv|xls|xlsx|txt)', filepath):
+    if re.match('.*\\.(csv|xls|xlsx|txt)', filepath):
       # Check that the transforms file is a .csv type
       if filepath.endswith('.csv'):
         encodings = ["utf-8-sig", "cp1252", "iso-8859-1", "latin1"]
