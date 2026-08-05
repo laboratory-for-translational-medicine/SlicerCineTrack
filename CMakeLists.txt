@@ -14,7 +14,8 @@ set(EXTENSION_CONTRIBUTORS "Elodie Lugez (Toronto Metropolitan University), \
                             Jacqueline Banh (Toronto Metropolitan University), \
                             Nicholas Caro Lopez (Toronto Metropolitan University), \
                             Venkat Guru Prasad (Toronto Metropolitan University), \
-                            Sayeed Jalil (Toronto Metropolitan University)")
+                            Sayeed Jalil (Toronto Metropolitan University), \
+                            Homa Ahmadinoori (Toronto Metropolitan University)")
 set(EXTENSION_DESCRIPTION "SlicerCineTrack is open-source, extendable, developed in Python as an extension on the highly successful 3D Slicer platform. SlicerCineTrack extension enables target tracking visualization by replaying cine 2D images and overlays the outline of the Region of interest (ROI) using a displacement data file.")
 set(EXTENSION_ICONURL "https://raw.githubusercontent.com/slicercinetrack/slicercinetrack.github.io/main/resources/SlicerCineTrack_logo.png")
 set(EXTENSION_SCREENSHOTURLS
